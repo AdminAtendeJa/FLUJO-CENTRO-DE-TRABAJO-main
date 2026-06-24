@@ -664,6 +664,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 </div>
               )}
             </div>
+          </div>
           )}
         </div>
 
