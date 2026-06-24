@@ -977,6 +977,8 @@ const AntecedentesCriminaisDoc = ({ cliente }) => {
       </Page>
     </Document>
   );
+};
+
 // -------------------------------------------------------------
 // FUNCIÓN PRINCIPAL PARA GENERAR EL ARCHIVO PDF
 // -------------------------------------------------------------

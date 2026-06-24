@@ -61,6 +61,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [selectedRelateId, setSelectedRelateId] = useState('');
   const [selectedRelateType, setSelectedRelateType] = useState('familiar');
   const [isNewRelateClientModalOpen, setIsNewRelateClientModalOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  
+  // PDF Missing Data state
+  const [missingFieldsData, setMissingFieldsData] = useState(null); // { tipoDocumento, missingFields: [{id, label, valor}] }
+
+  // Search state para relacionar cliente existente
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // AI Extraction State
@@ -414,12 +422,72 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     }
   }, []);
   // ================= PDF GENERATOR LOGIC =================
+  const REQUIRED_FIELDS_PER_DOC = {
+    'HIPOSSUFICIENCIA': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
+    'ANTECEDENTES': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
+    'PROCURACAO_RETIRAR_DOCS': ['nombre', 'cpf', 'rnm', 'nacionalidad', 'estado_civil', 'profesion', 'direccion'],
+    'PROCURACAO_MENORES': ['nombre', 'cpf', 'rnm', 'estado_civil', 'profesion', 'direccion'],
+    'DECLARACAO_RESIDENCIA_CHAMANTE': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
+    'DECLARACAO_ENTRADA_BRASIL': ['nombre', 'fecha_entrada_brasil', 'lugar_entrada_brasil'],
+    'DECLARACAO_ELETRONICA': ['nombre', 'cpf', 'numero_pasaporte', 'email', 'telefono', 'direccion', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
+    'DECLARACAO_SEI': ['nombre', 'cpf', 'email', 'telefono', 'direccion'],
+    'DECLARACAO_CONJUNTA': ['nombre', 'nacionalidad', 'fecha_nacimiento'],
+    'DECLARACAO_CONDICAO_FISCAL': ['nombre', 'nacionalidad', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre', 'direccion'],
+    'DECLARACAO_GERAL_MIGRANTE': ['nombre', 'cpf', 'numero_pasaporte', 'nacionalidad', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre', 'telefono', 'email', 'direccion'],
+    'DECLARACAO_MAIS_MEDICOS': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
+    'DATOS_PODER': ['nombre', 'nacionalidad', 'fecha_nacimiento', 'cpf', 'numero_pasaporte', 'estado_civil', 'profesion', 'nombre_madre', 'nombre_padre', 'direccion'],
+    'SERVICIO_CONSULAR': ['nombre', 'numero_pasaporte', 'cpf', 'sexo', 'estado_civil', 'nombre_madre', 'nombre_padre', 'direccion', 'email', 'telefono', 'profesion'],
+    'INSCRIPCION_CONSULAR': ['nombre', 'fecha_nacimiento', 'cpf', 'numero_pasaporte', 'rnm', 'estado_civil', 'profesion', 'nombre_madre', 'nombre_padre', 'direccion', 'telefono', 'email', 'sexo']
+  };
+
   const handleGeneratePDF = async (tipoDocumento) => {
+    const required = REQUIRED_FIELDS_PER_DOC[tipoDocumento] || [];
+    const missing = required.filter(f => !client[f] || String(client[f]).trim() === '');
+
+    if (missing.length > 0) {
+      setMissingFieldsData({
+        tipoDocumento,
+        missingFields: missing.map(mf => {
+          const fieldDef = FIXED_FIELDS_CATALOG.find(f => f.id === mf);
+          return { id: mf, label: fieldDef?.nombre_campo || mf, valor: '' };
+        })
+      });
+      return;
+    }
+
     try {
       await generateDocumentPDF(tipoDocumento, client, clienteDatos, null); // Pasaremos el familiar en el futuro si aplica
     } catch (err) {
       console.error(err);
       alert('Error generando el documento PDF. Revisa la consola.');
+    }
+  };
+
+  const handleSaveMissingDataAndGenerate = async () => {
+    if (!missingFieldsData) return;
+    setIsSaving(true);
+    try {
+      const updates = {};
+      for (const field of missingFieldsData.missingFields) {
+        if (field.valor) {
+          updates[field.id] = field.valor.toUpperCase();
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('clientes').update(updates).eq('id', client.id);
+        const { data: updatedClient } = await supabase.from('clientes').select('*').eq('id', client.id).single();
+        setClient(updatedClient);
+        
+        // Generate PDF immediately with updated client
+        await generateDocumentPDF(missingFieldsData.tipoDocumento, updatedClient, clienteDatos, null);
+      }
+      setMissingFieldsData(null);
+    } catch (err) {
+      console.error(err);
+      alert('Error guardando los datos faltantes.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1011,6 +1079,44 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             setIsNewRelateClientModalOpen(false);
           }}
         />
+      )}
+
+      {missingFieldsData && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
+          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Sparkles size={20} /> Datos Faltantes
+              </h2>
+              <button className="btn btn-ghost" style={{ padding: '0.5rem' }} onClick={() => setMissingFieldsData(null)}>✕</button>
+            </div>
+            
+            <div style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
+                Para generar este documento, necesitamos que completes los siguientes datos obligatorios:
+              </p>
+              {missingFieldsData.missingFields.map((field, idx) => (
+                <div key={field.id}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {field.label}
+                  </label>
+                  <input className="form-input" type="text" value={field.valor} onChange={(e) => {
+                    const arr = [...missingFieldsData.missingFields];
+                    arr[idx] = { ...arr[idx], valor: e.target.value };
+                    setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
+                  }} placeholder={`Ej: ${field.label}`} />
+                </div>
+              ))}
+            </div>
+            
+            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button className="btn btn-ghost" onClick={() => setMissingFieldsData(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleSaveMissingDataAndGenerate} disabled={isSaving}>
+                {isSaving ? 'Guardando y Generando...' : 'Guardar y Continuar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {isExtractionModalOpen && extractedData && (
