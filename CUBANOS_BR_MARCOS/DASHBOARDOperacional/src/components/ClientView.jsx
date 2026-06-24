@@ -128,38 +128,36 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const fixedFields = FIXED_FIELDS_CATALOG;
 
   const openEditModal = () => {
-    const activeCategoria = categorias.find(c => c.id === activeTab);
+    // Si esta en el generador de trámites, abrimos la categoria de Identidad por defecto para editar los datos más comunes
+    const targetTab = activeTab === 'TRAMITES_BUILDER' ? categorias[0]?.id : activeTab;
+    const activeCategoria = categorias.find(c => c.id === targetTab);
     const activeCategoriaNombre = activeCategoria?.nombre || '';
     
     const activeFixedFields = fixedFields.filter(f => f.category_name === activeCategoriaNombre);
-    const dynamicFieldsForTab = campos.filter(c => c.categoria_id === activeTab);
+    const dynamicFieldsForTab = campos.filter(c => c.categoria_id === targetTab);
 
-    // 1. Populate Fixed Fields ONLY IF THEY HAVE DATA
+    // 1. Populate Fixed Fields (incluso si están vacíos para que el usuario los llene)
     const formData = [];
     activeFixedFields.forEach(f => {
-      if (client[f.id]) {
-        formData.push({
-          id: f.id,
-          campo_id: f.id,
-          nombre_campo: f.nombre_campo,
-          valor: client[f.id],
-          es_fijo: true
-        });
-      }
+      formData.push({
+        id: f.id,
+        campo_id: f.id,
+        nombre_campo: f.nombre_campo,
+        valor: client[f.id] || '',
+        es_fijo: true
+      });
     });
     
-    // 2. Populate Dynamic Fields ONLY IF THEY HAVE DATA
+    // 2. Populate Dynamic Fields (incluso si están vacíos)
     dynamicFieldsForTab.forEach(campo => {
       const existingData = clienteDatos.find(cd => cd.campo_id === campo.id);
-      if (existingData && existingData.valor) {
-        formData.push({
-          id: existingData.id,
-          campo_id: campo.id,
-          nombre_campo: campo.nombre_campo,
-          valor: existingData.valor,
-          es_fijo: false
-        });
-      }
+      formData.push({
+        id: existingData?.id || null,
+        campo_id: campo.id,
+        nombre_campo: campo.nombre_campo,
+        valor: existingData?.valor || '',
+        es_fijo: false
+      });
     });
 
     // 3. Append orphaned dynamic fields just in case
@@ -624,7 +622,30 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar RNM u otros documentos.</span>
                   </div>
                 </button>
-                {/* Agregaremos más en el futuro (Entrada a Brasil, Electrónica, etc) */}
+                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_MENORES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Menores</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar documentos de menores de edad.</span>
+                  </div>
+                </button>
+                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_RESIDENCIA_CHAMANTE')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Residência do Chamante</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de que el familiar llamante reside en Brasil.</span>
+                  </div>
+                </button>
+                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ENTRADA_BRASIL')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Entrada ao Brasil</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de frontera de entrada al país.</span>
+                  </div>
+                </button>
+                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ELETRONICA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Declaração Eletrônica</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de medios de contacto electrónicos.</span>
+                  </div>
+                </button>
               </div>
             </div>
           ) : (
@@ -977,8 +998,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       <div 
         style={{
           position: 'fixed', top: 0, right: isAiChatOpen ? 0 : '-400px', width: '400px', height: '100vh',
-          background: 'var(--color-bg-surface)', backdropFilter: 'blur(16px)', borderLeft: '1px solid var(--color-border)',
-          boxShadow: '-4px 0 24px rgba(0,0,0,0.1)', transition: 'right 0.3s ease', zIndex: 100, display: 'flex', flexDirection: 'column'
+          background: 'var(--color-bg-base)', borderLeft: '1px solid var(--color-border)',
+          boxShadow: '-4px 0 24px rgba(0,0,0,0.2)', transition: 'right 0.3s ease', zIndex: 1000, display: 'flex', flexDirection: 'column'
         }}
       >
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

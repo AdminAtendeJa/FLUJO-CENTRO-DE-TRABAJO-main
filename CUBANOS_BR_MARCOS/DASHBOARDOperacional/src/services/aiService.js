@@ -12,8 +12,8 @@
  */
 
 const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL_TEXT     = 'qwen/qwen3-27b';   // Texto / razonamiento general
-const MODEL_VISION   = 'meta-llama/llama-4-scout-17b-16e-instruct'; // Visión + OCR
+const MODEL_TEXT     = 'llama-3.1-70b-versatile';   // Texto / razonamiento general
+const MODEL_VISION   = 'llama-3.2-11b-vision-preview'; // Visión + OCR
 
 function getApiKey() {
   const key = import.meta.env.VITE_GROQ_API_KEY;
