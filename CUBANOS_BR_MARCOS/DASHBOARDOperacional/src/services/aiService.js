@@ -12,7 +12,7 @@
  */
 
 const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL_TEXT     = 'llama-3.1-70b-versatile';   // Texto / razonamiento general
+const MODEL_TEXT     = 'llama-3.3-70b-versatile';   // Texto / razonamiento general
 const MODEL_VISION   = 'llama-3.2-11b-vision-preview'; // Visión + OCR
 
 function getApiKey() {

@@ -61,7 +61,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [selectedRelateId, setSelectedRelateId] = useState('');
   const [selectedRelateType, setSelectedRelateType] = useState('familiar');
   const [isNewRelateClientModalOpen, setIsNewRelateClientModalOpen] = useState(false);
-  const [copiedId, setCopiedId] = useState(null);
   
   // PDF Missing Data state
   const [missingFieldsData, setMissingFieldsData] = useState(null); // { tipoDocumento, missingFields: [{id, label, valor}] }
