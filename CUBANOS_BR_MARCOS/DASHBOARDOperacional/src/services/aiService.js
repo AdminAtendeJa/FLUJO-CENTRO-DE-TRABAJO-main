@@ -129,6 +129,43 @@ export async function chat(messages, temperature = 0.7) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// FUNCIÓN RAG — Chat con contexto del cliente (BD + CRM)
+// ──────────────────────────────────────────────────────────────
+/**
+ * Genera una respuesta basada en el contexto de Supabase y Kommo CRM.
+ * @param {string} userMessage - El mensaje actual del usuario.
+ * @param {Array} chatHistory - Historial de la conversación con la IA.
+ * @param {object} supabaseContext - Datos del cliente, trámites, etc.
+ * @param {string} crmContext - Historial de WhatsApp/CRM desde n8n.
+ */
+export async function chatWithClientContext(userMessage, chatHistory, supabaseContext, crmContext) {
+  const systemPrompt = `Eres un asistente inteligente para una agencia de gestión migratoria en Brasil.
+Tu objetivo es ayudar al agente a resolver dudas, redactar respuestas o analizar el caso de un cliente específico.
+
+A continuación, tienes TODO el contexto disponible sobre este cliente:
+
+=== DATOS DE LA BASE DE DATOS (Supabase) ===
+${JSON.stringify(supabaseContext, null, 2)}
+
+=== HISTORIAL DE CRM / WHATSAPP ===
+${crmContext}
+
+=== INSTRUCCIONES ===
+1. Responde a la pregunta o solicitud del usuario basándote ESTRICTAMENTE en la información anterior.
+2. Si te piden redactar un mensaje para el cliente, hazlo en el tono adecuado (profesional pero cercano, en español o portugués según corresponda).
+3. Si la información no está en el contexto, di que no tienes esa información.
+4. Responde en texto claro, puedes usar markdown para formatear.`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...chatHistory, // Mensajes previos de la IA y el usuario
+    { role: 'user', content: userMessage }
+  ];
+
+  return callGroq(MODEL_TEXT, messages, 0.5);
+}
+
+// ──────────────────────────────────────────────────────────────
 // FUNCIÓN 3 — Extraer datos de cliente desde texto libre
 // ──────────────────────────────────────────────────────────────
 /**

@@ -1,0 +1,125 @@
+{
+  "name": "Kommo Chat Fetcher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-historial",
+        "options": {}
+      },
+      "id": "e18bc2de-f831-4045-8164-8ab3aeb6f2c3",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        240
+      ],
+      "webhookId": "generar-un-id-unico-en-tu-n8n"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://TU_SUBDOMINIO.kommo.com/api/v4/leads/' + $json.body.id_crm + '/notes' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "kommoOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5221b6ab-1d94-4d8b-90f7-33b8a1c97a5a",
+      "name": "Kommo API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        460,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "historial",
+              "value": "={{ $json.data = $json.data || {}; return ($json._embedded?.notes || []).filter(n => n.note_type === 'message' || n.note_type === 'common').map(n => '[' + n.created_at + '] ' + (n.params?.text || '')).join('\\n') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1613045-8968-45a2-bc10-7f2a1b9b1892",
+      "name": "Parsear Notas",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        680,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"historial\": \"{{ $json.historial }}\"\n}",
+        "options": {}
+      },
+      "id": "28e08d3a-6d08-410a-b33a-bc49cde181ea",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        900,
+        240
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Kommo API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kommo API": {
+      "main": [
+        [
+          {
+            "node": "Parsear Notas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Notas": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "f782dfdf-85f7-4db4-b23d-c11dfc0b8de9",
+  "id": "your-workflow-id",
+  "tags": []
+}

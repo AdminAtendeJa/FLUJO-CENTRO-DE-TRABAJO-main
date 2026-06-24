@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { analyzeDocumentImage } from '../services/aiService';
+import { analyzeDocumentImage, chatWithClientContext } from '../services/aiService';
+import { getChatHistoryFromN8n } from '../services/crmBridgeService';
 import { uploadDocument, deleteDocument } from '../services/storageService';
-import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck } from 'lucide-react';
+import { generateDocumentPDF } from '../services/pdfGenerator';
+import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck, MessageSquare, Send } from 'lucide-react';
 import NewClientModal from './NewClientModal';
 
 // Campos fijos de la tabla clientes — fuera del componente para no recrearlos en cada render
@@ -64,6 +66,13 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   // AI Extraction State
   const [extractedData, setExtractedData] = useState(null);
   const [isExtractionModalOpen, setIsExtractionModalOpen] = useState(false);
+
+  // AI Chat RAG State
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [aiChatMessages, setAiChatMessages] = useState([]);
+  const [aiChatInput, setAiChatInput] = useState('');
+  const [isAiChatLoading, setIsAiChatLoading] = useState(false);
+  const [crmContext, setCrmContext] = useState('');
 
   const fetchClientData = useCallback(async (fullReload = false) => {
     if (fullReload) setLoading(true);
@@ -406,6 +415,69 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       alert('Error actualizando estado del documento.');
     }
   }, []);
+  // ================= PDF GENERATOR LOGIC =================
+  const handleGeneratePDF = async (tipoDocumento) => {
+    try {
+      await generateDocumentPDF(tipoDocumento, client, clienteDatos, null); // Pasaremos el familiar en el futuro si aplica
+    } catch (err) {
+      console.error(err);
+      alert('Error generando el documento PDF. Revisa la consola.');
+    }
+  };
+
+  // ================= AI CHAT LOGIC =================
+  useEffect(() => {
+    if (isAiChatOpen && client) {
+      const loadHistory = async () => {
+        try {
+          const { data } = await supabase.from('ai_chats').select('*').eq('cliente_id', client.id).order('creado_en', { ascending: true });
+          if (data && data.length > 0) {
+            setAiChatMessages(data.map(d => ({ role: d.role, content: d.content })));
+          } else {
+            setAiChatMessages([{ role: 'assistant', content: `¡Hola! Soy tu asistente IA. Tengo acceso a la base de datos y al CRM para ${client.nombre}. ¿En qué te ayudo?` }]);
+          }
+          
+          // Cargar historial CRM de n8n
+          const n8nData = await getChatHistoryFromN8n(client.id_kommo || client.id_crm);
+          setCrmContext(n8nData);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      loadHistory();
+    }
+  }, [isAiChatOpen, client]);
+
+  const handleSendAiMessage = async () => {
+    if (!aiChatInput.trim()) return;
+    const userMsg = aiChatInput.trim();
+    setAiChatInput('');
+    setIsAiChatLoading(true);
+
+    const newMessages = [...aiChatMessages, { role: 'user', content: userMsg }];
+    setAiChatMessages(newMessages);
+
+    // Guardar en la DB sin bloquear (fuego y olvido)
+    supabase.from('ai_chats').insert({ cliente_id: client.id, role: 'user', content: userMsg }).then();
+
+    try {
+      const supabaseCtx = {
+        cliente: client,
+        datos: clienteDatos,
+        tramites: entradas
+      };
+      
+      const response = await chatWithClientContext(userMsg, aiChatMessages, supabaseCtx, crmContext);
+      
+      setAiChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+      supabase.from('ai_chats').insert({ cliente_id: client.id, role: 'assistant', content: response }).then();
+    } catch (err) {
+      console.error(err);
+      setAiChatMessages(prev => [...prev, { role: 'assistant', content: 'Lo siento, ocurrió un error contactando a la IA.' }]);
+    } finally {
+      setIsAiChatLoading(false);
+    }
+  };
 
   const handleDeleteClient = async () => {
     if (!window.confirm('Eliminar este cliente y TODOS sus datos? Esta accion no puede deshacerse.')) return;
@@ -484,6 +556,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} 
             <span style={{ marginLeft: '4px' }}>Eliminar</span>
           </button>
+          <button className="btn btn-secondary" onClick={() => setIsAiChatOpen(true)} style={{ color: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}>
+            <Sparkles size={16} /> Chat IA
+          </button>
           <button className="btn btn-secondary" onClick={openEditModal}><Edit2 size={16} /> Editar Datos</button>
         </div>
       </div>
@@ -506,9 +581,54 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 {cat.nombre}
               </button>
             ))}
+            <button
+              onClick={() => setActiveTab('TRAMITES_BUILDER')}
+              style={{
+                padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)', fontSize: '0.875rem', fontWeight: 500,
+                whiteSpace: 'nowrap', transition: 'all 0.2s', border: '1px solid', cursor: 'pointer',
+                background: activeTab === 'TRAMITES_BUILDER' ? `var(--color-primary)22` : 'transparent',
+                color: activeTab === 'TRAMITES_BUILDER' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                borderColor: activeTab === 'TRAMITES_BUILDER' ? `var(--color-primary)55` : 'var(--color-border)'
+              }}
+            >
+              <FileText size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }}/> 
+              Generador de Trámites
+            </button>
           </div>
 
-          <div className="glass-panel" style={{ padding: '2rem' }}>
+          {activeTab === 'TRAMITES_BUILDER' ? (
+            <div className="glass-panel" style={{ padding: '2rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FileText size={20} /> Generador de Trámites y Declaraciones
+              </h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>
+                Genera rápidamente los documentos legales requeridos usando los datos del cliente.
+              </p>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('HIPOSSUFICIENCIA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Hipossuficiência Econômica</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de incapacidad de pagar tasas.</span>
+                  </div>
+                </button>
+                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('ANTECEDENTES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Antecedentes Criminais</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Ausencia de antecedentes en Brasil y exterior.</span>
+                  </div>
+                </button>
+                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_RETIRAR_DOCS')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Retirar Docs</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar RNM u otros documentos.</span>
+                  </div>
+                </button>
+                {/* Agregaremos más en el futuro (Entrada a Brasil, Electrónica, etc) */}
+              </div>
+            </div>
+          ) : (
+            <div className="glass-panel" style={{ padding: '2rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: categorias.find(c => c.id === activeTab)?.color || 'var(--color-primary)' }}>
               {categorias.find(c => c.id === activeTab)?.nombre}
             </h2>
@@ -544,7 +664,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -851,6 +971,68 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           </div>
         </div>
       )}
+
+      {/* AI Chat Drawer */}
+      <div 
+        style={{
+          position: 'fixed', top: 0, right: isAiChatOpen ? 0 : '-400px', width: '400px', height: '100vh',
+          background: 'var(--color-bg-surface)', backdropFilter: 'blur(16px)', borderLeft: '1px solid var(--color-border)',
+          boxShadow: '-4px 0 24px rgba(0,0,0,0.1)', transition: 'right 0.3s ease', zIndex: 100, display: 'flex', flexDirection: 'column'
+        }}
+      >
+        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
+            <Sparkles size={20} />
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Asistente IA</h2>
+          </div>
+          <button className="btn btn-ghost" onClick={() => setIsAiChatOpen(false)} style={{ padding: '0.25rem' }}>
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {aiChatMessages.map((msg, i) => (
+            <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                {msg.role === 'user' ? 'Tú' : 'IA'}
+              </div>
+              <div style={{
+                background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-elevated)',
+                color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
+                padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomRightRadius: msg.role === 'user' ? 0 : 'var(--radius-lg)', borderBottomLeftRadius: msg.role === 'assistant' ? 0 : 'var(--radius-lg)',
+                fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'pre-wrap'
+              }}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {isAiChatLoading && (
+            <div style={{ alignSelf: 'flex-start', background: 'var(--color-bg-elevated)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: 0, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <Loader2 size={16} className="animate-spin" color="var(--color-primary)" />
+              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Pensando...</span>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-base)' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <textarea
+              value={aiChatInput}
+              onChange={e => setAiChatInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendAiMessage(); } }}
+              placeholder="Pregunta algo sobre el cliente..."
+              style={{ flex: 1, resize: 'none', height: '42px', minHeight: '42px', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)' }}
+              disabled={isAiChatLoading}
+            />
+            <button className="btn btn-primary" onClick={handleSendAiMessage} disabled={isAiChatLoading || !aiChatInput.trim()} style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', flexShrink: 0 }}>
+              <Send size={18} />
+            </button>
+          </div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.5rem' }}>
+            La IA tiene contexto de la BD y CRM. {crmContext ? '✅ CRM Listo' : '⏳ Cargando CRM...'}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
