@@ -1,17 +1,29 @@
 import { useState, useEffect } from 'react';
-import { entradas, clientes } from '../mockData';
+import { supabase } from '../supabaseClient';
 import { Clock, ArrowRight, User } from 'lucide-react';
 
 export default function HomeView({ onNavigateToClient }) {
   const [pendientes, setPendientes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Filter out only pending/in process
-    const activeEntradas = entradas.map(entrada => {
-      const cliente = clientes.find(c => c.id === entrada.id_cliente);
-      return { ...entrada, cliente };
-    }).filter(e => e.estado_tramite !== 'completada');
-    setPendientes(activeEntradas);
+    async function fetchEntradas() {
+      try {
+        const { data, error } = await supabase
+          .from('entradas')
+          .select(`*, clientes:id_cliente (*)`)
+          .neq('estado_tramite', 'completada')
+          .order('creado_en', { ascending: false });
+          
+        if (error) throw error;
+        setPendientes(data || []);
+      } catch (err) {
+        console.error('Error fetching entradas:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchEntradas();
   }, []);
 
   const getStatusColor = (estado) => {
@@ -48,7 +60,9 @@ export default function HomeView({ onNavigateToClient }) {
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {pendientes.map((entrada) => (
+          {loading ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>Cargando trámites...</div>
+          ) : pendientes.map((entrada) => (
             <div 
               key={entrada.id}
               onClick={() => onNavigateToClient(entrada.id_cliente)}
@@ -66,11 +80,11 @@ export default function HomeView({ onNavigateToClient }) {
                 </div>
                 <div>
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                    {entrada.cliente?.nombre || 'Cliente Desconocido'}
+                    {entrada.clientes?.nombre || entrada.cliente || 'Cliente Desconocido'}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
                     <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>{entrada.servicio}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Entrada: {entrada.fecha}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Entrada: {entrada.fecha || new Date(entrada.creado_en).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -89,7 +103,7 @@ export default function HomeView({ onNavigateToClient }) {
             </div>
           ))}
 
-          {pendientes.length === 0 && (
+          {(!loading && pendientes.length === 0) && (
             <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
               No hay trámites pendientes.
             </div>

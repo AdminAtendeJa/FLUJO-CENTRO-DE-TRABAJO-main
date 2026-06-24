@@ -1,11 +1,25 @@
-import { useState } from 'react';
-import { LayoutDashboard, Users, FileText, Settings, Search, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LayoutDashboard, Users, FileText, Settings, Search, Plus, Bell, UserPlus, Sun, Moon } from 'lucide-react';
 import HomeView from './components/HomeView';
 import ClientView from './components/ClientView';
+import ClientListView from './components/ClientListView';
+import NewClientModal from './components/NewClientModal';
 
 function App() {
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'client'
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'client', 'clients'
   const [selectedClientId, setSelectedClientId] = useState(null);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const navigateToClient = (clientId) => {
     setSelectedClientId(clientId);
@@ -15,6 +29,18 @@ function App() {
   const navigateToHome = () => {
     setSelectedClientId(null);
     setCurrentView('dashboard');
+  };
+
+  const navigateToClientsList = () => {
+    setSelectedClientId(null);
+    setCurrentView('clients');
+  };
+
+  const handleSearchChange = (e) => {
+    setGlobalSearch(e.target.value);
+    if (currentView !== 'clients') {
+      setCurrentView('clients');
+    }
   };
 
   return (
@@ -44,24 +70,28 @@ function App() {
             Trámites
           </button>
           <button 
+            onClick={navigateToClientsList}
             style={{ 
               display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', 
-              borderRadius: 'var(--radius-md)', background: 'transparent',
-              color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left'
+              borderRadius: 'var(--radius-md)', background: currentView === 'clients' ? 'var(--color-bg-elevated)' : 'transparent',
+              color: currentView === 'clients' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+              border: 'none', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
+              fontWeight: currentView === 'clients' ? 500 : 400
             }}
           >
             <Users size={18} />
             Clientes
           </button>
           <button 
+            onClick={() => setIsNewClientModalOpen(true)}
             style={{ 
               display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', 
               borderRadius: 'var(--radius-md)', background: 'transparent',
-              color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left'
+              color: 'var(--color-primary)', border: '1px solid var(--color-primary)', cursor: 'pointer', width: '100%', textAlign: 'left', marginTop: '1rem', justifyContent: 'center', fontWeight: 500
             }}
           >
-            <Search size={18} />
-            Consultar
+            <UserPlus size={18} />
+            Nuevo Cliente
           </button>
         </nav>
         
@@ -79,11 +109,50 @@ function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
-        {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} />}
-        {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} />}
-      </main>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
+        
+        {/* Top Bar / Search */}
+        <header style={{ height: '70px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', padding: '0 2.5rem', justifyContent: 'space-between', background: 'var(--color-bg-surface)', zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-full)', padding: '0.5rem 1rem', width: '400px', border: '1px solid var(--color-border)' }}>
+            <Search size={18} color="var(--color-text-muted)" style={{ marginRight: '0.5rem' }} />
+            <input 
+              type="text" 
+              placeholder="Buscar por cliente, CPF, email..." 
+              value={globalSearch}
+              onChange={handleSearchChange}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--color-text-primary)', width: '100%', fontSize: '0.875rem' }} 
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button 
+              className="btn btn-ghost" 
+              onClick={toggleTheme}
+              style={{ padding: '0.5rem' }}
+              title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {theme === 'dark' ? <Sun size={20} color="var(--color-text-secondary)" /> : <Moon size={20} color="var(--color-text-secondary)" />}
+            </button>
+            <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Bell size={20} color="var(--color-text-secondary)" /></button>
+            <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Settings size={20} color="var(--color-text-secondary)" /></button>
+          </div>
+        </header>
 
+        <main style={{ flex: 1, overflowY: 'auto' }}>
+          {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} />}
+          {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
+          {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}
+        </main>
+      </div>
+
+      {isNewClientModalOpen && (
+        <NewClientModal 
+          onClose={() => setIsNewClientModalOpen(false)} 
+          onClientCreated={(client) => {
+            setIsNewClientModalOpen(false);
+            navigateToClient(client.id);
+          }} 
+        />
+      )}
     </div>
   );
 }

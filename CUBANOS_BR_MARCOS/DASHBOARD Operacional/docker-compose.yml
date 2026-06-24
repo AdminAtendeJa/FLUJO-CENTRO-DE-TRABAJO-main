@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  opdash:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opdash-app
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opdash.rule=Host(`tu-dominio.com`)"
+      - "traefik.http.routers.opdash.entrypoints=websecure"
+      - "traefik.http.routers.opdash.tls.certresolver=letsencrypt"
+
+# Para usar con Traefik (SSL automático) descomenta la red:
+# networks:
+#   default:
+#     external:
+#       name: traefik-public
