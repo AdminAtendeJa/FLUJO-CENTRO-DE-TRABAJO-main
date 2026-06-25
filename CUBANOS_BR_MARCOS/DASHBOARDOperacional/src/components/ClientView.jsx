@@ -528,13 +528,21 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     supabase.from('ai_chats').insert({ cliente_id: client.id, role: 'user', content: userMsg }).then();
 
     try {
+      // Auto-refresh CRM context if the user asks for messages or history
+      let currentCrmContext = crmContext;
+      const lowerMsg = userMsg.toLowerCase();
+      if (lowerMsg.includes('mensaje') || lowerMsg.includes('historial') || lowerMsg.includes('kommo') || lowerMsg.includes('actualiza') || lowerMsg.includes('nuevo')) {
+        currentCrmContext = await getChatHistoryFromN8n(client.id_kommo || client.id_crm);
+        setCrmContext(currentCrmContext);
+      }
+
       const supabaseCtx = {
         cliente: client,
         datos: clienteDatos,
         tramites: entradas
       };
       
-      const response = await chatWithClientContext(userMsg, aiChatMessages, supabaseCtx, crmContext);
+      const response = await chatWithClientContext(userMsg, aiChatMessages, supabaseCtx, currentCrmContext);
       
       setAiChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
       supabase.from('ai_chats').insert({ cliente_id: client.id, role: 'assistant', content: response }).then();
