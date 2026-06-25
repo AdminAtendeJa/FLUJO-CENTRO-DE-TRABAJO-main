@@ -478,8 +478,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         'LUGAR_NACIMIENTO': 'lugar_nacimiento',
         'NACIONALIDAD': 'nacionalidad',
         'NUMERO_DOCUMENTO': 'numero_pasaporte',
+        'NUMERO_REFUGIO': 'numero_refugio',
         'FECHA_EMISION_PASAPORTE': 'fecha_emision_pasaporte',
         'FECHA_VENCIMIENTO_PASAPORTE': 'fecha_vencimiento_pasaporte',
+        'FECHA_VENCIMIENTO_REFUGIO': 'fecha_vencimiento_refugio',
         'SEXO': 'sexo',
         'NOMBRE_MADRE': 'nombre_madre',
         'NOMBRE_PADRE': 'nombre_padre'

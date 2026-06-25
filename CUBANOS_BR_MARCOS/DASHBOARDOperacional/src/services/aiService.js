@@ -103,6 +103,16 @@ REGLAS DE EXTRACCIÓN MUY IMPORTANTES:
    - Si la parte principal del documento está borrosa o ilegible, busca los datos en el código MRZ (las dos líneas de letras y números en la parte inferior).
    - En el MRZ puedes encontrar el Nombre, Apellidos, Número de Pasaporte y Carnet de Identidad.
    - Si tuviste dificultad para leer la parte principal y usaste el MRZ, pon el campo "ILEGIBLE" en true. Si se lee bien, ponlo en false.
+6. Protocolos de Solicitação de Refúgio:
+   - El número justo debajo del título "Protocolo de Solicitação de Refúgio" (ej. 08018.../...) corresponde al campo "NUMERO_REFUGIO".
+   - "Validade" corresponde al campo "FECHA_VENCIMIENTO_REFUGIO".
+   - "Filiação 1" y "Filiação 2" son los padres. Normalmente Filiação 1 es la madre ("NOMBRE_MADRE") y Filiação 2 el padre ("NOMBRE_PADRE"), pero usa el sentido común analizando los nombres si están al revés (ej. un nombre masculino en Filiação 1 sería el padre).
+7. RNM (Registro Nacional Migratório de Brasil):
+   - El número alfanumérico destacado bajo "RNM" (ej. F744334-H) corresponde al campo "RNM".
+   - Concatena "NOME" y "SOBRENOME" para formar el "NOMBRE_COMPLETO" (ej. "ROXANA CASTILLO MANZANO").
+   - "DATA DE NASCIMENTO" es "FECHA_NACIMIENTO".
+   - "NACIONALIDADE" es "NACIONALIDAD".
+   - Bajo "FILIAÇÃO" aparecen los padres. Asigna uno a "NOMBRE_MADRE" y otro a "NOMBRE_PADRE" por lógica de nombres.
 
 Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin texto extra) con estos campos:
 {
@@ -116,8 +126,10 @@ Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin texto extra) con est
   "LUGAR_NACIMIENTO": null,
   "NACIONALIDAD": null,
   "NUMERO_DOCUMENTO": null,
+  "NUMERO_REFUGIO": null,
   "FECHA_EMISION_PASAPORTE": null,
   "FECHA_VENCIMIENTO_PASAPORTE": null,
+  "FECHA_VENCIMIENTO_REFUGIO": null,
   "SEXO": null,
   "ILEGIBLE": false
 }
