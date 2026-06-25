@@ -47,6 +47,7 @@ const FIXED_FIELDS_CATALOG = [
   { id: 'sexo',                 nombre_campo: 'Sexo',                requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'nacionalidad',         nombre_campo: 'Nacionalidad',        requerido: true,  es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'pais',                 nombre_campo: 'País de Origen',      requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
+  { id: 'lugar_nacimiento',     nombre_campo: 'Lugar de Nacimiento', requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'estado_federal',       nombre_campo: 'Estado de Origen',    requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'ciudad',               nombre_campo: 'Ciudad de Origen',    requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'fecha_entrada_brasil', nombre_campo: 'Entrada a Brasil',    requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
@@ -54,9 +55,11 @@ const FIXED_FIELDS_CATALOG = [
   { id: 'direccion',            nombre_campo: 'Dirección Completa',  requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'rnm',                  nombre_campo: 'RNM',                 requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
   { id: 'numero_pasaporte',     nombre_campo: 'Pasaporte',           requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
+  { id: 'fecha_emision_pasaporte', nombre_campo: 'Fecha Emisión Pasaporte', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad' },
   { id: 'fecha_vencimiento_pasaporte', nombre_campo: 'Fecha Vencimiento Pasaporte', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad' },
   { id: 'numero_refugio',       nombre_campo: 'Protocolo de Refugio', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
   { id: 'fecha_vencimiento_refugio', nombre_campo: 'Fecha Vencimiento Refugio', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
+  { id: 'carnet_identidad',     nombre_campo: 'Carnet de Identidad', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
   { id: 'nombre_madre',         nombre_campo: 'Nombre Madre',        requerido: false, es_fijo: true, category_name: 'Datos Familiares'           },
   { id: 'nombre_padre',         nombre_campo: 'Nombre Padre',        requerido: false, es_fijo: true, category_name: 'Datos Familiares'           },
 ];
@@ -470,9 +473,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         'NOMBRE_COMPLETO': 'nombre',
         'CPF': 'cpf',
         'RNM': 'rnm',
+        'CARNET_IDENTIDAD': 'carnet_identidad',
         'FECHA_NACIMIENTO': 'fecha_nacimiento',
+        'LUGAR_NACIMIENTO': 'lugar_nacimiento',
         'NACIONALIDAD': 'nacionalidad',
         'NUMERO_DOCUMENTO': 'numero_pasaporte',
+        'FECHA_EMISION_PASAPORTE': 'fecha_emision_pasaporte',
+        'FECHA_VENCIMIENTO_PASAPORTE': 'fecha_vencimiento_pasaporte',
+        'SEXO': 'sexo',
         'NOMBRE_MADRE': 'nombre_madre',
         'NOMBRE_PADRE': 'nombre_padre'
       };
@@ -1606,9 +1614,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
               Se extrajeron los siguientes datos del documento. ¿Deseas guardarlos en la categoría actual?
             </p>
+            {extractedData.ILEGIBLE && (
+              <div style={{ background: 'rgba(216,90,48,0.1)', color: '#D85A30', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 600 }}>⚠️ Aviso:</span> La parte superior del documento estaba borrosa, por lo que la IA extrajo los datos del código inferior (MRZ). Verifica que sean correctos.
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
               {Object.entries(extractedData).map(([k, v]) => (
-                v && (
+                v && k !== 'ILEGIBLE' && (
                   <div key={k} style={{ background: 'var(--color-bg-elevated)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>{k}</div>
                     <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{v}</div>

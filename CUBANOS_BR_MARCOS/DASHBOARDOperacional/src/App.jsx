@@ -8,8 +8,20 @@ import { GlobalAiChatProvider } from './context/GlobalAiChatContext';
 import { GlobalAiChat } from './components/GlobalAiChat';
 
 function App() {
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'client', 'clients'
-  const [selectedClientId, setSelectedClientId] = useState(null);
+  const [currentView, setCurrentView] = useState(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#client/')) return 'client';
+    if (hash === '#clients') return 'clients';
+    return 'dashboard';
+  });
+  const [selectedClientId, setSelectedClientId] = useState(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#client/')) {
+      const idStr = hash.replace('#client/', '');
+      return idStr ? Number(idStr) : null;
+    }
+    return null;
+  });
   const [globalSearch, setGlobalSearch] = useState('');
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
@@ -18,6 +30,37 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // Sync state to URL hash
+  useEffect(() => {
+    if (currentView === 'client' && selectedClientId) {
+      window.location.hash = `client/${selectedClientId}`;
+    } else if (currentView === 'clients') {
+      window.location.hash = 'clients';
+    } else {
+      window.location.hash = 'dashboard';
+    }
+  }, [currentView, selectedClientId]);
+
+  // Listen to browser Back/Forward buttons and manual hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#client/')) {
+        setCurrentView('client');
+        const idStr = hash.replace('#client/', '');
+        setSelectedClientId(idStr ? Number(idStr) : null);
+      } else if (hash === '#clients') {
+        setCurrentView('clients');
+        setSelectedClientId(null);
+      } else {
+        setCurrentView('dashboard');
+        setSelectedClientId(null);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');

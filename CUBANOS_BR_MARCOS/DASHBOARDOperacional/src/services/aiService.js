@@ -88,6 +88,21 @@ REGLAS DE EXTRACCIÓN MUY IMPORTANTES:
    - "APELLIDOS / SURNAMES" suele aparecer ARRIBA.
    - "NOMBRES / GIVEN NAMES" suele aparecer DEBAJO.
    - Tú debes concatenarlos siempre en el orden correcto: "NOMBRE(S) APELLIDO(S)". Ejemplo: Si dice Apellidos: GUIBERT GONZALEZ y Nombres: GEORGINA, el NOMBRE_COMPLETO debe ser "GEORGINA GUIBERT GONZALEZ".
+2. Números en Pasaportes:
+   - "Nº DE PASAPORTE / PASSPORT Nº" (ej. letras y números como L302474) corresponde al campo "NUMERO_DOCUMENTO".
+   - "Nº DE IDENTIDAD / ID Nº" (ej. 11 dígitos numéricos como 74021012519) corresponde al campo "CARNET_IDENTIDAD". NO lo coloques en NUMERO_DOCUMENTO.
+3. Fechas en Pasaportes:
+   - "FECHA DE EMISION / DATE OF ISSUE" corresponde al campo "FECHA_EMISION_PASAPORTE".
+   - "FECHA DE VENCIMIENTO / DATE OF EXPIRY" corresponde al campo "FECHA_VENCIMIENTO_PASAPORTE".
+4. Nacimiento, Nacionalidad y Sexo:
+   - "NACIONALIDAD / NATIONALITY" corresponde al campo "NACIONALIDAD".
+   - "FECHA DE NACIMIENTO / DATE OF BIRTH" corresponde al campo "FECHA_NACIMIENTO".
+   - "LUGAR DE NACIMIENTO / PLACE OF BIRTH" corresponde al campo "LUGAR_NACIMIENTO".
+   - "SEXO / SEX": Si el documento dice "F", debes escribir "Feminino". Si dice "M", debes escribir "Masculino". Nunca escribas solo la letra.
+5. Documentos Ilegibles y Código MRZ:
+   - Si la parte principal del documento está borrosa o ilegible, busca los datos en el código MRZ (las dos líneas de letras y números en la parte inferior).
+   - En el MRZ puedes encontrar el Nombre, Apellidos, Número de Pasaporte y Carnet de Identidad.
+   - Si tuviste dificultad para leer la parte principal y usaste el MRZ, pon el campo "ILEGIBLE" en true. Si se lee bien, ponlo en false.
 
 Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin texto extra) con estos campos:
 {
@@ -96,11 +111,15 @@ Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin texto extra) con est
   "NOMBRE_PADRE": null,
   "CPF": null,
   "RNM": null,
+  "CARNET_IDENTIDAD": null,
   "FECHA_NACIMIENTO": null,
+  "LUGAR_NACIMIENTO": null,
   "NACIONALIDAD": null,
   "NUMERO_DOCUMENTO": null,
+  "FECHA_EMISION_PASAPORTE": null,
+  "FECHA_VENCIMIENTO_PASAPORTE": null,
   "SEXO": null,
-  "FECHA_VENCIMIENTO": null
+  "ILEGIBLE": false
 }
 Usa null para los campos que no estén visibles en el documento. No inventes datos.`;
 

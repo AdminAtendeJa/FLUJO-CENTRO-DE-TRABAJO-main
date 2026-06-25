@@ -4,7 +4,7 @@ import { UserPlus, Loader2 } from 'lucide-react';
 
 export default function NewClientModal({ onClose, onClientCreated }) {
   const [formData, setFormData] = useState({ 
-    nombres: '', apellidos: '', cpf: '', telefono: '', email: '',
+    nombres: '', apellidos: '', cpf: '', carnet_identidad: '', telefono: '', email: '',
     cep: '', endereco: '', numero: '', complemento: '', 
     bairro: '', cidade: '', estado: '', ponto_referencia: ''
   });
@@ -23,6 +23,7 @@ export default function NewClientModal({ onClose, onClientCreated }) {
         .insert([{
           nombre: nombreCompleto,
           cpf: formData.cpf,
+          carnet_identidad: formData.carnet_identidad,
           telefono: formData.telefono,
           email: formData.email.toLowerCase(),
           direccion: JSON.stringify({
@@ -101,6 +102,10 @@ export default function NewClientModal({ onClose, onClientCreated }) {
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>CPF</label>
               <input type="text" value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} style={{width: '100%'}} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Carnet Identidad (CI)</label>
+              <input type="text" value={formData.carnet_identidad} onChange={e => setFormData({...formData, carnet_identidad: e.target.value})} style={{width: '100%'}} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Teléfono</label>
