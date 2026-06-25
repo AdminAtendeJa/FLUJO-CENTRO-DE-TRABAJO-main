@@ -352,7 +352,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         'RNM': 'rnm',
         'FECHA_NACIMIENTO': 'fecha_nacimiento',
         'NACIONALIDAD': 'nacionalidad',
-        'NUMERO_DOCUMENTO': 'numero_pasaporte'
+        'NUMERO_DOCUMENTO': 'numero_pasaporte',
+        'NOMBRE_MADRE': 'nombre_madre',
+        'NOMBRE_PADRE': 'nombre_padre'
       };
 
       // 1. Map known fixed fields
