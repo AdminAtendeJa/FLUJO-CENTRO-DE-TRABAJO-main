@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { analyzeDocumentImage, chatWithClientContext } from '../services/aiService';
 import { getChatHistoryFromN8n } from '../services/crmBridgeService';
@@ -726,23 +726,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     const targetCats = categorias.filter(c => targetNames.includes(c.nombre));
     if (targetCats.length === 0) return null;
 
-    let allCatFields = [];
-    let catData = [];
-
-    targetNames.forEach(catName => {
-      const cat = categorias.find(c => c.nombre === catName);
-      if (!cat) return;
-      const catFixedFields = fixedFields.filter(f => f.category_name === catName);
-      const catDynamicFields = campos.filter(c => c.categoria_id === cat.id);
-      
-      allCatFields.push(...catFixedFields, ...catDynamicFields);
-
-      catData.push(
-        ...catFixedFields.map(f => ({ campo_id: f.id, valor: client[f.id] || '', es_fijo: true })),
-        ...clienteDatos.filter(cd => catDynamicFields.some(cf => cf.id === cd.campo_id))
-      );
-    });
-
     return (
       <section id="personal-data" className="glass-panel" style={{ padding: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -755,40 +738,82 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          {allCatFields.map(campo => {
-            if (campo.id === 'direccion') return null;
+          {targetNames.map(catName => {
+             const cat = categorias.find(c => c.nombre === catName);
+             if (!cat) return null;
+             const catFixedFields = fixedFields.filter(f => f.category_name === catName);
+             const catDynamicFields = campos.filter(c => c.categoria_id === cat.id);
+             const sectionFields = [...catFixedFields, ...catDynamicFields];
+             
+             // Extract data
+             const sectionData = [];
+             sectionFields.forEach(campo => {
+               if (campo.es_fijo) {
+                 if (client[campo.id]) sectionData.push({ campo_id: campo.id, valor: client[campo.id] });
+               } else {
+                 const cd = clienteDatos.find(d => d.campo_id === campo.id);
+                 if (cd && cd.valor) sectionData.push(cd);
+               }
+             });
 
-            const dato = catData.find(cd => cd.campo_id === campo.id);
-            if (!dato || !dato.valor) return null;
-            
-            return (
-              <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                    {campo.nombre_campo}
-                  </label>
-                  <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
-                    {dato.valor}
-                  </div>
-                </div>
-                <button onClick={() => handleCopy(dato.valor, campo.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                  {copiedId === campo.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                </button>
-              </div>
-            );
+             // If it's Informaciones Personales, we might want to exclude "direccion" since we render it as its own section later
+             const visibleFields = sectionData.filter(d => {
+               if (d.campo_id === 'direccion') return false;
+               return true;
+             });
+
+             if (visibleFields.length === 0) return null;
+
+             const titleMap = {
+               'Informaciones Personales': 'Datos Personales',
+               'Datos Familiares': 'Padres y Familiares',
+               'Documentos de Identidad': 'Documentos'
+             };
+
+             return (
+               <React.Fragment key={catName}>
+                 <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: '0.5rem' }}>
+                   <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                     {titleMap[catName] || catName}
+                   </h3>
+                 </div>
+                 {sectionFields.map(campo => {
+                   if (campo.id === 'direccion') return null;
+                   const dato = sectionData.find(cd => cd.campo_id === campo.id);
+                   if (!dato || !dato.valor) return null;
+                   return (
+                     <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                       <div style={{ flex: 1, overflow: 'hidden' }}>
+                         <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                           {campo.nombre_campo}
+                         </label>
+                         <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
+                           {dato.valor}
+                         </div>
+                       </div>
+                       <button onClick={() => handleCopy(dato.valor, campo.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
+                         {copiedId === campo.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                       </button>
+                     </div>
+                   );
+                 })}
+               </React.Fragment>
+             );
           })}
 
-          {/* Campos Sueltos de Dirección */}
+          {/* Dirección Section */}
           {(() => {
-             const dirCampo = catData.find(cd => cd.campo_id === 'direccion');
-             if (!dirCampo || !dirCampo.valor) return null;
+             const dirDato = client['direccion'] || clienteDatos.find(cd => cd.campo_id === 'direccion')?.valor;
+             if (!dirDato) return null;
+             
              let dirObj = {};
              try {
-               if (dirCampo.valor.startsWith('{')) dirObj = JSON.parse(dirCampo.valor);
-             } catch(e) {}
+               if (dirDato.startsWith('{')) dirObj = JSON.parse(dirDato);
+               else dirObj.endereco = dirDato;
+             } catch(e) {
+               dirObj.endereco = dirDato;
+             }
              
-             if (Object.keys(dirObj).length === 0) return null; // Fallback plain text not rendered as small tiles
-
              const subFields = [
                { id: 'cep', label: 'CEP', val: dirObj.cep },
                { id: 'endereco', label: 'Endereço', val: dirObj.endereco },
@@ -798,44 +823,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                { id: 'cidade', label: 'Cidade (Residência)', val: dirObj.cidade },
                { id: 'estado', label: 'Estado (Residência)', val: dirObj.estado },
                { id: 'ponto_referencia', label: 'Ponto de Referência', val: dirObj.ponto_referencia }
-             ];
+             ].filter(sf => sf.val);
 
-             return subFields.map(sf => {
-               if (!sf.val) return null;
-               return (
-                 <div key={sf.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                   <div style={{ flex: 1, overflow: 'hidden' }}>
-                     <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                       {sf.label}
-                     </label>
-                     <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
-                       {sf.val}
-                     </div>
-                   </div>
-                   <button onClick={() => handleCopy(sf.val, sf.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                     {copiedId === sf.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                   </button>
-                 </div>
-               );
-             });
-          })()}
+             if (subFields.length === 0 && !dirObj.endereco) return null;
 
-          {/* Endereço Formateado */}
-          {(() => {
-             const dirCampo = catData.find(cd => cd.campo_id === 'direccion');
-             if (!dirCampo || !dirCampo.valor) return null;
-             
-             let dirObj = {};
-             try {
-               if (dirCampo.valor.startsWith('{')) {
-                 dirObj = JSON.parse(dirCampo.valor);
-               } else {
-                 dirObj.endereco = dirCampo.valor;
-               }
-             } catch(e) {
-               dirObj.endereco = dirCampo.valor;
-             }
-             
              const rua = dirObj.endereco;
              const num = dirObj.numero;
              const comp = dirObj.complemento;
@@ -851,51 +842,55 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
              let addressFull = [line1, line2, cep ? `CEP: ${cep}` : '', ref ? `Ref: ${ref}` : ''].filter(Boolean).join(' | ');
 
              return (
-               <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                 <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                      Endereço Completo
-                    </label>
-                    <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word', lineHeight: '1.5' }}>
-                      {line1 && <div>{line1}</div>}
-                      {line2 && <div>{line2}</div>}
-                      {(cep || ref) && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>{cep ? `CEP: ${cep}` : ''} {ref ? `(Ref: ${ref})` : ''}</div>}
-                      {(!line1 && !line2 && !cep && !ref && dirObj.endereco) && <div>{dirObj.endereco}</div>}
-                    </div>
+               <React.Fragment>
+                 <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: '0.5rem' }}>
+                   <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                     Dirección Completa
+                   </h3>
                  </div>
-                 <button onClick={() => handleCopy(addressFull || dirObj.endereco, 'direccion')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar dirección completa">
-                   {copiedId === 'direccion' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                 </button>
-               </div>
+                 {subFields.map(sf => (
+                   <div key={`dir-${sf.id}`} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                     <div style={{ flex: 1, overflow: 'hidden' }}>
+                       <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                         {sf.label}
+                       </label>
+                       <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
+                         {sf.val}
+                       </div>
+                     </div>
+                     <button onClick={() => handleCopy(sf.val, sf.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
+                       {copiedId === sf.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                     </button>
+                   </div>
+                 ))}
+                 
+                 <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                   <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                        Dirección Concatenada
+                      </label>
+                      <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word', lineHeight: '1.5' }}>
+                        {line1 && <div>{line1}</div>}
+                        {line2 && <div>{line2}</div>}
+                        {(cep || ref) && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>{cep ? `CEP: ${cep}` : ''} {ref ? `(Ref: ${ref})` : ''}</div>}
+                        {(!line1 && !line2 && !cep && !ref && dirObj.endereco) && <div>{dirObj.endereco}</div>}
+                      </div>
+                   </div>
+                   <button onClick={() => handleCopy(addressFull || dirObj.endereco, 'direccion')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar dirección completa">
+                     {copiedId === 'direccion' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                   </button>
+                 </div>
+               </React.Fragment>
              )
           })()}
-          {allCatFields.every(campo => {
-             const dato = catData.find(cd => cd.campo_id === campo.id);
-             return !dato || !dato.valor;
-          }) && (
-            <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem', gridColumn: '1 / -1' }}>
-              No hay datos rellenados. Haz clic en Editar Datos.
-            </div>
-          )}
         </div>
       </section>
     );
   };
 
-  const navItems = [
-    { label: "Datos Personales", targetId: "personal-data" },
-    { label: "Generador de Trámites", targetId: "tramites-builder" },
-    { label: "Documentos Subidos", targetId: "documentos-subidos" },
-    { label: "Historial de Trámites", targetId: "historial-tramites" },
-    { label: "Relacionamientos", targetId: "relacionamientos-clientes" }
-  ];
 
   return (
     <div style={{ padding: '2.5rem', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} className="animate-fade-in">
-      <button onClick={onBack} className="btn btn-ghost" style={{ marginBottom: '1.5rem', paddingLeft: 0, width: 'fit-content' }}>
-        <ArrowLeft size={18} /> Volver a Trámites
-      </button>
-
       <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
           <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 600, color: 'white' }}>
@@ -929,42 +924,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
-        <aside className="quick-nav" style={{ width: '220px', position: 'sticky', top: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', height: 'fit-content' }}>
-          {navItems.map((item, idx) => (
-            <a
-              key={idx}
-              href={`#${item.targetId}`}
-              onClick={(e) => {
-                e.preventDefault();
-                document.getElementById(item.targetId)?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              style={{
-                display: 'block',
-                padding: '0.5rem 0.75rem',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: 'var(--color-text-secondary)',
-                textDecoration: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = 'var(--color-bg-elevated)';
-                e.target.style.color = 'var(--color-text-primary)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'transparent';
-                e.target.style.color = 'var(--color-text-secondary)';
-              }}
-            >
-              {item.label}
-            </a>
-          ))}
-        </aside>
-
-        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
+        {/* Columna Izquierda: Datos Personales y Trámites */}
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
           {renderUnifiedPersonalData()}
 
           <section id="tramites-builder" className="glass-panel" style={{ padding: '2rem' }}>
@@ -1068,6 +1030,46 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               </button>
             </div>
           </section>
+        </div>
+
+        {/* Columna Derecha: Sidebar (Relaciones, Docs, Historial) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
+          {/* Moviendo la sección de Relacionamientos arriba en el sidebar */}
+          <section id="relacionamientos-clientes" className="glass-panel" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <Users size={18} color="var(--color-primary)" /> Relacionamientos
+              </h2>
+              <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => setIsRelateModalOpen(true)}><Plus size={18} /></button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {relaciones.map(rel => {
+                const isPrincipal = rel.cliente_id === clientId;
+                const related = isPrincipal ? rel.cliente_secundario : rel.cliente_principal;
+                if (!related) return null;
+                return (
+                  <div key={rel.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0.75rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                    <button
+                      onClick={() => onNavigateToClient?.(related.id)}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', background: 'none', border: 'none', cursor: onNavigateToClient ? 'pointer' : 'default', padding: 0, flex: 1, textAlign: 'left' }}
+                      title={onNavigateToClient ? `Ver perfil de ${related.nombre}` : ''}
+                    >
+                      <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {related.nombre}
+                        {onNavigateToClient && <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', opacity: 0.8 }}>→</span>}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>{rel.tipo_relacion}</div>
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => handleDeleteRelation(rel.id)} style={{ color: 'var(--color-danger)', padding: '0.3rem', flexShrink: 0 }} title="Eliminar vinculo">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+              {relaciones.length === 0 && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay familiares o amigos vinculados.</div>}
+            </div>
+          </section>
 
           <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
@@ -1164,42 +1166,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 </div>
               ))}
               {entradas.length === 0 && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay trámites registrados.</div>}
-            </div>
-          </section>
-
-          <section id="relacionamientos-clientes" className="glass-panel" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                <Users size={18} color="var(--color-primary)" /> Relacionamientos
-              </h2>
-              <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => setIsRelateModalOpen(true)}><Plus size={18} /></button>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {relaciones.map(rel => {
-                const isPrincipal = rel.cliente_id === clientId;
-                const related = isPrincipal ? rel.cliente_secundario : rel.cliente_principal;
-                if (!related) return null;
-                return (
-                  <div key={rel.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0.75rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                    <button
-                      onClick={() => onNavigateToClient?.(related.id)}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', background: 'none', border: 'none', cursor: onNavigateToClient ? 'pointer' : 'default', padding: 0, flex: 1, textAlign: 'left' }}
-                      title={onNavigateToClient ? `Ver perfil de ${related.nombre}` : ''}
-                    >
-                      <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        {related.nombre}
-                        {onNavigateToClient && <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', opacity: 0.8 }}>→</span>}
-                      </div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>{rel.tipo_relacion}</div>
-                    </button>
-                    <button className="btn btn-ghost" onClick={() => handleDeleteRelation(rel.id)} style={{ color: 'var(--color-danger)', padding: '0.3rem', flexShrink: 0 }} title="Eliminar vinculo">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                );
-              })}
-              {relaciones.length === 0 && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay familiares o amigos vinculados.</div>}
             </div>
           </section>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, FileText, Settings, Search, Plus, Bell, UserPlus, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, Search, Plus, Bell, UserPlus, Sun, Moon, ArrowLeft } from 'lucide-react';
 import HomeView from './components/HomeView';
 import ClientView from './components/ClientView';
 import ClientListView from './components/ClientListView';
@@ -159,17 +159,28 @@ function App() {
           
           {/* Top Bar / Search */}
           <header style={{ height: '70px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', padding: '0 2.5rem', justifyContent: 'space-between', background: 'var(--color-bg-surface)', zIndex: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-full)', padding: '0.5rem 1rem', width: '400px', border: '1px solid var(--color-border)' }}>
-              <Search size={18} color="var(--color-text-muted)" style={{ marginRight: '0.5rem' }} />
-              <input 
-                type="text" 
-                placeholder="Buscar por cliente, CPF, email..." 
-                value={globalSearch}
-                onChange={handleSearchChange}
-                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--color-text-primary)', width: '100%', fontSize: '0.875rem' }} 
-              />
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+              {currentView === 'client' && (
+                <button onClick={navigateToHome} className="btn btn-ghost" style={{ paddingLeft: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ArrowLeft size={18} /> Volver a Trámites
+                </button>
+              )}
             </div>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-full)', padding: '0.5rem 1rem', width: '400px', border: '1px solid var(--color-border)', maxWidth: '100%' }}>
+                <Search size={18} color="var(--color-text-muted)" style={{ marginRight: '0.5rem' }} />
+                <input 
+                  type="text" 
+                  placeholder="Buscar por cliente, CPF, email..." 
+                  value={globalSearch}
+                  onChange={handleSearchChange}
+                  style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--color-text-primary)', width: '100%', fontSize: '0.875rem' }} 
+                />
+              </div>
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'flex-end' }}>
               <button 
                 className="btn btn-ghost" 
                 onClick={toggleTheme}
