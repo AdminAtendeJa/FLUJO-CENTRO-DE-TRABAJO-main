@@ -1,7 +1,7 @@
-# BRIEFING — 2026-06-24T20:34:06-03:00
+# BRIEFING — 2026-06-25T00:13:00Z
 
 ## Mission
-Refactor the React application's UI/UX to create a modern, static layout with a persistent right-hand AI Chat sidebar and a unified, vertically scrollable central container with quick navigation.
+Implement a Global AI Assistant for the entire application, including a persistent FAB UI chat drawer, React Context chat history persistence, functional tool calling, and safe database query functions.
 
 ## 🔒 My Identity
 - Archetype: teamwork_preview_orchestrator
@@ -25,14 +25,14 @@ Refactor the React application's UI/UX to create a modern, static layout with a 
    - Escalate: report to parent (sub-orchestrators only, last resort)
 4. **Succession**: At 16 spawns, write handoff.md, spawn successor.
 - **Work items**:
-  1. Exploration and Code Discovery [pending]
-  2. Plan and Decomposition [pending]
-  3. E2E Test Suite Creation [pending]
-  4. Global Static Layout & Fixed Chat Implementation [pending]
-  5. Unified Scroll & Navigation Implementation [pending]
-  6. Polish & Adversarial Hardening [pending]
+  1. Global AI Exploration & Code Discovery [in-progress]
+  2. Plan, Decomposition & Global AI E2E Test Suite [pending]
+  3. Global AI UI Floating Button & Chat Drawer Component [pending]
+  4. React Context state persistence for Chat [pending]
+  5. AI Service Tool Calling & Safe Database Functions [pending]
+  6. E2E Verification & Forensic Integrity Audit [pending]
 - **Current phase**: 1
-- **Current focus**: Exploration and Code Discovery
+- **Current focus**: Global AI Exploration & Code Discovery
 
 ## 🔒 Key Constraints
 - Never write, modify, or create source code files directly.
@@ -58,16 +58,21 @@ Refactor the React application's UI/UX to create a modern, static layout with a 
 | challenger_testing_1 | teamwork_preview_challenger | Test Suite Creation | completed | 79255559-1e66-4638-8d55-028a78100cdd |
 | worker_implementation_1 | teamwork_preview_worker | UI Refactoring Implementation | completed | e7f8c8b4-7de9-4c44-807b-bdc2deb603b9 |
 | auditor_verification_1 | teamwork_preview_auditor | Forensic Integrity Audit | completed | 58fa1ee0-7418-4f82-9451-d3d4da9d3a70 |
+| explorer_global_ai_1 | teamwork_preview_explorer | Global AI Codebase Discovery | completed | e7f92f3e-bee5-40e9-8013-23eca6ad021c |
+| challenger_testing_2 | teamwork_preview_challenger | Global AI E2E Test Suite | completed | 1140b551-cd00-4dd8-82ea-d7f410d34f0f |
+| worker_implementation_2 | teamwork_preview_worker | Global AI Implementation | completed | b3e35ef1-f602-4076-9a13-86b3dd8b3353 |
+| reviewer_verification_2 | teamwork_preview_reviewer | Global AI Code Review | completed | d601c2bb-eb17-4ef1-8083-522d3f0bc781 |
+| auditor_verification_2 | teamwork_preview_auditor | Forensic Integrity Audit | completed | e3c0c2b0-6b87-4049-bc9a-017f99e8fdd6 |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 4 / 16
+- Spawn count: 9 / 16
 - Pending subagents: none
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: not started
+- Heartbeat cron: none
 - Safety timer: none
 - On succession: kill all timers before spawning successor
 - On context truncation: run manage_task(Action="list") — re-create if missing

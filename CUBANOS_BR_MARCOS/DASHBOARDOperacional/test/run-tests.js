@@ -47,7 +47,7 @@ tiers.forEach(t => {
 });
 
 console.log('\nBreakdown by Feature:');
-const features = [1, 2, 3, 4];
+const features = [1, 2, 3, 4, 5, 6, 7];
 features.forEach(f => {
   const featTests = results.filter(r => r.feature === f);
   const featPassed = featTests.filter(r => r.pass).length;

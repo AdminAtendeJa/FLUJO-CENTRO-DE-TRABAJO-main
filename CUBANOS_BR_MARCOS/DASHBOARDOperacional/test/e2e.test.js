@@ -19,6 +19,52 @@ try {
   console.error('Failed to read ClientView.jsx:', err.message);
 }
 
+// Read additional folders for the new features (Global AI, Context, AI Service tools)
+let allComponentsContent = '';
+try {
+  const componentsDir = path.resolve(__dirname, '../src/components');
+  if (fs.existsSync(componentsDir)) {
+    const files = fs.readdirSync(componentsDir);
+    for (const file of files) {
+      if (file.endsWith('.jsx') || file.endsWith('.js')) {
+        allComponentsContent += fs.readFileSync(path.join(componentsDir, file), 'utf8') + '\n';
+      }
+    }
+  }
+} catch (err) {
+  console.error('Failed to read components:', err.message);
+}
+
+let allContextsContent = '';
+try {
+  const contextDir = path.resolve(__dirname, '../src/context');
+  if (fs.existsSync(contextDir)) {
+    const files = fs.readdirSync(contextDir);
+    for (const file of files) {
+      if (file.endsWith('.jsx') || file.endsWith('.js')) {
+        allContextsContent += fs.readFileSync(path.join(contextDir, file), 'utf8') + '\n';
+      }
+    }
+  }
+} catch (err) {
+  // context directory might not exist yet
+}
+
+let allServicesContent = '';
+try {
+  const servicesDir = path.resolve(__dirname, '../src/services');
+  if (fs.existsSync(servicesDir)) {
+    const files = fs.readdirSync(servicesDir);
+    for (const file of files) {
+      if (file.endsWith('.js') || file.endsWith('.jsx')) {
+        allServicesContent += fs.readFileSync(path.join(servicesDir, file), 'utf8') + '\n';
+      }
+    }
+  }
+} catch (err) {
+  console.error('Failed to read services:', err.message);
+}
+
 const tests = [
   // TIER 1 - Feature 1: Global Static Layout
   {
@@ -541,6 +587,423 @@ const tests = [
     testFn: () => {
       const match = clientViewContent.includes("gap:") || clientViewContent.includes("marginBottom:") || clientViewContent.includes("gap: '") || clientViewContent.includes('gap: "');
       return { pass: match, message: match ? "Spacing margins/gap found" : "No spacing margins/gap styling found in ClientView.jsx" };
+    }
+  },
+
+  // TIER 1 - Feature 5: Global AI UI Component
+  {
+    id: 50,
+    tier: 1,
+    feature: 5,
+    name: "Global AI FAB button exists in App.jsx or components",
+    testFn: () => {
+      const match = /global-ai-fab|GlobalAiFAB|FAB/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found FAB button reference" : "Missing Global AI FAB floating button in App.jsx or component files" };
+    }
+  },
+  {
+    id: 51,
+    tier: 1,
+    feature: 5,
+    name: "Global AI chat panel overlay container exists in components",
+    testFn: () => {
+      const match = /global-ai-panel|global-ai-chat|GlobalAiChatPanel|GlobalAiChatDrawer/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found chat panel overlay container" : "Missing Global AI chat panel/drawer container" };
+    }
+  },
+  {
+    id: 52,
+    tier: 1,
+    feature: 5,
+    name: "Global AI FAB has bottom-right floating position styles",
+    testFn: () => {
+      const match = /position:\s*['"]fixed['"].*bottom:.*right:/i.test(appContent + allComponentsContent) || 
+                    /position:\s*['"]fixed['"].*right:.*bottom:/i.test(appContent + allComponentsContent) ||
+                    /bottom:\s*['"][^'"]+['"].*right:\s*['"][^'"]+['"]/i.test(appContent + allComponentsContent) ||
+                    /className\s*=\s*['"]global-ai-fab['"]/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found FAB positioning style" : "Missing bottom-right fixed positioning style for the FAB button" };
+    }
+  },
+  {
+    id: 53,
+    tier: 1,
+    feature: 5,
+    name: "Global AI chat overlay has toggle open/close state hook",
+    testFn: () => {
+      const match = /isGlobalAiOpen|showGlobalChat|showGlobalAi|openGlobalAi|isChatOpen/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found toggle state hook" : "Missing state hooks/handlers to toggle the Global AI Chat overlay" };
+    }
+  },
+  {
+    id: 54,
+    tier: 1,
+    feature: 5,
+    name: "Global AI FAB or panel uses chat/assistant icons",
+    testFn: () => {
+      const match = /MessageSquare|Sparkles|Bot|Brain|MessageCircle/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found chat icons usage" : "Missing Lucide icon imports/usage for Chat button or Assistant panel" };
+    }
+  },
+
+  // TIER 2 - Feature 5: Global AI UI Component (Boundary & Corner Cases)
+  {
+    id: 55,
+    tier: 2,
+    feature: 5,
+    name: "Global AI chat panel has a high z-index overlay style",
+    testFn: () => {
+      const match = /zIndex:\s*(?:1000|999|\d{4,})/i.test(appContent + allComponentsContent) ||
+                    /z-index:\s*(?:1000|999|\d{4,})/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found high zIndex overlay style" : "Missing high z-index overlay style (>= 1000) for chat panel" };
+    }
+  },
+  {
+    id: 56,
+    tier: 2,
+    feature: 5,
+    name: "Global AI chat panel has viewport height or scroll bounds",
+    testFn: () => {
+      const match = /height:\s*['"](?:calc|\d+vh|\d+px|100%|80%)['"]/i.test(appContent + allComponentsContent) ||
+                    /maxHeight:\s*['"](?:calc|\d+vh|\d+px|100%|80%)['"]/i.test(appContent + allComponentsContent) ||
+                    /height:\s*['"]\d+px['"]/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found height constraints" : "Missing height or maxHeight constraint to prevent overflowing browser height" };
+    }
+  },
+  {
+    id: 57,
+    tier: 2,
+    feature: 5,
+    name: "Global AI chat input disables send button when empty or loading",
+    testFn: () => {
+      const match = /disabled=\s*\{\s*[^}]*(?:loading|empty|trim|!)\s*\}/i.test(allComponentsContent + appContent);
+      return { pass: match, message: match ? "Found input/button disabled handler" : "Missing disabled condition on chat input or send button for empty values/loading" };
+    }
+  },
+  {
+    id: 58,
+    tier: 2,
+    feature: 5,
+    name: "Global AI chat panel includes a closing trigger",
+    testFn: () => {
+      const match = /onClick\s*=\s*\{\s*\(\s*\)\s*=>\s*\w*(?:Open|Chat|Show)\w*\(\s*false\s*\)\s*\}/i.test(appContent + allComponentsContent) ||
+                    /onClick\s*=\s*\{\s*\w*(?:Close|Toggle)\w*\s*\}/i.test(appContent + allComponentsContent) ||
+                    /closeGlobalAi|closeChat/i.test(appContent + allComponentsContent);
+      return { pass: match, message: match ? "Found close trigger" : "Missing click handlers to set open state to false or close the chat panel" };
+    }
+  },
+  {
+    id: 59,
+    tier: 2,
+    feature: 5,
+    name: "Global AI panel uses fixed positioning overlay layout",
+    testFn: () => {
+      const match = /position:\s*['"](?:fixed|absolute)['"]/i.test(allComponentsContent) &&
+                    /right:\s*['"][^'"]+['"]/i.test(allComponentsContent);
+      return { pass: match, message: match ? "Found overlay positioning styles" : "Missing absolute/fixed layout styles for overlaying chat panel" };
+    }
+  },
+
+  // TIER 1 - Feature 6: React Context Chat History
+  {
+    id: 60,
+    tier: 1,
+    feature: 6,
+    name: "GlobalAiChatContext.jsx context file exists",
+    testFn: () => {
+      const match = allContextsContent.length > 0;
+      return { pass: match, message: match ? "Context file exists" : "Missing src/context/GlobalAiChatContext.jsx file" };
+    }
+  },
+  {
+    id: 61,
+    tier: 1,
+    feature: 6,
+    name: "Context file exports GlobalAiChatContext or useGlobalAiChat hook",
+    testFn: () => {
+      const match = allContextsContent.includes('GlobalAiChatContext') || allContextsContent.includes('useGlobalAiChat');
+      return { pass: match, message: match ? "Found context or hook exports" : "Context file does not export GlobalAiChatContext or useGlobalAiChat hook" };
+    }
+  },
+  {
+    id: 62,
+    tier: 1,
+    feature: 6,
+    name: "App.jsx imports and wraps layout in GlobalAiChatProvider",
+    testFn: () => {
+      const match = /GlobalAiChatProvider/i.test(appContent);
+      return { pass: match, message: match ? "App.jsx wraps layout with Provider" : "Missing GlobalAiChatProvider wrap in App.jsx" };
+    }
+  },
+  {
+    id: 63,
+    tier: 1,
+    feature: 6,
+    name: "GlobalAiChatProvider maintains messages state array",
+    testFn: () => {
+      const match = /useState\s*\(\s*\[\s*\]\s*\)/.test(allContextsContent) || /messages|chatHistory/i.test(allContextsContent);
+      return { pass: match, message: match ? "Found messages state array" : "Missing messages state array in GlobalAiChatProvider" };
+    }
+  },
+  {
+    id: 64,
+    tier: 1,
+    feature: 6,
+    name: "GlobalAiChatProvider exposes addMessage or sendMessage functions",
+    testFn: () => {
+      const match = /addMessage|sendMessage|appendMessage/i.test(allContextsContent);
+      return { pass: match, message: match ? "Found message sending function" : "Missing exposed addMessage/sendMessage function in provider context value" };
+    }
+  },
+
+  // TIER 2 - Feature 6: React Context Chat History (Boundary & Corner Cases)
+  {
+    id: 65,
+    tier: 2,
+    feature: 6,
+    name: "GlobalAiChatProvider exposes clearChat or clearHistory reset functionality",
+    testFn: () => {
+      const match = /clearChat|clearHistory|resetChat/i.test(allContextsContent);
+      return { pass: match, message: match ? "Found clear chat function" : "Missing clearChat/clearHistory resetting function in provider context" };
+    }
+  },
+  {
+    id: 66,
+    tier: 2,
+    feature: 6,
+    name: "Global AI Chat state persists session conversation history across client view navigation",
+    testFn: () => {
+      const providerWrappedApp = /<GlobalAiChatProvider>[\s\S]*<div className="app-layout"/.test(appContent) ||
+                                  /GlobalAiChatProvider/i.test(appContent);
+      return { pass: providerWrappedApp, message: providerWrappedApp ? "Provider covers global routing layout" : "GlobalAiChatProvider does not wrap the main layout to persist state" };
+    }
+  },
+  {
+    id: 67,
+    tier: 2,
+    feature: 6,
+    name: "useGlobalAiChat hook includes provider validation check",
+    testFn: () => {
+      const match = /if\s*\(\s*!\s*context\s*\)\s*\{\s*throw/i.test(allContextsContent) || 
+                    /throw\s+new\s+Error\s*\(\s*['"]useGlobalAiChat/i.test(allContextsContent);
+      return { pass: match, message: match ? "Found hook safety check" : "Missing safety check checking if context is undefined in useGlobalAiChat" };
+    }
+  },
+  {
+    id: 68,
+    tier: 2,
+    feature: 6,
+    name: "Context message dispatch rejects empty or whitespace-only messages",
+    testFn: () => {
+      const match = /\.trim\(\)/.test(allContextsContent) || /if\s*\(\s*!\s*\w+message/i.test(allContextsContent);
+      return { pass: match, message: match ? "Found empty message validation" : "Missing empty or blank message validation in context state dispatcher" };
+    }
+  },
+  {
+    id: 69,
+    tier: 2,
+    feature: 6,
+    name: "Global AI Chat context initializes chat state as empty or with default welcome message",
+    testFn: () => {
+      const match = /useState\s*\(\s*(?:\[\]|Welcome|'|")/i.test(allContextsContent) || /messages|chatHistory/i.test(allContextsContent);
+      return { pass: match, message: match ? "Found safe initialization state" : "Missing safe initial state assignment in chat context state" };
+    }
+  },
+
+  // TIER 1 - Feature 7: AI Service Tool Calling & Database Tools
+  {
+    id: 70,
+    tier: 1,
+    feature: 7,
+    name: "aiService.js implements and exports searchClientsByName",
+    testFn: () => {
+      const match = /export\s+(?:async\s+)?function\s+searchClientsByName/i.test(allServicesContent) ||
+                    /searchClientsByName/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found searchClientsByName export" : "Missing searchClientsByName function in aiService.js" };
+    }
+  },
+  {
+    id: 71,
+    tier: 1,
+    feature: 7,
+    name: "aiService.js implements and exports countPendingProcedures",
+    testFn: () => {
+      const match = /export\s+(?:async\s+)?function\s+countPendingProcedures/i.test(allServicesContent) ||
+                    /countPendingProcedures/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found countPendingProcedures export" : "Missing countPendingProcedures function in aiService.js" };
+    }
+  },
+  {
+    id: 72,
+    tier: 1,
+    feature: 7,
+    name: "aiService.js implements and exports getOverallStats",
+    testFn: () => {
+      const match = /export\s+(?:async\s+)?function\s+getOverallStats/i.test(allServicesContent) ||
+                    /getOverallStats/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found getOverallStats export" : "Missing getOverallStats function in aiService.js" };
+    }
+  },
+  {
+    id: 73,
+    tier: 1,
+    feature: 7,
+    name: "aiService.js defines AI tool-calling configuration schemas",
+    testFn: () => {
+      const match = /tools\s*:\s*\[|const\s+tools\s*=|type:\s*['"]function['"]/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found tools schemas definition" : "Missing tool call schemas configuration in aiService.js" };
+    }
+  },
+  {
+    id: 74,
+    tier: 1,
+    feature: 7,
+    name: "aiService.js handles tool execution dispatching loop",
+    testFn: () => {
+      const match = /tool_calls|function\.name|toolCall/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found tool execution dispatching logic" : "Missing handler to execute local database functions when tool_calls are requested by AI" };
+    }
+  },
+
+  // TIER 2 - Feature 7: AI Service Tool Calling & Database Tools (Boundary & Corner Cases)
+  {
+    id: 75,
+    tier: 2,
+    feature: 7,
+    name: "Supabase queries in database tools use secure client builder syntax",
+    testFn: () => {
+      const match = /from\s*\(\s*['"]\w+['"]\s*\)\s*\.\s*select/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found secure client builder syntax" : "Missing Supabase client builder syntax (no raw SQL injection risks)" };
+    }
+  },
+  {
+    id: 76,
+    tier: 2,
+    feature: 7,
+    name: "Database tool functions use try-catch blocks to prevent system crashes",
+    testFn: () => {
+      const match = /try\s*\{[\s\S]*catch/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found try-catch blocks in service file" : "Missing try-catch query blocks protecting functions against DB offline crashes" };
+    }
+  },
+  {
+    id: 77,
+    tier: 2,
+    feature: 7,
+    name: "searchClientsByName returns empty array or default when queried with empty string",
+    testFn: () => {
+      const match = /searchClientsByName[\s\S]*!(?:name|query)/i.test(allServicesContent) ||
+                    /searchClientsByName[\s\S]*length\s*===\s*0/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found empty validation check in searchClientsByName" : "Missing input validation guarding searchClientsByName against empty search queries" };
+    }
+  },
+  {
+    id: 78,
+    tier: 2,
+    feature: 7,
+    name: "AI tool dispatching has fallback handler for unknown tool execution requests",
+    testFn: () => {
+      const match = /throw\s+new\s+Error|default\s*:|else\s*\{/i.test(allServicesContent) && /tool/i.test(allServicesContent);
+      return { pass: match, message: match ? "Found fallback error/default handling for unknown tools" : "Missing error/default handler in tools dispatching logic when model calls invalid tool names" };
+    }
+  },
+  {
+    id: 79,
+    tier: 2,
+    feature: 7,
+    name: "Database tool helper functions are declared as asynchronous",
+    testFn: () => {
+      const match = /async\s+function\s+searchClientsByName/i.test(allServicesContent) && 
+                    /async\s+function\s+countPendingProcedures/i.test(allServicesContent) && 
+                    /async\s+function\s+getOverallStats/i.test(allServicesContent);
+      return { pass: match, message: match ? "All functions declared as async" : "Database helper functions must be async (returning Promise interface)" };
+    }
+  },
+
+  // TIER 3 - Cross-Feature Combinations
+  {
+    id: 80,
+    tier: 3,
+    feature: 5,
+    name: "FAB overlay position absolute/fixed does not conflict with main layout grid columns",
+    testFn: () => {
+      const isFabFixed = /position:\s*['"]fixed['"]/i.test(appContent + allComponentsContent);
+      const isMainLayoutUntouched = !/app-layout.*position:\s*['"]fixed['"]/i.test(appContent);
+      const pass = isFabFixed && isMainLayoutUntouched;
+      return { pass, message: pass ? "FAB button does not affect main layout rendering blocks" : "FAB layout fixed-position is missing or main layout wrapper position was corrupted" };
+    }
+  },
+  {
+    id: 81,
+    tier: 3,
+    feature: 6,
+    name: "Assistant messages containing tool results are appended to Global Chat context history",
+    testFn: () => {
+      const hasHookUsage = /useGlobalAiChat/i.test(allComponentsContent) || /GlobalAiChatContext/i.test(allComponentsContent);
+      const hasToolsExecutionResultInChat = /tool_calls|executeTool/i.test(allServicesContent + allComponentsContent);
+      const pass = hasHookUsage && hasToolsExecutionResultInChat;
+      return { pass, message: pass ? "Found hook usage with tool result appending flow" : "Chat Context is not connected to tool execution dispatchers" };
+    }
+  },
+  {
+    id: 82,
+    tier: 3,
+    feature: 6,
+    name: "View change state does not re-initialize the GlobalAiChatContext value",
+    testFn: () => {
+      const wrapsWholeLayout = /<GlobalAiChatProvider>[\s\S]*<div className="app-layout"/i.test(appContent);
+      return { pass: wrapsWholeLayout, message: wrapsWholeLayout ? "GlobalAiChatProvider wraps outer app layout" : "Context Provider does not wrap routing state elements, causing state loss on view changes" };
+    }
+  },
+
+  // TIER 4 - Real-World Application Scenarios
+  {
+    id: 83,
+    tier: 4,
+    feature: 7,
+    name: "Real-World: Simulating prompt 'Dame estadísticas generales' executes getOverallStats and displays numbers",
+    testFn: () => {
+      const match = /getOverallStats/i.test(allServicesContent) && /stats/i.test(allComponentsContent + allServicesContent);
+      return { pass: match, message: match ? "Found stats scenario mapping" : "Overall stats inquiry query and executor bindings not found in service/components" };
+    }
+  },
+  {
+    id: 84,
+    tier: 4,
+    feature: 7,
+    name: "Real-World: Simulating prompt 'Buscar cliente Marcos' calls searchClientsByName and retrieves list",
+    testFn: () => {
+      const match = /searchClientsByName/i.test(allServicesContent) && /search/i.test(allComponentsContent + allServicesContent);
+      return { pass: match, message: match ? "Found search query scenario mapping" : "Client search query prompt and executor bindings not found in service/components" };
+    }
+  },
+  {
+    id: 85,
+    tier: 4,
+    feature: 6,
+    name: "Real-World: Navigating between dashboard and clients list views preserves chat context message logs",
+    testFn: () => {
+      const match = /GlobalAiChatProvider/i.test(appContent) && /currentView/i.test(appContent);
+      return { pass: match, message: match ? "Context is placed above the view routing switch" : "Chat Provider does not wrap the main currentView navigation structure" };
+    }
+  },
+  {
+    id: 86,
+    tier: 4,
+    feature: 7,
+    name: "Real-World: Simulating prompt 'Cuántos trámites pendientes' executes countPendingProcedures",
+    testFn: () => {
+      const match = /countPendingProcedures/i.test(allServicesContent) && /procedures|tramites/i.test(allComponentsContent + allServicesContent);
+      return { pass: match, message: match ? "Found procedures query scenario mapping" : "Procedures pending query prompt and executor bindings not found in service/components" };
+    }
+  },
+  {
+    id: 87,
+    tier: 4,
+    feature: 5,
+    name: "Real-World: Context persists messages after navigation and tool executing in a multi-turn conversation simulation",
+    testFn: () => {
+      const match = /GlobalAiChatProvider/i.test(appContent) && /searchClientsByName|countPendingProcedures|getOverallStats/i.test(allServicesContent);
+      return { pass: match, message: match ? "Verified persistent context and tool integration" : "RAG-tool multi-turn chat persistence workflow check failed: context or database tool execution is missing" };
     }
   }
 ];

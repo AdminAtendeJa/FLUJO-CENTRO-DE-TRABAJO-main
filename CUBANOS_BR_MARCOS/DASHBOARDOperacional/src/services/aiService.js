@@ -11,6 +11,8 @@
  * Auth    : VITE_GROQ_API_KEY
  */
 
+import { supabase } from '../supabaseClient';
+
 const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL_TEXT     = 'llama-3.3-70b-versatile';   // Texto / razonamiento general
 const MODEL_VISION   = 'llama-3.2-11b-vision-preview'; // Visión + OCR
@@ -222,4 +224,218 @@ Trámite: ${JSON.stringify(tramite)}
 Responde en español, de forma concisa (máx 3 oraciones). No uses markdown.`;
 
   return callGroq(MODEL_TEXT, [{ role: 'user', content: prompt }], 0.5);
+}
+
+// ──────────────────────────────────────────────────────────────
+// NUEVO — Global AI Chat Tools & Tool Calling Integration
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Searches clients by name using partial match (.ilike) on the 'clientes' table.
+ * @param {string} name
+ * @returns {Promise<Array>}
+ */
+export async function searchClientsByName(name) {
+  try {
+    if (!name || name.trim().length === 0) {
+      return [];
+    }
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .ilike('nombre', `%${name}%`);
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("Error searching clients by name:", err);
+    return [];
+  }
+}
+
+/**
+ * Counts entries in the 'entradas' table with estado_tramite === 'pendiente'.
+ * @returns {Promise<number>}
+ */
+export async function countPendingProcedures() {
+  try {
+    const { count, error } = await supabase
+      .from('entradas')
+      .select('*', { count: 'exact', head: true })
+      .eq('estado_tramite', 'pendiente');
+    if (error) throw error;
+    return count || 0;
+  } catch (err) {
+    console.error("Error counting pending procedures:", err);
+    return 0;
+  }
+}
+
+/**
+ * Queries total clients, total procedures, and breakdown of procedures by status.
+ * @returns {Promise<object>}
+ */
+export async function getOverallStats() {
+  try {
+    const { count: totalClientes, error: err1 } = await supabase
+      .from('clientes')
+      .select('*', { count: 'exact', head: true });
+    if (err1) throw err1;
+
+    const { data: entries, error: err2 } = await supabase
+      .from('entradas')
+      .select('estado_tramite');
+    if (err2) throw err2;
+
+    const totalTramites = entries ? entries.length : 0;
+    const breakdown = {};
+    if (entries) {
+      entries.forEach(entry => {
+        const status = entry.estado_tramite || 'desconocido';
+        breakdown[status] = (breakdown[status] || 0) + 1;
+      });
+    }
+
+    return {
+      totalClients: totalClientes || 0,
+      totalProcedures: totalTramites,
+      breakdown
+    };
+  } catch (err) {
+    console.error("Error getting overall stats:", err);
+    return {
+      totalClients: 0,
+      totalProcedures: 0,
+      breakdown: {}
+    };
+  }
+}
+
+const tools = [
+  {
+    type: 'function',
+    function: {
+      name: 'searchClientsByName',
+      description: 'Busca clientes por su nombre en la base de datos (búsqueda parcial).',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'El nombre o parte del nombre del cliente a buscar'
+          }
+        },
+        required: ['name']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'countPendingProcedures',
+      description: 'Obtiene el número de trámites en estado pendiente.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getOverallStats',
+      description: 'Obtiene estadísticas generales del sistema, incluyendo total de clientes y de trámites.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  }
+];
+
+/**
+ * Chat multi-turno con soporte para llamadas a funciones (tool calling).
+ * @param {Array<{role: string, content: string}>} chatHistory
+ * @returns {Promise<string>}
+ */
+export async function chatWithTools(chatHistory) {
+  const apiKey = getApiKey();
+  const systemPrompt = `Eres un asistente de IA global integrado en un sistema de gestión migratoria.
+Tienes acceso a herramientas para consultar la base de datos de clientes y trámites de Supabase.
+Si el usuario te pregunta sobre clientes, búsqueda de nombres, estadísticas generales o trámites pendientes, utiliza las herramientas correspondientes.
+Siempre responde de manera profesional y en español.`;
+
+  let messages = [...chatHistory];
+  if (!messages.some(m => m.role === 'system')) {
+    messages.unshift({ role: 'system', content: systemPrompt });
+  }
+
+  try {
+    const response = await fetch(GROQ_BASE_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL_TEXT,
+        messages: messages,
+        temperature: 0.1,
+        tools: tools,
+        tool_choice: 'auto'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Groq HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const message = data.choices?.[0]?.message;
+    if (!message) {
+      throw new Error("No response message from Groq");
+    }
+
+    // Check if the model decides to call functions
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      messages.push(message);
+
+      for (const toolCall of message.tool_calls) {
+        const functionName = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        let result;
+
+        if (functionName === 'searchClientsByName') {
+          result = await searchClientsByName(args.name);
+        } else if (functionName === 'countPendingProcedures') {
+          result = await countPendingProcedures();
+        } else if (functionName === 'getOverallStats') {
+          result = await getOverallStats();
+        } else {
+          // Fallback check
+          throw new Error(`Unknown tool execution requested: ${functionName}`);
+        }
+
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          name: functionName,
+          content: JSON.stringify(result)
+        });
+      }
+
+      // Recursive call to send the tool output back to Groq
+      return chatWithTools(messages);
+    }
+
+    return message.content || '';
+  } catch (error) {
+    console.error("Error in chatWithTools:", error);
+    // Fallback: standard chat response if tool calling is not supported or if Groq fails.
+    try {
+      return await chat(chatHistory);
+    } catch (fallbackError) {
+      console.error("Fallback chat failed:", fallbackError);
+      return "Lo siento, ocurrió un error y no puedo responder en este momento.";
+    }
+  }
 }

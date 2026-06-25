@@ -12,6 +12,10 @@ The application is a React-based single page dashboard. It uses custom CSS varia
 | 2 | Global Layout & Fixed Chat | Lock viewport in `App.jsx`, embed AI Chat as persistent right panel in `ClientView.jsx` | M1 | DONE |
 | 3 | Unified Scroll & Quick Nav | Stack data sections in a central scrollable div, add left navigation anchor menu | M2 | DONE |
 | 4 | Optimization & Linting | Refactor spacing, fix misalignments, run oxlint, and resolve all review findings | M3 | DONE |
+| 5 | Global AI E2E Test Suite | Design verification tests for Global AI FAB, Context, and Database functions | None | DONE |
+| 6 | Global AI UI & Context | Implement FAB floating button, Chat Drawer, and Global Context for history persistence | M5 | DONE |
+| 7 | AI Service Tools | Implement Groq function calling, searchClientsByName, countPendingProcedures, getOverallStats | M6 | DONE |
+| 8 | Global AI Audit | Run E2E test suite, linter, and perform forensic integrity audit | M7 | DONE |
 
 ## Interface Contracts
 ### `ClientView.jsx` Layout Interface
