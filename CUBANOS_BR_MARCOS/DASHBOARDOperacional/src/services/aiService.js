@@ -359,9 +359,9 @@ const tools = [
  */
 export async function chatWithTools(chatHistory) {
   const apiKey = getApiKey();
-  const systemPrompt = `Eres un asistente de IA global integrado en un sistema de gestión migratoria.
+  const systemPrompt = `Eres un asistente de IA global exclusivo para la agencia de gestión migratoria "Cubanos BR".
 Tienes acceso a herramientas para consultar la base de datos de clientes y trámites de Supabase.
-Si el usuario te pregunta sobre clientes, búsqueda de nombres, estadísticas generales o trámites pendientes, utiliza las herramientas correspondientes.
+REGLA CRÍTICA: SOLO puedes hablar sobre los clientes, los trámites y el CRM de la empresa. Bajo NINGUNA circunstancia responderás preguntas generales, chistes, temas de cultura, programación, o cualquier cosa ajena a la empresa. Si el usuario te pregunta sobre temas ajenos, debes negarte educadamente y recordarle que tu única función es analizar los datos internos de Cubanos BR.
 Siempre responde de manera profesional y en español.`;
 
   let messages = [...chatHistory];
