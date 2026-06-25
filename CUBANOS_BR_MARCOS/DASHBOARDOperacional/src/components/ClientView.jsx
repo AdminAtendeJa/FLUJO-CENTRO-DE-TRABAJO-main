@@ -1685,8 +1685,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               {Object.entries(extractedData).map(([k, v]) => (
                 v && k !== 'ILEGIBLE' && (
                   <div key={k} style={{ background: 'var(--color-bg-elevated)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>{k}</div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{v}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>{k}</div>
+                    <input
+                      className="form-input"
+                      type="text"
+                      value={v || ''}
+                      onChange={(e) => setExtractedData({ ...extractedData, [k]: e.target.value })}
+                      style={{ fontSize: '0.875rem', fontWeight: 500, width: '100%' }}
+                    />
                   </div>
                 )
               ))}
