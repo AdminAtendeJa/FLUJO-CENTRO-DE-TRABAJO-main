@@ -574,6 +574,13 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       alert('Error al actualizar el estado del tramite.');
     }
   };
+
+  if (loading) {
+    return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Cargando datos del cliente...</div>;
+  }
+
+  if (!client) return null;
+
   const renderCategorySection = (catName, sectionId) => {
     const cat = categorias.find(c => c.nombre === catName);
     if (!cat) return null;
