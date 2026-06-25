@@ -79,9 +79,16 @@ export async function analyzeDocumentImage(file) {
     reader.onerror = reject;
   });
 
-  const prompt = `Eres un asistente especializado en leer documentos de identidad e inmigración \
+const prompt = `Eres un asistente especializado en leer documentos de identidad e inmigración \
 (Pasaportes, CPF, RNM de Brasil, CNH, Cédulas, etc.).
 Analiza CUIDADOSAMENTE la imagen y extrae todos los datos personales visibles.
+
+REGLAS DE EXTRACCIÓN MUY IMPORTANTES:
+1. Para pasaportes (como el de Cuba), ten mucho cuidado con el orden del nombre:
+   - "APELLIDOS / SURNAMES" suele aparecer ARRIBA.
+   - "NOMBRES / GIVEN NAMES" suele aparecer DEBAJO.
+   - Tú debes concatenarlos siempre en el orden correcto: "NOMBRE(S) APELLIDO(S)". Ejemplo: Si dice Apellidos: GUIBERT GONZALEZ y Nombres: GEORGINA, el NOMBRE_COMPLETO debe ser "GEORGINA GUIBERT GONZALEZ".
+
 Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin texto extra) con estos campos:
 {
   "NOMBRE_COMPLETO": null,
