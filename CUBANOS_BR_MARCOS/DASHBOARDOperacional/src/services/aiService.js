@@ -70,14 +70,18 @@ function cleanJson(raw) {
  * @param {File} file - Imagen del documento (pasaporte, CPF, RNM, etc.)
  * @returns {Promise<object>} Campos encontrados en el documento
  */
-export async function analyzeDocumentImage(file) {
-  // Convertir a base64 data URL
-  const base64 = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-  });
+export async function analyzeDocumentImage(fileOrBase64) {
+  let base64 = fileOrBase64;
+  
+  if (typeof fileOrBase64 !== 'string') {
+    // Convertir a base64 data URL
+    base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(fileOrBase64);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+    });
+  }
 
 const prompt = `Eres un asistente especializado en leer documentos de identidad e inmigración \
 (Pasaportes, CPF, RNM de Brasil, CNH, Cédulas, etc.).

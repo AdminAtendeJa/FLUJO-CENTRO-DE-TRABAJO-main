@@ -4,7 +4,7 @@ import { analyzeDocumentImage, chatWithClientContext } from '../services/aiServi
 import { getChatHistoryFromN8n } from '../services/crmBridgeService';
 import { uploadDocument, deleteDocument } from '../services/storageService';
 import { generateDocumentPDF } from '../services/pdfGenerator';
-import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, User, Search, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck, MessageSquare, Send } from 'lucide-react';
 import NewClientModal from './NewClientModal';
 
 // Helper for native date inputs (YYYY-MM-DD <-> DD/MM/YYYY)
@@ -101,6 +101,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [selectedRelateId, setSelectedRelateId] = useState('');
   const [selectedRelateType, setSelectedRelateType] = useState('familiar');
   const [isNewRelateClientModalOpen, setIsNewRelateClientModalOpen] = useState(false);
+  const [editingRelId, setEditingRelId] = useState(null);
   
   // PDF Missing Data state
   const [missingFieldsData, setMissingFieldsData] = useState(null); // { tipoDocumento, missingFields: [{id, label, valor}] }
@@ -109,6 +110,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
 
   // AI Extraction State
   const [extractedData, setExtractedData] = useState(null);
@@ -233,8 +235,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       if (f.id === 'direccion') {
         let dirData = {};
         try {
-          if (client.direccion && client.direccion.startsWith('{')) {
+          if (typeof client.direccion === 'string' && client.direccion.startsWith('{')) {
             dirData = JSON.parse(client.direccion);
+          } else if (typeof client.direccion === 'object' && client.direccion !== null) {
+            dirData = client.direccion;
           } else if (client.direccion) {
             dirData._endereco = client.direccion;
           }
@@ -441,15 +445,20 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
       await fetchClientData(false);
 
-      // Si es imagen, lanzar análisis IA
-      if (file.type.startsWith('image/') && docRecord) {
+      // Si es imagen o PDF, lanzar análisis IA
+      if ((file.type.startsWith('image/') || file.type === 'application/pdf') && docRecord) {
         try {
-          const aiData = await analyzeDocumentImage(file);
+          let fileOrBase64 = file;
+          if (file.type === 'application/pdf') {
+            const { convertPdfPageToImageBase64 } = await import('../services/pdfToImage');
+            fileOrBase64 = await convertPdfPageToImageBase64(file);
+          }
+          const aiData = await analyzeDocumentImage(fileOrBase64);
           if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
             setExtractedData(aiData);
             setIsExtractionModalOpen(true);
           } else {
-            console.warn('[ClientView] IA no encontró datos en la imagen.');
+            console.warn('[ClientView] IA no encontró datos en el documento.');
           }
         } catch (aiErr) {
           console.warn('[ClientView] AI analysis error:', aiErr.message);
@@ -529,6 +538,21 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     } catch (err) {
       console.error('Error relating client:', err);
       alert('Error al vincular cliente.');
+    }
+  };
+
+  const handleUpdateRelationType = async (relId, newType) => {
+    try {
+      const { error } = await supabase
+        .from('relaciones_clientes')
+        .update({ tipo_relacion: newType })
+        .eq('id', relId);
+      if (error) throw error;
+      setRelaciones(prev => prev.map(r => r.id === relId ? { ...r, tipo_relacion: newType } : r));
+      setEditingRelId(null);
+    } catch (err) {
+      console.error("Error updating relation:", err);
+      alert("Error al actualizar la relación");
     }
   };
 
@@ -728,13 +752,26 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
     return (
       <section id="personal-data" className="glass-panel" style={{ padding: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--color-primary)', margin: 0 }}>
-            Datos Personales Completos
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <User size={20} color="var(--color-primary)" /> Datos del Cliente
           </h2>
-          <button className="btn btn-secondary btn-sm" onClick={() => openEditModal('ALL_PERSONAL')}>
-            <Edit2 size={14} style={{ marginRight: '4px' }} /> Editar Datos
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'flex-end' }}>
+            <div style={{ position: 'relative', maxWidth: '300px', width: '100%' }}>
+              <Search size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+              <input 
+                type="text" 
+                placeholder="Buscar dato (ej. Madre, Pasaporte)..." 
+                className="form-input" 
+                value={localSearchQuery} 
+                onChange={e => setLocalSearchQuery(e.target.value)} 
+                style={{ paddingLeft: '2.2rem', width: '100%', fontSize: '0.875rem' }} 
+              />
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => openEditModal('ALL_PERSONAL')} style={{ flexShrink: 0 }}>
+              <Edit2 size={14} style={{ marginRight: '4px' }} /> Editar Datos
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
@@ -756,9 +793,20 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                }
              });
 
+             const query = localSearchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
              // If it's Informaciones Personales, we might want to exclude "direccion" since we render it as its own section later
              const visibleFields = sectionData.filter(d => {
                if (d.campo_id === 'direccion') return false;
+               if (!d.valor) return false;
+               
+               if (query) {
+                 const campoDef = sectionFields.find(c => c.id === d.campo_id);
+                 if (!campoDef) return false;
+                 const fieldName = campoDef.nombre_campo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                 const fieldVal = String(d.valor).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                 if (!fieldName.includes(query) && !fieldVal.includes(query)) return false;
+               }
                return true;
              });
 
@@ -777,10 +825,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                      {titleMap[catName] || catName}
                    </h3>
                  </div>
-                 {sectionFields.map(campo => {
-                   if (campo.id === 'direccion') return null;
-                   const dato = sectionData.find(cd => cd.campo_id === campo.id);
-                   if (!dato || !dato.valor) return null;
+                 {visibleFields.map(dato => {
+                   const campo = sectionFields.find(c => c.id === dato.campo_id);
                    return (
                      <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                        <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -808,7 +854,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
              
              let dirObj = {};
              try {
-               if (dirDato.startsWith('{')) dirObj = JSON.parse(dirDato);
+               if (typeof dirDato === 'string' && dirDato.startsWith('{')) dirObj = JSON.parse(dirDato);
+               else if (typeof dirDato === 'object' && dirDato !== null) dirObj = dirDato;
                else dirObj.endereco = dirDato;
              } catch(e) {
                dirObj.endereco = dirDato;
@@ -823,9 +870,18 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                { id: 'cidade', label: 'Cidade (Residência)', val: dirObj.cidade },
                { id: 'estado', label: 'Estado (Residência)', val: dirObj.estado },
                { id: 'ponto_referencia', label: 'Ponto de Referência', val: dirObj.ponto_referencia }
-             ].filter(sf => sf.val);
+             ].filter(sf => {
+               if (!sf.val) return false;
+               const query = localSearchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+               if (query) {
+                 const fieldName = sf.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                 const fieldVal = String(sf.val).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                 if (!fieldName.includes(query) && !fieldVal.includes(query)) return false;
+               }
+               return true;
+             });
 
-             if (subFields.length === 0 && !dirObj.endereco) return null;
+             if (subFields.length === 0) return null;
 
              const rua = dirObj.endereco;
              const num = dirObj.numero;
@@ -1059,7 +1115,36 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                         {related.nombre}
                         {onNavigateToClient && <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', opacity: 0.8 }}>→</span>}
                       </div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>{rel.tipo_relacion}</div>
+                      
+                      {editingRelId === rel.id ? (
+                        <select 
+                          autoFocus
+                          onBlur={() => setEditingRelId(null)}
+                          onChange={(e) => handleUpdateRelationType(rel.id, e.target.value)}
+                          defaultValue={rel.tipo_relacion}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ fontSize: '0.68rem', color: 'var(--color-text-primary)', background: 'var(--color-bg-elevated)', border: '1px solid var(--color-primary)', borderRadius: '4px', marginTop: '4px', padding: '2px', cursor: 'pointer' }}
+                        >
+                          <option value="conyuge">Cónyuge</option>
+                          <option value="hijo/hija">Hijo / Hija</option>
+                          <option value="padre/madre">Padre / Madre</option>
+                          <option value="hermano/hermana">Hermano / Hermana</option>
+                          <option value="familiar">Otro Familiar</option>
+                          <option value="amigo">Amigo</option>
+                          <option value="otro">Otro</option>
+                        </select>
+                      ) : (
+                        <div 
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingRelId(rel.id); }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
+                          style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px', cursor: 'pointer', transition: 'color 0.2s', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', display: 'inline-block' }}
+                          title="Clic para cambiar relación"
+                        >
+                          {rel.tipo_relacion}
+                        </div>
+                      )}
+
                     </button>
                     <button className="btn btn-ghost" onClick={() => handleDeleteRelation(rel.id)} style={{ color: 'var(--color-danger)', padding: '0.3rem', flexShrink: 0 }} title="Eliminar vinculo">
                       <Trash2 size={14} />
@@ -1265,8 +1350,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Tipo de Relación</label>
               <select style={{width:'100%', padding:'0.5rem', background:'var(--color-bg-elevated)', color:'white', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)'}} value={selectedRelateType} onChange={(e) => setSelectedRelateType(e.target.value)}>
-                <option value="familiar">Familiar</option>
                 <option value="conyuge">Cónyuge</option>
+                <option value="hijo/hija">Hijo / Hija</option>
+                <option value="padre/madre">Padre / Madre</option>
+                <option value="hermano/hermana">Hermano / Hermana</option>
+                <option value="familiar">Otro Familiar</option>
                 <option value="amigo">Amigo</option>
                 <option value="otro">Otro</option>
               </select>
