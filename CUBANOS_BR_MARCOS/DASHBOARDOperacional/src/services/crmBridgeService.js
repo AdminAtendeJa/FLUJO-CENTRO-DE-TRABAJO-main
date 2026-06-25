@@ -37,6 +37,6 @@ export async function getChatHistoryFromN8n(idCrm) {
 
   } catch (error) {
     console.error('[CRM Bridge] Error contactando a n8n:', error);
-    return "Error al recuperar historial del CRM.";
+    return "Error al recuperar historial del CRM. Detalle técnico para el desarrollador: " + error.message;
   }
 }
