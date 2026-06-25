@@ -97,7 +97,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const contactoRaw = $input.first().json.data;\nconst contacto = typeof contactoRaw === 'string' ? JSON.parse(contactoRaw) : contactoRaw;\n\nconst leadNode = $('Extraer contactoId').item.json;\nconst lead = leadNode.leadData || {};\n\nconst camposContacto = contacto.custom_fields_values || [];\nconst camposLead = lead.custom_fields_values || [];\n\nconst getField = (campos, nombre) => {\n  const field = campos.find(f =>\n    f.field_name?.toLowerCase().includes(nombre.toLowerCase())\n  );\n  return field?.values?.[0]?.value ?? '';\n};\n\nconst telefonoCampo = camposContacto.find(f => f.field_code === 'PHONE');\nconst emailCampo    = camposContacto.find(f => f.field_code === 'EMAIL');\n\nconst now = new Date();\nconst mes = now.getMonth() + 1;\nconst ano = now.getFullYear();\n\nreturn [{ json: {\n  id_kommo:        String(contacto.id || ''),\n  nombre:          lead.name || contacto.name || '',\n  telefono:        telefonoCampo?.values?.[0]?.value || '',\n  email:           emailCampo?.values?.[0]?.value    || '',\n  valor_total:     parseFloat(leadNode.presupuesto)  || 0,\n  pais:            getField(camposLead, 'país origen'),\n  ciudad:          getField(camposLead, 'ciudad'),\n  estado_federal:  getField(camposLead, 'estado'),\n  atendente:       getField(camposLead, 'atendente'),\n  tramite:         getField(camposLead, 'trámite'),\n  nombre_pix:      getField(camposLead, 'nombre pix'),\n  policia_federal: getField(camposLead, 'policia federal'),\n  prioridad:       getField(camposLead, 'prioridad'),\n  recurrencia:     getField(camposLead, 'recorrencia') || 'NUEVO',\n  id_lead:         String(lead.id || ''),\n  pipeline_id:     String(lead.pipeline_id || ''),\n  status_id:       String(lead.status_id   || ''),\n  mes,\n  ano,\n  fecha:           now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),\n}}];"
+        "jsCode": "const contactoRaw = $input.first().json.data;\nconst contacto = typeof contactoRaw === 'string' ? JSON.parse(contactoRaw) : contactoRaw;\n\nconst leadNode = $('Extraer contactoId').item.json;\nconst lead = leadNode.leadData || {};\n\nconst camposContacto = contacto.custom_fields_values || [];\nconst camposLead = lead.custom_fields_values || [];\n\nconst getField = (campos, nombre) => {\n  const field = campos.find(f =>\n    f.field_name?.toLowerCase().includes(nombre.toLowerCase())\n  );\n  return field?.values?.[0]?.value ?? '';\n};\n\nconst telefonoCampo = camposContacto.find(f => f.field_code === 'PHONE');\nconst emailCampo    = camposContacto.find(f => f.field_code === 'EMAIL');\n\nconst now = new Date();\nconst mes = now.getMonth() + 1;\nconst ano = now.getFullYear();\n\nreturn [{ json: {\n  id_kommo:        String(contacto.id || ''),\n  nombre:          lead.name || contacto.name || '',\n  telefono:        telefonoCampo?.values?.[0]?.value || '',\n  email:           emailCampo?.values?.[0]?.value    || '',\n  cpf:             getField(camposContacto, 'cpf'),\n  valor_total:     parseFloat(leadNode.presupuesto)  || 0,\n  pais:            getField(camposLead, 'país origen'),\n  ciudad:          getField(camposLead, 'ciudad'),\n  estado:          getField(camposLead, 'estado'),\n  atendente:       getField(camposLead, 'atendente'),\n  tramite:         getField(camposLead, 'trámite'),\n  nombre_pix:      getField(camposLead, 'nombre pix'),\n  policia_federal: getField(camposLead, 'policia federal'),\n  prioridad:       getField(camposLead, 'prioridad'),\n  recorrencia:     getField(camposLead, 'recorrencia') || 'NUEVO',\n  id_lead:         String(lead.id || ''),\n  pipeline_id:     String(lead.pipeline_id || ''),\n  status_id:       String(lead.status_id   || ''),\n  mes,\n  ano,\n  fecha:           now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -155,16 +155,16 @@
         "fieldsUi": {
           "fieldValues": [
             {
-              "fieldId": "recurrencia",
-              "fieldValue": "={{ ($input.first().json.data[0].recurrencia || 1) + 1 }}"
+              "fieldId": "recorrencia",
+              "fieldValue": "={{ ($('Buscar Cliente en BD').item.json.recorrencia || 1) + 1 }}"
             },
             {
               "fieldId": "valor_total",
-              "fieldValue": "={{ ($('Buscar Cliente en BD').item.json.data[0].valor_total || 0) + $('Mapear Datos Completos').item.json.valor_total }}"
+              "fieldValue": "={{ ($('Buscar Cliente en BD').item.json.valor_total || 0) + $('Mapear Datos Completos').item.json.valor_total }}"
             },
             {
               "fieldId": "cantidad_tramites",
-              "fieldValue": "={{ ($('Buscar Cliente en BD').item.json.data[0].cantidad_tramites || 0) + 1 }}"
+              "fieldValue": "={{ ($('Buscar Cliente en BD').item.json.cantidad_tramites || 0) + 1 }}"
             },
             {
               "fieldId": "fecha_ultimo_contacto",
@@ -207,7 +207,7 @@
             },
             {
               "fieldId": "cpf",
-              "fieldValue": "1"
+              "fieldValue": "={{ $('Mapear Datos Completos').item.json.cpf }}"
             },
             {
               "fieldId": "nombre",
@@ -235,7 +235,7 @@
             },
             {
               "fieldId": "estado",
-              "fieldValue": "={{ $('Mapear Datos Completos').item.json.estado_federal }}"
+              "fieldValue": "={{ $('Mapear Datos Completos').item.json.estado }}"
             },
             {
               "fieldId": "canal_adquisicion",
@@ -254,7 +254,7 @@
               "fieldValue": "=nuevo"
             },
             {
-              "fieldId": "recurrencia",
+              "fieldId": "recorrencia",
               "fieldValue": "0"
             },
             {
@@ -281,7 +281,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let idCliente = null;\n\ntry {\n  const data = $('Actualizar Cliente').first().json;\n  idCliente = Array.isArray(data) ? data[0]?.id : data?.id;\n} catch(e) { /* rama no ejecutada */ }\n\nif (!idCliente) {\n  try {\n    const data = $('Crear Cliente').first().json;\n    idCliente = Array.isArray(data) ? data[0]?.id : data?.id;\n  } catch(e) { /* rama no ejecutada */ }\n}\n\nif (!idCliente) throw new Error('No se obtuvo ID del cliente de ninguna rama');\n\nconst datos = $('Mapear Datos Completos').item.json;\n\nreturn [{ json: {\n  id_cliente:     idCliente,\n  id_kommo:       datos.id_kommo,\n  nombre_pix:     datos.nombre_pix,\n  valor:          datos.valor_total,\n  servicio:       datos.tramite,\n  cliente:        datos.nombre,\n  telefono:       datos.telefono,\n  email:          datos.email,\n  pais:           datos.pais,\n  ciudad:         datos.ciudad,\n  atendente:      datos.atendente,\n  recorrencia:    datos.recurrencia,\n  mes:            datos.mes,\n  ano:            datos.ano,\n  fecha:          datos.fecha,\n  estado_tramite: 'pendiente',\n}}];"
+        "jsCode": "let idCliente = null;\n\ntry {\n  const data = $('Actualizar Cliente').first().json;\n  idCliente = Array.isArray(data) ? data[0]?.id : data?.id;\n} catch(e) { /* rama no ejecutada */ }\n\nif (!idCliente) {\n  try {\n    const data = $('Crear Cliente').first().json;\n    idCliente = Array.isArray(data) ? data[0]?.id : data?.id;\n  } catch(e) { /* rama no ejecutada */ }\n}\n\nif (!idCliente) throw new Error('No se obtuvo ID del cliente de ninguna rama');\n\nconst datos = $('Mapear Datos Completos').item.json;\n\nreturn [{ json: {\n  id_cliente:     idCliente,\n  id_kommo:       datos.id_kommo,\n  nombre_pix:     datos.nombre_pix,\n  valor:          datos.valor_total,\n  servicio:       datos.tramite,\n  cliente:        datos.nombre,\n  telefono:       datos.telefono,\n  email:          datos.email,\n  pais:           datos.pais,\n  ciudad:         datos.ciudad,\n  estado:         datos.estado,\n  cpf:            datos.cpf,\n  atendente:      datos.atendente,\n  recorrencia:    datos.recorrencia,\n  mes:            datos.mes,\n  ano:            datos.ano,\n  fecha:          datos.fecha,\n  estado_tramite: 'pendiente',\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -339,7 +339,11 @@
             },
             {
               "fieldId": "cpf",
-              "fieldValue": "1"
+              "fieldValue": "={{ $json.cpf }}"
+            },
+            {
+              "fieldId": "estado",
+              "fieldValue": "={{ $json.estado }}"
             },
             {
               "fieldId": "atendente",

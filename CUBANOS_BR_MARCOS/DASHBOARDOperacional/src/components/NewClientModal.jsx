@@ -3,19 +3,20 @@ import { supabase } from '../supabaseClient';
 import { UserPlus, Loader2 } from 'lucide-react';
 
 export default function NewClientModal({ onClose, onClientCreated }) {
-  const [formData, setFormData] = useState({ nombre: '', cpf: '', telefono: '', email: '' });
+  const [formData, setFormData] = useState({ nombres: '', apellidos: '', cpf: '', telefono: '', email: '' });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.nombre) return alert('El nombre es obligatorio');
+    if (!formData.nombres || !formData.apellidos) return alert('Nombre(s) y Apellidos son obligatorios');
     
     setLoading(true);
     try {
+      const nombreCompleto = `${formData.nombres.trim()} ${formData.apellidos.trim()}`.toUpperCase();
       const { data, error } = await supabase
         .from('clientes')
         .insert([{
-          nombre: formData.nombre.toUpperCase(),
+          nombre: nombreCompleto,
           cpf: formData.cpf,
           telefono: formData.telefono,
           email: formData.email.toLowerCase(),
@@ -43,8 +44,12 @@ export default function NewClientModal({ onClose, onClientCreated }) {
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Nombre *</label>
-            <input required type="text" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} style={{width: '100%'}} />
+            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Nombre(s) *</label>
+            <input required type="text" value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value})} style={{width: '100%'}} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Apellidos *</label>
+            <input required type="text" value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value})} style={{width: '100%'}} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>CPF</label>

@@ -65,6 +65,18 @@ try {
   console.error('Failed to read services:', err.message);
 }
 
+const workflowPath = path.resolve(__dirname, '../n8n-kommo-workflow.json');
+let workflowContent = '';
+let workflowJson = null;
+try {
+  if (fs.existsSync(workflowPath)) {
+    workflowContent = fs.readFileSync(workflowPath, 'utf8');
+    workflowJson = JSON.parse(workflowContent);
+  }
+} catch (err) {
+  console.error('Failed to read n8n-kommo-workflow.json:', err.message);
+}
+
 const tests = [
   // TIER 1 - Feature 1: Global Static Layout
   {
@@ -1003,6 +1015,140 @@ const tests = [
     testFn: () => {
       const match = /GlobalAiChatProvider/i.test(appContent) && /searchClientsByName|countPendingProcedures|getOverallStats/i.test(allServicesContent);
       return { pass: match, message: match ? "Verified persistent context and tool integration" : "RAG-tool multi-turn chat persistence workflow check failed: context or database tool execution is missing" };
+    }
+  },
+  // TIER 1/2 - Feature 8: n8n Workflow Data Mapping (R1)
+  {
+    id: 88,
+    tier: 1,
+    feature: 8,
+    name: "n8n Workflow: Actualizar Cliente does not use .data[0] to access properties in fields updated",
+    testFn: () => {
+      const node = workflowJson?.nodes?.find(n => n.name === 'Actualizar Cliente');
+      if (!node) return { pass: false, message: "Node 'Actualizar Cliente' not found in workflow" };
+      const nodeStr = JSON.stringify(node);
+      const usesDataZero = nodeStr.includes('.data[0]');
+      return {
+        pass: !usesDataZero,
+        message: !usesDataZero 
+          ? "No usage of '.data[0]' in 'Actualizar Cliente'" 
+          : "Found usage of '.data[0]' in 'Actualizar Cliente'"
+      };
+    }
+  },
+  {
+    id: 89,
+    tier: 1,
+    feature: 8,
+    name: "n8n Workflow: CPF is not hardcoded to '1' (must be mapped from lead/contact)",
+    testFn: () => {
+      const nodes = workflowJson?.nodes?.filter(n => n.name === 'Crear Cliente' || n.name === 'Insertar Entrada') || [];
+      if (nodes.length === 0) return { pass: false, message: "Crear Cliente and Insertar Entrada nodes not found in workflow" };
+      let hasHardcodedCpf = false;
+      for (const node of nodes) {
+        const fieldValues = node.parameters?.fieldsUi?.fieldValues || [];
+        const cpfField = fieldValues.find(f => f.fieldId === 'cpf');
+        if (cpfField && cpfField.fieldValue === '1') {
+          hasHardcodedCpf = true;
+        }
+      }
+      return {
+        pass: !hasHardcodedCpf,
+        message: !hasHardcodedCpf 
+          ? "CPF is not hardcoded to '1'" 
+          : "CPF is hardcoded to '1' in Crear Cliente or Insertar Entrada nodes"
+      };
+    }
+  },
+  {
+    id: 90,
+    tier: 1,
+    feature: 8,
+    name: "n8n Workflow: 'estado' field is mapped from lead data to the 'entradas' insertion node",
+    testFn: () => {
+      const node = workflowJson?.nodes?.find(n => n.name === 'Insertar Entrada');
+      if (!node) return { pass: false, message: "Node 'Insertar Entrada' not found in workflow" };
+      const fieldValues = node.parameters?.fieldsUi?.fieldValues || [];
+      const estadoField = fieldValues.find(f => f.fieldId === 'estado');
+      const pass = !!estadoField && estadoField.fieldValue.includes('estado');
+      return {
+        pass,
+        message: pass 
+          ? "Found 'estado' field mapping in 'Insertar Entrada' node" 
+          : "Missing 'estado' field mapping in 'Insertar Entrada' node"
+      };
+    }
+  },
+  {
+    id: 91,
+    tier: 2,
+    feature: 8,
+    name: "n8n Workflow: Does not map spelling-mismatched keys (e.g. recurrencia vs recorrencia)",
+    testFn: () => {
+      if (!workflowContent) return { pass: false, message: "Workflow content not loaded" };
+      // Check if both recurrencia (u) and recorrencia (o) are used in parameters/mappings
+      const hasRecurrencia = workflowContent.includes('recurrencia');
+      const hasRecorrencia = workflowContent.includes('recorrencia');
+      const pass = !(hasRecurrencia && hasRecorrencia);
+      return {
+        pass,
+        message: pass 
+          ? "No spelling-mismatched keys used for recurrence in workflow" 
+          : "Spelling-mismatched keys found: 'recurrencia' and 'recorrencia' are both used in workflow"
+      };
+    }
+  },
+  // TIER 1 - Feature 9: AI Assistant History Persistence (R2)
+  {
+    id: 92,
+    tier: 1,
+    feature: 9,
+    name: "App.jsx: Passes selectedClientId as a prop to GlobalAiChatProvider",
+    testFn: () => {
+      const match = /<GlobalAiChatProvider\s+[^>]*selectedClientId/i.test(appContent);
+      return {
+        pass: match,
+        message: match 
+          ? "App.jsx passes selectedClientId to GlobalAiChatProvider" 
+          : "App.jsx does not pass selectedClientId to GlobalAiChatProvider"
+      };
+    }
+  },
+  {
+    id: 93,
+    tier: 1,
+    feature: 9,
+    name: "GlobalAiChatContext.jsx: Imports supabase, uses table 'ai_chats', and inserts messages",
+    testFn: () => {
+      const hasSupabase = allContextsContent.includes('supabase');
+      const hasFromAiChats = allContextsContent.includes(".from('ai_chats')") || allContextsContent.includes('.from("ai_chats")');
+      const hasInsert = allContextsContent.includes('.insert(');
+      const pass = hasSupabase && hasFromAiChats && hasInsert;
+      return {
+        pass,
+        message: pass 
+          ? "GlobalAiChatContext.jsx imports supabase and inserts into ai_chats" 
+          : `Checks failed: hasSupabase=${hasSupabase}, hasFromAiChats=${hasFromAiChats}, hasInsert=${hasInsert}`
+      };
+    }
+  },
+  {
+    id: 94,
+    tier: 1,
+    feature: 9,
+    name: "GlobalAiChatContext.jsx: Triggers history loading from 'ai_chats' on selectedClientId change",
+    testFn: () => {
+      const hasUseEffect = allContextsContent.includes('useEffect');
+      const hasDepArray = /useEffect\([\s\S]*\[\s*selectedClientId\s*\]\s*\)/.test(allContextsContent) ||
+                          allContextsContent.includes('selectedClientId');
+      const hasSelectQuery = allContextsContent.includes('.select(') && (allContextsContent.includes('ai_chats') || allContextsContent.includes('chats'));
+      const pass = hasUseEffect && hasDepArray && hasSelectQuery;
+      return {
+        pass,
+        message: pass 
+          ? "GlobalAiChatContext.jsx triggers history loading from ai_chats when selectedClientId changes" 
+          : `Checks failed: hasUseEffect=${hasUseEffect}, hasDepArray/selectedClientId=${hasDepArray}, hasSelectQuery=${hasSelectQuery}`
+      };
     }
   }
 ];

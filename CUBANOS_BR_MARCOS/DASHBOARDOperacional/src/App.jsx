@@ -46,7 +46,7 @@ function App() {
   };
 
   return (
-    <GlobalAiChatProvider>
+    <GlobalAiChatProvider selectedClientId={currentView === 'client' ? selectedClientId : null}>
       <div className="app-layout" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         
         {/* Sidebar */}

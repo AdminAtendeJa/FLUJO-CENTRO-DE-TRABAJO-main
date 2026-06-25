@@ -7,6 +7,36 @@ import { generateDocumentPDF } from '../services/pdfGenerator';
 import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck, MessageSquare, Send } from 'lucide-react';
 import NewClientModal from './NewClientModal';
 
+// Helper for native date inputs (YYYY-MM-DD <-> DD/MM/YYYY)
+function toIsoDate(val) {
+  if (!val) return '';
+  if (val.match(/^\d{4}-\d{2}-\d{2}$/)) return val;
+  const parts = val.split('/');
+  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  return val;
+}
+function toSlashDate(val) {
+  if (!val) return '';
+  const parts = val.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return val;
+}
+
+const ESTADO_CIVIL_OPTIONS = [
+  "Casado(a)",
+  "Divorciado(a)",
+  "Outro",
+  "Separado(a) Judicialmente",
+  "Solteiro(a)",
+  "União Estável",
+  "Viúvo(a)"
+];
+
+const SEXO_OPTIONS = [
+  "Masculino",
+  "Feminino"
+];
+
 // Campos fijos de la tabla clientes — fuera del componente para no recrearlos en cada render
 const FIXED_FIELDS_CATALOG = [
   { id: 'nombre',               nombre_campo: 'Nombre',              requerido: true,  es_fijo: true, category_name: 'Informaciones Personales' },
@@ -137,22 +167,39 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   const openEditModal = (categoriaId) => {
     // Si esta en el generador de trámites, abrimos la categoria de Identidad por defecto para editar los datos más comunes
-    const targetTab = categoriaId || (categorias.length > 0 ? categorias[0].id : null);
-    const activeCategoria = categorias.find(c => c.id === targetTab);
-    const activeCategoriaNombre = activeCategoria?.nombre || '';
+    let targetTabs = [];
+    let activeCategoriasNombres = [];
+
+    if (categoriaId === 'ALL_PERSONAL') {
+      const personalCats = categorias.filter(c => ["Informaciones Personales", "Datos Familiares", "Documentos de Identidad"].includes(c.nombre));
+      targetTabs = personalCats.map(c => c.id);
+      activeCategoriasNombres = personalCats.map(c => c.nombre);
+    } else {
+      const targetTab = categoriaId || (categorias.length > 0 ? categorias[0].id : null);
+      targetTabs = [targetTab];
+      const activeCategoria = categorias.find(c => c.id === targetTab);
+      activeCategoriasNombres = [activeCategoria?.nombre || ''];
+    }
     
-    const activeFixedFields = fixedFields.filter(f => f.category_name === activeCategoriaNombre);
-    const dynamicFieldsForTab = campos.filter(c => c.categoria_id === targetTab);
+    const activeFixedFields = fixedFields.filter(f => activeCategoriasNombres.includes(f.category_name));
+    const dynamicFieldsForTab = campos.filter(c => targetTabs.includes(c.categoria_id));
 
     // 1. Populate Fixed Fields (incluso si están vacíos para que el usuario los llene)
     const formData = [];
     activeFixedFields.forEach(f => {
+      let extraArgs = {};
+      if (f.id === 'nombre') {
+        const parts = (client[f.id] || '').split(' ');
+        extraArgs._nombres = parts[0] || '';
+        extraArgs._apellidos = parts.slice(1).join(' ') || '';
+      }
       formData.push({
         id: f.id,
         campo_id: f.id,
         nombre_campo: f.nombre_campo,
         valor: client[f.id] || '',
-        es_fijo: true
+        es_fijo: true,
+        ...extraArgs
       });
     });
     
@@ -173,7 +220,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       const isAlreadyIncluded = formData.find(f => f.campo_id === cd.campo_id);
       if (!isAlreadyIncluded && cd.valor) {
         const campoDef = campos.find(c => c.id === cd.campo_id);
-        if (!campoDef || campoDef.categoria_id === targetTab) {
+        if (!campoDef || targetTabs.includes(campoDef.categoria_id)) {
           formData.push({
             id: cd.id,
             campo_id: cd.campo_id,
@@ -187,7 +234,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
     setEditFormData(formData);
     setNewFields([]);
-    setEditingCategoryId(targetTab);
+    setEditingCategoryId(categoriaId === 'ALL_PERSONAL' ? 'ALL_PERSONAL' : targetTabs[0]);
     setIsEditModalOpen(true);
   };
 
@@ -223,7 +270,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
       for (const field of editFormData) {
         if (field.es_fijo) {
-          const upperValue = field.valor?.toUpperCase() || null;
+          let upperValue = field.valor?.toUpperCase() || null;
+          if (field.id === 'nombre') {
+            upperValue = `${(field._nombres || '').trim()} ${(field._apellidos || '').trim()}`.trim().toUpperCase();
+            upperValue = upperValue || null;
+          }
           if (client[field.id] !== upperValue && (client[field.id] || upperValue)) {
             fixedUpdates[field.id] = upperValue;
           }
@@ -261,16 +312,19 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         // If it's a completely new custom field
         let targetCampoId = nf.campo_id;
         if (nf.campo_id === 'custom' && nf.customName) {
-          const upperCustomName = nf.customName.toUpperCase();
-          // Insert into campos_datos_operacionales first
-          const { data: newDef } = await supabase.from('campos_datos_operacionales').insert({
-            categoria_id: editingCategoryId,
-            nombre_campo: upperCustomName,
+          // Crear el campo operacional en caso de ser 'custom'
+          const targetCategoriaIdForCustom = editingCategoryId === 'ALL_PERSONAL' 
+            ? categorias.find(c => c.nombre === 'Informaciones Personales')?.id || categorias[0]?.id
+            : editingCategoryId;
+
+          const { data: newCampo, error: errC } = await supabase.from('campos_datos_operacionales').insert({
+            categoria_id: targetCategoriaIdForCustom,
+            nombre_campo: nf.customName.toUpperCase(),
             tipo_campo: 'texto'
           }).select().single();
           
-          if (newDef) {
-            targetCampoId = newDef.id;
+          if (newCampo) {
+            targetCampoId = newCampo.id;
           } else {
             continue;
           }
@@ -591,27 +645,36 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   if (!client) return null;
 
-  const renderCategorySection = (catName, sectionId) => {
-    const cat = categorias.find(c => c.nombre === catName);
-    if (!cat) return null;
+  const renderUnifiedPersonalData = () => {
+    const targetNames = ['Informaciones Personales', 'Datos Familiares', 'Documentos de Identidad'];
+    const targetCats = categorias.filter(c => targetNames.includes(c.nombre));
+    if (targetCats.length === 0) return null;
 
-    const catFixedFields = fixedFields.filter(f => f.category_name === catName);
-    const catDynamicFields = campos.filter(c => c.categoria_id === cat.id);
-    const allCatFields = [...catFixedFields, ...catDynamicFields];
+    let allCatFields = [];
+    let catData = [];
 
-    const catData = [
-      ...catFixedFields.map(f => ({ campo_id: f.id, valor: client[f.id] || '', es_fijo: true })),
-      ...clienteDatos.filter(cd => catDynamicFields.some(cf => cf.id === cd.campo_id))
-    ];
+    targetNames.forEach(catName => {
+      const cat = categorias.find(c => c.nombre === catName);
+      if (!cat) return;
+      const catFixedFields = fixedFields.filter(f => f.category_name === catName);
+      const catDynamicFields = campos.filter(c => c.categoria_id === cat.id);
+      
+      allCatFields.push(...catFixedFields, ...catDynamicFields);
+
+      catData.push(
+        ...catFixedFields.map(f => ({ campo_id: f.id, valor: client[f.id] || '', es_fijo: true })),
+        ...clienteDatos.filter(cd => catDynamicFields.some(cf => cf.id === cd.campo_id))
+      );
+    });
 
     return (
-      <section key={cat.id} id={sectionId} className="glass-panel" style={{ padding: '2rem' }}>
+      <section id="personal-data" className="glass-panel" style={{ padding: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: cat.color || 'var(--color-primary)', margin: 0 }}>
-            {catName}
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--color-primary)', margin: 0 }}>
+            Datos Personales Completos
           </h2>
-          <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(cat.id)}>
-            <Edit2 size={14} style={{ marginRight: '4px' }} /> Editar
+          <button className="btn btn-secondary btn-sm" onClick={() => openEditModal('ALL_PERSONAL')}>
+            <Edit2 size={14} style={{ marginRight: '4px' }} /> Editar Datos
           </button>
         </div>
 
@@ -641,7 +704,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
              return !dato || !dato.valor;
           }) && (
             <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem', gridColumn: '1 / -1' }}>
-              No hay datos rellenados. Haz clic en Editar
+              No hay datos rellenados. Haz clic en Editar Datos.
             </div>
           )}
         </div>
@@ -651,8 +714,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   const navItems = [
     { label: "Datos Personales", targetId: "personal-data" },
-    { label: "Familiares", targetId: "family-data" },
-    { label: "Documentos de Identidad", targetId: "document-data" },
     { label: "Generador de Trámites", targetId: "tramites-builder" },
     { label: "Documentos Subidos", targetId: "documentos-subidos" },
     { label: "Historial de Trámites", targetId: "historial-tramites" },
@@ -694,7 +755,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             <Sparkles size={16} />
             {isAiChatOpen ? 'Cerrar Chat' : 'Asistente IA'}
           </button>
-          <button className="btn btn-secondary" onClick={() => openEditModal(categorias[0]?.id)}><Edit2 size={16} /> Editar Datos</button>
+          <button className="btn btn-secondary" onClick={() => openEditModal('ALL_PERSONAL')}><Edit2 size={16} /> Editar Datos</button>
         </div>
       </div>
 
@@ -734,9 +795,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </aside>
 
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
-          {renderCategorySection('Informaciones Personales', 'personal-data')}
-          {renderCategorySection('Datos Familiares', 'family-data')}
-          {renderCategorySection('Documentos de Identidad', 'document-data')}
+          {renderUnifiedPersonalData()}
 
           <section id="tramites-builder" className="glass-panel" style={{ padding: '2rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1100,30 +1159,92 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
             
             <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {editFormData.map((field, idx) => (
-                <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      {field.nombre_campo}{field.es_fijo && <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>}
-                    </label>
-                    <input className="form-input" type="text" value={field.valor} onChange={(e) => {
-                      const arr = [...editFormData];
-                      arr[idx] = { ...arr[idx], valor: e.target.value };
-                      setEditFormData(arr);
-                    }} />
+              {editFormData.map((field, idx) => {
+                if (field.id === 'nombre') {
+                  return (
+                    <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Nombre(s) <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                        </label>
+                        <input className="form-input" type="text" value={field._nombres || ''} onChange={(e) => {
+                          const arr = [...editFormData];
+                          arr[idx] = { ...arr[idx], _nombres: e.target.value };
+                          setEditFormData(arr);
+                        }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Apellidos <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                        </label>
+                        <input className="form-input" type="text" value={field._apellidos || ''} onChange={(e) => {
+                          const arr = [...editFormData];
+                          arr[idx] = { ...arr[idx], _apellidos: e.target.value };
+                          setEditFormData(arr);
+                        }} />
+                      </div>
+                    </div>
+                  );
+                }
+                const isDate = field.nombre_campo?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
+                return (
+                  <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {field.nombre_campo}{field.es_fijo && <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>}
+                      </label>
+                      {field.id === 'estado_civil' ? (
+                        <select className="form-input" value={field.valor || ''} onChange={(e) => {
+                          const arr = [...editFormData];
+                          arr[idx] = { ...arr[idx], valor: e.target.value };
+                          setEditFormData(arr);
+                        }}>
+                          <option value="">Selecione</option>
+                          {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : field.id === 'sexo' ? (
+                        <select className="form-input" value={field.valor || ''} onChange={(e) => {
+                          const arr = [...editFormData];
+                          arr[idx] = { ...arr[idx], valor: e.target.value };
+                          setEditFormData(arr);
+                        }}>
+                          <option value="">Selecione</option>
+                          {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : (
+                        <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={(e) => {
+                          const arr = [...editFormData];
+                          arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
+                          setEditFormData(arr);
+                        }} />
+                      )}
+                    </div>
+                    {field.es_fijo && field.id === 'nombre' ? null : (
+                      <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteFieldData(field.id, field.es_fijo)} title="Borrar dato">
+                        <Trash2 size={18} />
+                      </button>
+                    )}
                   </div>
-                  <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteFieldData(field.id, field.es_fijo)} title="Borrar dato">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
               
               {newFields.map((field, idx) => {
                 const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
-                const editingCategory = categorias.find(c => c.id === editingCategoryId);
-                const editingCategoryNombre = editingCategory?.nombre || '';
-                const avFixed   = FIXED_FIELDS_CATALOG.filter(f => f.category_name === editingCategoryNombre && !client?.[f.id] && !usedIds.includes(f.id));
-                const avDynamic = campos.filter(c => c.categoria_id === editingCategoryId && !usedIds.includes(f.id));
+                let activeCategoriasNombres = [];
+                let activeCategoriasIds = [];
+                if (editingCategoryId === 'ALL_PERSONAL') {
+                  const cats = categorias.filter(c => ["Informaciones Personales", "Datos Familiares", "Documentos de Identidad"].includes(c.nombre));
+                  activeCategoriasNombres = cats.map(c => c.nombre);
+                  activeCategoriasIds = cats.map(c => c.id);
+                } else {
+                  const editingCategory = categorias.find(c => c.id === editingCategoryId);
+                  if (editingCategory) {
+                    activeCategoriasNombres = [editingCategory.nombre];
+                    activeCategoriasIds = [editingCategory.id];
+                  }
+                }
+                const avFixed   = FIXED_FIELDS_CATALOG.filter(f => activeCategoriasNombres.includes(f.category_name) && !client?.[f.id] && !usedIds.includes(f.id));
+                const avDynamic = campos.filter(c => activeCategoriasIds.includes(c.categoria_id) && !usedIds.includes(c.id));
                 return (
                   <div key={field.id} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '0.875rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -1148,7 +1269,30 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                       )}
                       <div style={{ flex: '1 1 140px' }}>
                         <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Valor</label>
-                        <input className="form-input" type="text" value={field.valor} disabled={!field.campo_id} placeholder="Valor" onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }} />
+                        {(() => {
+                           const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
+                           const nombreParaCheck = field.campo_id === 'custom' ? field.customName : (campoRef?.nombre_campo || '');
+                           const isDate = nombreParaCheck?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
+                           if (field.campo_id === 'estado_civil') {
+                             return (
+                               <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
+                                 <option value="">Selecione</option>
+                                 {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                               </select>
+                             );
+                           }
+                           if (field.campo_id === 'sexo') {
+                             return (
+                               <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
+                                 <option value="">Selecione</option>
+                                 {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                               </select>
+                             );
+                           }
+                           return (
+                             <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} disabled={!field.campo_id} placeholder="Valor" onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value }; setNewFields(arr); }} />
+                           );
+                        })()}
                       </div>
                       <button className="btn btn-ghost" style={{ color: 'var(--color-danger)', padding: '0.4rem' }} onClick={() => setNewFields(newFields.filter((_, i) => i !== idx))}><X size={16} /></button>
                     </div>
@@ -1195,18 +1339,43 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
                 Para generar este documento, necesitamos que completes los siguientes datos obligatorios:
               </p>
-              {missingFieldsData.missingFields.map((field, idx) => (
-                <div key={field.id}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {field.label}
-                  </label>
-                  <input className="form-input" type="text" value={field.valor} onChange={(e) => {
-                    const arr = [...missingFieldsData.missingFields];
-                    arr[idx] = { ...arr[idx], valor: e.target.value };
-                    setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
-                  }} placeholder={`Ej: ${field.label}`} />
-                </div>
-              ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, overflowY: 'auto' }}>
+                {missingFieldsData.missingFields.map((f, idx) => {
+                  const isDate = f.label?.toLowerCase().includes('fecha') || String(f.id).toLowerCase().includes('fecha');
+                  return (
+                    <div key={idx}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
+                        {f.label}
+                      </label>
+                      {f.id === 'estado_civil' ? (
+                        <select className="form-input" value={f.valor || ''} onChange={(e) => {
+                          const arr = [...missingFieldsData.missingFields];
+                          arr[idx] = { ...arr[idx], valor: e.target.value };
+                          setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
+                        }}>
+                          <option value="">Selecione</option>
+                          {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : f.id === 'sexo' ? (
+                        <select className="form-input" value={f.valor || ''} onChange={(e) => {
+                          const arr = [...missingFieldsData.missingFields];
+                          arr[idx] = { ...arr[idx], valor: e.target.value };
+                          setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
+                        }}>
+                          <option value="">Selecione</option>
+                          {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : (
+                        <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(f.valor) : (f.valor || '')} onChange={(e) => {
+                          const arr = [...missingFieldsData.missingFields];
+                          arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
+                          setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             
             <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>

@@ -92,3 +92,33 @@ Adjust the internal margins, paddings, and grid columns of the client data cards
 - [ ] The central data area expands fluidly to fill the available space, displaying client data spaciously.
 - [ ] The codebase passes standard React linting and runs locally without breaking existing features.
 
+
+## Follow-up — 2026-06-25T14:58:49Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Ready for launch — awaiting user approval
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+
+Enhance the existing n8n workflow to map Kommo data to the Supabase database, and update the React AI Assistant to persist its conversation history.
+
+Working directory: `c:\Users\Micro\Documents\FLUJO-CENTRO-DE-TRABAJO-main\CUBANOS_BR_MARCOS\DASHBOARDOperacional`
+Integrity mode: development
+
+## Requirements
+
+### R1. n8n Workflow Data Mapping
+Refactor the `n8n-kommo-workflow.json` file to include the necessary nodes (e.g., Supabase or Postgres nodes) to insert or upsert the incoming Kommo CRM data into the database. The mapping should target the `clientes` table and the `entradas` table based on the provided SQL schema, ensuring the `id_kommo` and relevant personal/deal data are correctly captured.
+
+### R2. AI Assistant History Persistence
+Update the React application (specifically `aiService.js` and any related Supabase client logic) to save the AI Assistant's conversation history. Whenever a user interacts with the AI, the messages (both `user` and `assistant` roles) must be persisted to the `ai_chats` table under the corresponding `cliente_id`.
+
+## Acceptance Criteria
+
+### Workflow Verification
+- [ ] The `n8n-kommo-workflow.json` successfully contains the new nodes configured with the correct column mappings for `clientes` and `entradas`.
+
+### React Application Verification
+- [ ] The `aiService.js` contains a Supabase insert call to the `ai_chats` table.
+- [ ] The application compiles and runs locally without breaking the existing chat functionality.
+- [ ] When the AI responds to a query, both the user's prompt and the assistant's response are logged in the database.
