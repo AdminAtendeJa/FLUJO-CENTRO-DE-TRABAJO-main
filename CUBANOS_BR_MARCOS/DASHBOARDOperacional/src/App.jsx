@@ -137,7 +137,7 @@ function App() {
           </div>
         </header>
 
-        <main style={{ flex: 1, overflowY: 'auto' }}>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: currentView === 'client' ? 'hidden' : 'auto' }}>
           {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} />}
           {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
           {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}

@@ -75,11 +75,12 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [isExtractionModalOpen, setIsExtractionModalOpen] = useState(false);
 
   // AI Chat RAG State
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(true);
   const [aiChatMessages, setAiChatMessages] = useState([]);
   const [aiChatInput, setAiChatInput] = useState('');
   const [isAiChatLoading, setIsAiChatLoading] = useState(false);
   const [crmContext, setCrmContext] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
 
   const fetchClientData = useCallback(async (fullReload = false) => {
     if (fullReload) setLoading(true);
@@ -134,9 +135,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   const fixedFields = FIXED_FIELDS_CATALOG;
 
-  const openEditModal = () => {
+  const openEditModal = (categoriaId) => {
     // Si esta en el generador de trámites, abrimos la categoria de Identidad por defecto para editar los datos más comunes
-    const targetTab = activeTab === 'TRAMITES_BUILDER' ? categorias[0]?.id : activeTab;
+    const targetTab = categoriaId || (categorias.length > 0 ? categorias[0].id : null);
     const activeCategoria = categorias.find(c => c.id === targetTab);
     const activeCategoriaNombre = activeCategoria?.nombre || '';
     
@@ -172,7 +173,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       const isAlreadyIncluded = formData.find(f => f.campo_id === cd.campo_id);
       if (!isAlreadyIncluded && cd.valor) {
         const campoDef = campos.find(c => c.id === cd.campo_id);
-        if (!campoDef || campoDef.categoria_id === activeTab) {
+        if (!campoDef || campoDef.categoria_id === targetTab) {
           formData.push({
             id: cd.id,
             campo_id: cd.campo_id,
@@ -186,6 +187,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
     setEditFormData(formData);
     setNewFields([]);
+    setEditingCategoryId(targetTab);
     setIsEditModalOpen(true);
   };
 
@@ -262,7 +264,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           const upperCustomName = nf.customName.toUpperCase();
           // Insert into campos_datos_operacionales first
           const { data: newDef } = await supabase.from('campos_datos_operacionales').insert({
-            categoria_id: activeTab,
+            categoria_id: editingCategoryId,
             nombre_campo: upperCustomName,
             tipo_campo: 'texto'
           }).select().single();
@@ -572,31 +574,81 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       alert('Error al actualizar el estado del tramite.');
     }
   };
+  const renderCategorySection = (catName, sectionId) => {
+    const cat = categorias.find(c => c.nombre === catName);
+    if (!cat) return null;
 
-  if (loading) {
-    return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}><Loader2 className="animate-spin" size={32} style={{margin:'0 auto'}} /></div>;
-  }
+    const catFixedFields = fixedFields.filter(f => f.category_name === catName);
+    const catDynamicFields = campos.filter(c => c.categoria_id === cat.id);
+    const allCatFields = [...catFixedFields, ...catDynamicFields];
 
-  if (!client) return null;
+    const catData = [
+      ...catFixedFields.map(f => ({ campo_id: f.id, valor: client[f.id] || '', es_fijo: true })),
+      ...clienteDatos.filter(cd => catDynamicFields.some(cf => cf.id === cd.campo_id))
+    ];
 
-  const activeCategoriaNombre = categorias.find(c => c.id === activeTab)?.nombre || '';
-  const activeFixedFields = fixedFields.filter(f => f.category_name === activeCategoriaNombre);
-  const dynamicFieldsForTab = campos.filter(c => c.categoria_id === activeTab);
-  
-  const currentCategoryFields = [...activeFixedFields, ...dynamicFieldsForTab];
-  
-  const clientDataForTab = [
-    ...activeFixedFields.map(f => ({ campo_id: f.id, valor: client[f.id] || '', es_fijo: true })),
-    ...clienteDatos.filter(cd => dynamicFieldsForTab.some(cf => cf.id === cd.campo_id))
+    return (
+      <section key={cat.id} id={sectionId} className="glass-panel" style={{ padding: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: cat.color || 'var(--color-primary)', margin: 0 }}>
+            {catName}
+          </h2>
+          <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(cat.id)}>
+            <Edit2 size={14} style={{ marginRight: '4px' }} /> Editar
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+          {allCatFields.map(campo => {
+            const dato = catData.find(cd => cd.campo_id === campo.id);
+            if (!dato || !dato.valor) return null;
+            
+            return (
+              <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                    {campo.nombre_campo}
+                  </label>
+                  <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
+                    {dato.valor}
+                  </div>
+                </div>
+                <button onClick={() => handleCopy(dato.valor, campo.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
+                  {copiedId === campo.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                </button>
+              </div>
+            );
+          })}
+          {allCatFields.every(campo => {
+             const dato = catData.find(cd => cd.campo_id === campo.id);
+             return !dato || !dato.valor;
+          }) && (
+            <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem', gridColumn: '1 / -1' }}>
+              No hay datos rellenados. Haz clic en Editar
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  const navItems = [
+    { label: "Datos Personales", targetId: "personal-data" },
+    { label: "Familiares", targetId: "family-data" },
+    { label: "Documentos de Identidad", targetId: "document-data" },
+    { label: "Generador de Trámites", targetId: "tramites-builder" },
+    { label: "Documentos Subidos", targetId: "documentos-subidos" },
+    { label: "Historial de Trámites", targetId: "historial-tramites" },
+    { label: "Relacionamientos", targetId: "relacionamientos-clientes" }
   ];
 
   return (
-    <div style={{ padding: '2.5rem', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
-      <button onClick={onBack} className="btn btn-ghost" style={{ marginBottom: '1.5rem', paddingLeft: 0 }}>
+    <div style={{ padding: '2.5rem', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} className="animate-fade-in">
+      <button onClick={onBack} className="btn btn-ghost" style={{ marginBottom: '1.5rem', paddingLeft: 0, width: 'fit-content' }}>
         <ArrowLeft size={18} /> Volver a Trámites
       </button>
 
-      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
           <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 600, color: 'white' }}>
             {client.nombre?.split(' ').map(n => n[0]).join('').substring(0,2)}
@@ -621,195 +673,222 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} 
             <span style={{ marginLeft: '4px' }}>Eliminar</span>
           </button>
-          <button className="btn btn-secondary" onClick={() => setIsAiChatOpen(true)} style={{ color: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}>
-            <Sparkles size={16} /> Chat IA
-          </button>
-          <button className="btn btn-secondary" onClick={openEditModal}><Edit2 size={16} /> Editar Datos</button>
+          <button className="btn btn-secondary" onClick={() => openEditModal(categorias[0]?.id)}><Edit2 size={16} /> Editar Datos</button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem' }}>
-        <div>
-          <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '1rem', marginBottom: '1rem' }}>
-            {categorias.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveTab(cat.id)}
-                style={{
-                  padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)', fontSize: '0.875rem', fontWeight: 500,
-                  whiteSpace: 'nowrap', transition: 'all 0.2s', border: '1px solid', cursor: 'pointer',
-                  background: activeTab === cat.id ? `${cat.color || 'var(--color-primary)'}22` : 'transparent',
-                  color: activeTab === cat.id ? (cat.color || 'var(--color-primary)') : 'var(--color-text-secondary)',
-                  borderColor: activeTab === cat.id ? `${cat.color || 'var(--color-primary)'}55` : 'var(--color-border)'
-                }}
-              >
-                {cat.nombre}
-              </button>
-            ))}
-            <button
-              onClick={() => setActiveTab('TRAMITES_BUILDER')}
+      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 400px', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        <aside className="quick-nav" style={{ width: '220px', position: 'sticky', top: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', height: 'fit-content' }}>
+          {navItems.map((item, idx) => (
+            <a
+              key={idx}
+              href={`#${item.targetId}`}
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById(item.targetId)?.scrollIntoView({ behavior: 'smooth' });
+              }}
               style={{
-                padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)', fontSize: '0.875rem', fontWeight: 500,
-                whiteSpace: 'nowrap', transition: 'all 0.2s', border: '1px solid', cursor: 'pointer',
-                background: activeTab === 'TRAMITES_BUILDER' ? `var(--color-primary)22` : 'transparent',
-                color: activeTab === 'TRAMITES_BUILDER' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                borderColor: activeTab === 'TRAMITES_BUILDER' ? `var(--color-primary)55` : 'var(--color-border)'
+                display: 'block',
+                padding: '0.5rem 0.75rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: 'var(--color-text-secondary)',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = 'var(--color-bg-elevated)';
+                e.target.style.color = 'var(--color-text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'transparent';
+                e.target.style.color = 'var(--color-text-secondary)';
               }}
             >
-              <FileText size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }}/> 
-              Generador de Trámites
-            </button>
-          </div>
+              {item.label}
+            </a>
+          ))}
+        </aside>
 
-          {activeTab === 'TRAMITES_BUILDER' ? (
-            <div className="glass-panel" style={{ padding: '2rem' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <FileText size={20} /> Generador de Trámites y Declaraciones
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>
-                Genera rápidamente los documentos legales requeridos usando los datos del cliente.
-              </p>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('HIPOSSUFICIENCIA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Hipossuficiência Econômica</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de incapacidad de pagar tasas.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('ANTECEDENTES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Antecedentes Criminais</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Ausencia de antecedentes en Brasil y exterior.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_RETIRAR_DOCS')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Retirar Docs</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar RNM u otros documentos.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_MENORES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Menores</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar documentos de menores de edad.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_RESIDENCIA_CHAMANTE')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Residência do Chamante</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de que el familiar llamante reside en Brasil.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ENTRADA_BRASIL')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Entrada ao Brasil</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de frontera de entrada al país.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ELETRONICA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Declaração Eletrônica</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de medios de contacto electrónicos.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_SEI')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Usuário Externo SEI</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Cadastro Ministério da Justiça e Segurança Pública.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_CONJUNTA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Declaração Conjunta</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Para Casados ou União Estável.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_CONDICAO_FISCAL')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Condição Fiscal (CPF)</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaração da Receita Federal.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_GERAL_MIGRANTE')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Geral do Migrante</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Polícia Federal (Antecedentes, Taxas, etc).</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_MAIS_MEDICOS')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Programa Mais Médicos</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaração de integração ao programa.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DATOS_PODER')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Solicitar Poder</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Datos para solicitar poder consular.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('SERVICIO_CONSULAR')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Servicio Consular</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Planilla simplificada para pasaportes, prórrogas.</span>
-                  </div>
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleGeneratePDF('INSCRIPCION_CONSULAR')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Inscripción Consular</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Solicitud de inscripción en el consulado de Cuba.</span>
-                  </div>
-                </button>
-              </div>
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
+          {renderCategorySection('Informaciones Personales', 'personal-data')}
+          {renderCategorySection('Datos Familiares', 'family-data')}
+          {renderCategorySection('Documentos de Identidad', 'document-data')}
+
+          <section id="tramites-builder" className="glass-panel" style={{ padding: '2rem' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FileText size={20} /> Generador de Trámites y Declaraciones
+            </h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>
+              Genera rápidamente los documentos legales requeridos usando los datos del cliente.
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('HIPOSSUFICIENCIA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Hipossuficiência Econômica</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de incapacidad de pagar tasas.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('ANTECEDENTES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Antecedentes Criminais</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Ausencia de antecedentes en Brasil y exterior.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_RETIRAR_DOCS')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Retirar Docs</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar RNM u otros documentos.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_MENORES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Menores</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar documentos de menores de edad.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_RESIDENCIA_CHAMANTE')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Residência do Chamante</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de que el familiar llamante reside en Brasil.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ENTRADA_BRASIL')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Entrada ao Brasil</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de frontera de entrada al país.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ELETRONICA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Declaração Eletrônica</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de medios de contacto electrónicos.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_SEI')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Usuário Externo SEI</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Cadastro Ministério da Justiça e Segurança Pública.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_CONJUNTA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Declaração Conjunta</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Para Casados ou União Estável.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_CONDICAO_FISCAL')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Condição Fiscal (CPF)</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de la Receita Federal.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_GERAL_MIGRANTE')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Geral do Migrante</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Polícia Federal (Antecedentes, Taxas, etc).</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_MAIS_MEDICOS')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Programa Mais Médicos</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de integración al programa.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DATOS_PODER')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Solicitar Poder</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Datos para solicitar poder consular.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('SERVICIO_CONSULAR')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Servicio Consular</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Planilla simplificada para pasaportes, prórrogas.</span>
+                </div>
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('INSCRIPCION_CONSULAR')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Inscripción Consular</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Solicitud de inscripción en el consulado de Cuba.</span>
+                </div>
+              </button>
             </div>
-          ) : (
-            <div className="glass-panel" style={{ padding: '2rem' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: categorias.find(c => c.id === activeTab)?.color || 'var(--color-primary)' }}>
-              {categorias.find(c => c.id === activeTab)?.nombre}
+          </section>
+
+          <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <FileText size={18} color="var(--color-primary)" /> Documentos Subidos
             </h2>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-              {currentCategoryFields.map(campo => {
-                const dato = clientDataForTab.find(cd => cd.campo_id === campo.id);
-                // HIDE EMPTY FIELDS IN READ-ONLY VIEW
-                if (!dato || !dato.valor) return null;
-                
-                return (
-                  <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                        {campo.nombre_campo}
-                      </label>
-                      <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
-                        {dato.valor}
-                      </div>
-                    </div>
-                    <button onClick={() => handleCopy(dato.valor, campo.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                      {copiedId === campo.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                    </button>
-                  </div>
-                );
-              })}
-              {currentCategoryFields.every(campo => {
-                 const dato = clientDataForTab.find(cd => cd.campo_id === campo.id);
-                 return !dato || !dato.valor;
-              }) && (
-                <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem', gridColumn: '1 / -1' }}>
-                  No hay datos rellenados. Haz clic en "Editar Datos".
-                </div>
+            <label 
+              style={{ display: 'block', border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1.5rem', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', marginBottom: '1.25rem' }}
+            >
+              <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
+              {uploading ? (
+                 <Loader2 className="animate-spin" size={24} color="var(--color-primary)" style={{ margin: '0 auto 0.5rem' }} />
+              ) : (
+                <UploadCloud size={24} color="var(--color-text-muted)" style={{ margin: '0 auto 0.5rem' }} />
               )}
-            </div>
-          </div>
-          )}
-        </div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{uploading ? 'Subiendo...' : 'Subir Documento'}</div>
+            </label>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {/* Historial de Trámites */}
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.65rem' }}>
+              {documentos.map(doc => (
+                <div key={doc.id} style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)', aspectRatio: '1', background: 'var(--color-bg-secondary)', border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`, transition: 'border-color 0.2s' }}>
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {doc.url_archivo ? (
+                      doc.tipo_contenido?.startsWith('image/') ?
+                        <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'var(--color-text-muted)' }}>
+                          <FileText size={28} />
+                          <span style={{ fontSize: '0.6rem', textAlign: 'center', padding: '0 4px' }}>{doc.nombre_archivo}</span>
+                        </div>
+                    ) : <ImageIcon size={26} color="var(--color-text-muted)" />}
+                  </div>
+
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0.3rem 0.4rem', background: 'rgba(10,20,35,0.9)', backdropFilter: 'blur(4px)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <div style={{ color: 'white', fontSize: '0.58rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 85 }}>{doc.nombre_archivo}</div>
+                      <button
+                        onClick={() => handleToggleDocumentStatus(doc)}
+                        title={doc.estado === 'verificado' ? 'Marcar como Pendiente' : 'Marcar como Verificado'}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+                      >
+                        <span style={{ fontSize: '0.52rem', fontWeight: 700, color: doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-warning)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                          {doc.estado === 'verificado' ? '✓ Verificado' : '● Pendiente'}
+                        </span>
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
+                      <a
+                        href={doc.url_archivo}
+                        download={doc.nombre_archivo}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Descargar"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.2rem', borderRadius: '4px', color: 'var(--color-primary)', background: 'rgba(99,102,241,0.15)', textDecoration: 'none' }}
+                      >
+                        <Download size={11} />
+                      </a>
+                      <button className="btn btn-ghost" onClick={() => handleDeleteDocument(doc)} style={{ color: 'var(--color-danger)', padding: '0.2rem', borderRadius: '4px', background: 'rgba(216,90,48,0.15)' }} title="Eliminar">
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {documentos.length === 0 && <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', gridColumn: '1/-1' }}>Sin documentos subidos.</div>}
+            </div>
+          </section>
+
+          <section id="historial-tramites" className="glass-panel" style={{ padding: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
               <Clock size={18} color="var(--color-primary)" /> Historial de Trámites
-            </h3>
+            </h2>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {entradas.map(entrada => (
@@ -836,13 +915,13 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               ))}
               {entradas.length === 0 && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay trámites registrados.</div>}
             </div>
-          </div>
+          </section>
 
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+          <section id="relacionamientos-clientes" className="glass-panel" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
                 <Users size={18} color="var(--color-primary)" /> Relacionamientos
-              </h3>
+              </h2>
               <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => setIsRelateModalOpen(true)}><Plus size={18} /></button>
             </div>
             
@@ -872,82 +951,68 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               })}
               {relaciones.length === 0 && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay familiares o amigos vinculados.</div>}
             </div>
+          </section>
+        </div>
+
+        <div 
+          style={{
+            width: '400px', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-base)', borderLeft: '1px solid var(--color-border)', overflow: 'hidden'
+          }}
+        >
+          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
+              <Sparkles size={20} />
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Asistente IA</h2>
+            </div>
+          </div>
+          
+          <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {aiChatMessages.map((msg, i) => (
+              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                  {msg.role === 'user' ? 'Tú' : 'IA'}
+                </div>
+                <div style={{
+                  background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-elevated)',
+                  color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
+                  padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomRightRadius: msg.role === 'user' ? 0 : 'var(--radius-lg)', borderBottomLeftRadius: msg.role === 'assistant' ? 0 : 'var(--radius-lg)',
+                  fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'pre-wrap'
+                }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {isAiChatLoading && (
+              <div style={{ alignSelf: 'flex-start', background: 'var(--color-bg-elevated)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: 0, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <Loader2 size={16} className="animate-spin" color="var(--color-primary)" />
+                <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Pensando...</span>
+              </div>
+            )}
           </div>
 
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <FileText size={18} color="var(--color-primary)" /> Documentos
-            </h3>
-            
-            <label 
-              style={{ display: 'block', border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1.5rem', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', marginBottom: '1.25rem' }}
-            >
-              <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
-              {uploading ? (
-                 <Loader2 className="animate-spin" size={24} color="var(--color-primary)" style={{ margin: '0 auto 0.5rem' }} />
-              ) : (
-                <UploadCloud size={24} color="var(--color-text-muted)" style={{ margin: '0 auto 0.5rem' }} />
-              )}
-              <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{uploading ? 'Subiendo...' : 'Subir Documento'}</div>
-            </label>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-              {documentos.map(doc => (
-                <div key={doc.id} style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)', aspectRatio: '1', background: 'var(--color-bg-secondary)', border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`, transition: 'border-color 0.2s' }}>
-                  {/* Contenido principal */}
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {doc.url_archivo ? (
-                      doc.tipo_contenido?.startsWith('image/') ?
-                        <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'var(--color-text-muted)' }}>
-                          <FileText size={28} />
-                          <span style={{ fontSize: '0.6rem', textAlign: 'center', padding: '0 4px' }}>{doc.nombre_archivo}</span>
-                        </div>
-                    ) : <ImageIcon size={26} color="var(--color-text-muted)" />}
-                  </div>
-
-                  {/* Overlay inferior con nombre, estado y acciones */}
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0.3rem 0.4rem', background: 'rgba(10,20,35,0.9)', backdropFilter: 'blur(4px)' }}>
-                    {/* Nombre y estado */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                      <div style={{ color: 'white', fontSize: '0.58rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 85 }}>{doc.nombre_archivo}</div>
-                      <button
-                        onClick={() => handleToggleDocumentStatus(doc)}
-                        title={doc.estado === 'verificado' ? 'Marcar como Pendiente' : 'Marcar como Verificado'}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-                      >
-                        <span style={{ fontSize: '0.52rem', fontWeight: 700, color: doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-warning)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                          {doc.estado === 'verificado' ? '✓ Verificado' : '● Pendiente'}
-                        </span>
-                      </button>
-                    </div>
-                    {/* Botones de acción */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
-                      <a
-                        href={doc.url_archivo}
-                        download={doc.nombre_archivo}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Descargar"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.2rem', borderRadius: '4px', color: 'var(--color-primary)', background: 'rgba(99,102,241,0.15)', textDecoration: 'none' }}
-                      >
-                        <Download size={11} />
-                      </a>
-                      <button className="btn btn-ghost" onClick={() => handleDeleteDocument(doc)} style={{ color: 'var(--color-danger)', padding: '0.2rem', borderRadius: '4px', background: 'rgba(216,90,48,0.15)' }} title="Eliminar">
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {documentos.length === 0 && <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', gridColumn: '1/-1' }}>Sin documentos subidos.</div>}
+          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-base)' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <textarea
+                value={aiChatInput}
+                onChange={e => setAiChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendAiMessage(); } }}
+                placeholder="Pregunta algo sobre el cliente..."
+                style={{ flex: 1, resize: 'none', height: '42px', minHeight: '42px', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)' }}
+                disabled={isAiChatLoading}
+              />
+              <button className="btn btn-primary" onClick={handleSendAiMessage} disabled={isAiChatLoading || !aiChatInput.trim()} style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', flexShrink: 0 }}>
+                <Send size={18} />
+              </button>
+            </div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.5rem' }}>
+              La IA tiene contexto de la BD y CRM. {crmContext ? '✅ CRM Listo' : '⏳ Cargando CRM...'}
             </div>
           </div>
         </div>
       </div>
 
       {isRelateModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
           <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Vincular Familiar / Amigo</h2>
             <div style={{ marginBottom: '1rem' }}>
@@ -982,7 +1047,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       )}
 
       {isEditModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
           <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             
             <datalist id="existing-fields-list">
@@ -1016,13 +1081,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               ))}
               
               {newFields.map((field, idx) => {
-                // Available fields are ALL fields across all categories that aren't already used
-                const usedFieldIds = [...editFormData.map(f => f.campo_id), ...newFields.map(f => f.campo_id).filter(id => id !== field.campo_id)];
-                const availableFields = campos.filter(c => !usedFieldIds.includes(c.id));
-                
                 const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
-                const avFixed   = FIXED_FIELDS_CATALOG.filter(f => f.category_name === activeCategoriaNombre && !client?.[f.id] && !usedIds.includes(f.id));
-                const avDynamic = campos.filter(c => c.categoria_id === activeTab && !usedIds.includes(c.id));
+                const editingCategory = categorias.find(c => c.id === editingCategoryId);
+                const editingCategoryNombre = editingCategory?.nombre || '';
+                const avFixed   = FIXED_FIELDS_CATALOG.filter(f => f.category_name === editingCategoryNombre && !client?.[f.id] && !usedIds.includes(f.id));
+                const avDynamic = campos.filter(c => c.categoria_id === editingCategoryId && !usedIds.includes(f.id));
                 return (
                   <div key={field.id} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '0.875rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -1081,7 +1144,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       )}
 
       {missingFieldsData && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
           <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1119,7 +1182,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       )}
 
       {isExtractionModalOpen && extractedData && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
           <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
               <Sparkles size={18} /> IA Detectó Datos del Documento
@@ -1146,68 +1209,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           </div>
         </div>
       )}
-
-      {/* AI Chat Drawer */}
-      <div 
-        style={{
-          position: 'fixed', top: 0, right: isAiChatOpen ? 0 : '-400px', width: '400px', height: '100vh',
-          background: 'var(--color-bg-base)', borderLeft: '1px solid var(--color-border)',
-          boxShadow: '-4px 0 24px rgba(0,0,0,0.2)', transition: 'right 0.3s ease', zIndex: 1000, display: 'flex', flexDirection: 'column'
-        }}
-      >
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
-            <Sparkles size={20} />
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Asistente IA</h2>
-          </div>
-          <button className="btn btn-ghost" onClick={() => setIsAiChatOpen(false)} style={{ padding: '0.25rem' }}>
-            <X size={20} />
-          </button>
-        </div>
-        
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {aiChatMessages.map((msg, i) => (
-            <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
-                {msg.role === 'user' ? 'Tú' : 'IA'}
-              </div>
-              <div style={{
-                background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-elevated)',
-                color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
-                padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomRightRadius: msg.role === 'user' ? 0 : 'var(--radius-lg)', borderBottomLeftRadius: msg.role === 'assistant' ? 0 : 'var(--radius-lg)',
-                fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'pre-wrap'
-              }}>
-                {msg.content}
-              </div>
-            </div>
-          ))}
-          {isAiChatLoading && (
-            <div style={{ alignSelf: 'flex-start', background: 'var(--color-bg-elevated)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: 0, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <Loader2 size={16} className="animate-spin" color="var(--color-primary)" />
-              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Pensando...</span>
-            </div>
-          )}
-        </div>
-
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-base)' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <textarea
-              value={aiChatInput}
-              onChange={e => setAiChatInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendAiMessage(); } }}
-              placeholder="Pregunta algo sobre el cliente..."
-              style={{ flex: 1, resize: 'none', height: '42px', minHeight: '42px', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)' }}
-              disabled={isAiChatLoading}
-            />
-            <button className="btn btn-primary" onClick={handleSendAiMessage} disabled={isAiChatLoading || !aiChatInput.trim()} style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', flexShrink: 0 }}>
-              <Send size={18} />
-            </button>
-          </div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.5rem' }}>
-            La IA tiene contexto de la BD y CRM. {crmContext ? '✅ CRM Listo' : '⏳ Cargando CRM...'}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
