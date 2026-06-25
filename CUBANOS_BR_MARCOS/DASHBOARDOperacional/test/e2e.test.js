@@ -133,11 +133,10 @@ const tests = [
     id: 7,
     tier: 1,
     feature: 2,
-    name: "ClientView.jsx uses grid/flex layout template with 3 columns",
+    name: "ClientView.jsx uses grid/flex layout template with 2 columns",
     testFn: () => {
-      const match = /gridTemplateColumns:\s*['"]\d+(?:px|rem|%|fr)?\s+\w+\s+\d+(?:px|rem|%|fr)?['"]/.test(clientViewContent) ||
-                    /gridTemplateColumns:\s*['"][^'"]+\s+[^'"]+\s+[^'"]+['"]/.test(clientViewContent);
-      return { pass: match, message: match ? "Found 3-column grid layout" : "Missing 3-column layout (e.g. gridTemplateColumns: '240px 1fr 400px') in ClientView.jsx" };
+      const match = /gridTemplateColumns:\s*['"]220px\s+1fr['"]/.test(clientViewContent);
+      return { pass: match, message: match ? "Found 2-column grid layout" : "Missing 2-column layout (e.g. gridTemplateColumns: '220px 1fr') in ClientView.jsx" };
     }
   },
   {
@@ -335,20 +334,20 @@ const tests = [
     id: 26,
     tier: 2,
     feature: 2,
-    name: "AI Chat sidebar does not use high zIndex overlay styles",
+    name: "AI Chat sidebar uses high zIndex overlay styles",
     testFn: () => {
-      const match = !/position:\s*['"]fixed['"].*zIndex:\s*1000/.test(clientViewContent) && !/zIndex:\s*1000.*position:\s*['"]fixed['"]/.test(clientViewContent);
-      return { pass: match, message: match ? "AI Chat is not styled as a high zIndex overlay" : "Found zIndex 1000 with position fixed on AI Chat (overlay drawer style)" };
+      const match = (/position:\s*['"](?:absolute|fixed)['"]/.test(clientViewContent) && /zIndex:\s*(?:100|\d{3,})/.test(clientViewContent));
+      return { pass: match, message: match ? "AI Chat is styled as a high zIndex overlay" : "Missing high zIndex >= 100 or position absolute/fixed on AI Chat (overlay drawer style)" };
     }
   },
   {
     id: 27,
     tier: 2,
     feature: 2,
-    name: "AI Chat sidebar does not use position: fixed when persistent",
+    name: "AI Chat sidebar uses position: fixed or absolute when toggleable",
     testFn: () => {
-      const match = !/position:\s*['"]fixed['"].*right:\s*isAiChatOpen/.test(clientViewContent);
-      return { pass: match, message: match ? "AI Chat does not use position: fixed layout" : "Found position: fixed layout for AI Chat drawer" };
+      const match = /position:\s*['"](?:fixed|absolute)['"]/.test(clientViewContent);
+      return { pass: match, message: match ? "AI Chat uses position: fixed or absolute layout" : "AI Chat does not use position: fixed or absolute layout" };
     }
   },
   {
@@ -496,11 +495,11 @@ const tests = [
     id: 41,
     tier: 3,
     feature: 2,
-    name: "Layout & Chat Interaction: Main content wrapper and AI Chat use a non-overlapping grid/flex layout",
+    name: "Layout & Chat Interaction: Main content wrapper uses 2-column layout and AI Chat uses overlay styling",
     testFn: () => {
-      const match = /gridTemplateColumns:\s*['"][^'"]+\s+[^'"]+\s+[^'"]+['"]/.test(clientViewContent) &&
-                    !/position:\s*['"]fixed['"].*zIndex:\s*1000/.test(clientViewContent);
-      return { pass: match, message: match ? "Grid columns set and AI Chat is not fixed overlay drawer" : "AI Chat is still position: fixed overlay drawer instead of layout column" };
+      const match = /gridTemplateColumns:\s*['"]220px\s+1fr['"]/.test(clientViewContent) &&
+                    (/position:\s*['"](?:absolute|fixed)['"]/.test(clientViewContent) && /zIndex:\s*(?:100|\d{3,})/.test(clientViewContent));
+      return { pass: match, message: match ? "2-column grid columns set and AI Chat uses overlay styling" : "Missing 2-column grid columns or AI Chat overlay style with high zIndex" };
     }
   },
   {
@@ -563,10 +562,10 @@ const tests = [
     id: 47,
     tier: 4,
     feature: 2,
-    name: "AI Chat Persistence: Chat panel is permanently embedded without a sliding position relative to state",
+    name: "AI Chat visibility depends on isAiChatOpen state",
     testFn: () => {
-      const match = !/right:\s*isAiChatOpen\s*\?\s*/.test(clientViewContent) && !/right:\s*['"]-400px['"]/.test(clientViewContent);
-      return { pass: match, message: match ? "No sliding right style found" : "Found sliding right drawer position style dependent on isAiChatOpen state" };
+      const match = clientViewContent.includes("{isAiChatOpen &&");
+      return { pass: match, message: match ? "AI Chat visibility depends on isAiChatOpen" : "Missing conditional rendering {isAiChatOpen && ...} for AI Chat panel" };
     }
   },
   {

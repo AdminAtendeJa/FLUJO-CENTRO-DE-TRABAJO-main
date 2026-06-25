@@ -75,7 +75,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [isExtractionModalOpen, setIsExtractionModalOpen] = useState(false);
 
   // AI Chat RAG State
-  const [isAiChatOpen, setIsAiChatOpen] = useState(true);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [aiChatMessages, setAiChatMessages] = useState([]);
   const [aiChatInput, setAiChatInput] = useState('');
   const [isAiChatLoading, setIsAiChatLoading] = useState(false);
@@ -680,11 +680,15 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} 
             <span style={{ marginLeft: '4px' }}>Eliminar</span>
           </button>
+          <button className="btn btn-secondary" onClick={() => setIsAiChatOpen(!isAiChatOpen)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Sparkles size={16} />
+            {isAiChatOpen ? 'Cerrar Chat' : 'Asistente IA'}
+          </button>
           <button className="btn btn-secondary" onClick={() => openEditModal(categorias[0]?.id)}><Edit2 size={16} /> Editar Datos</button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 400px', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
         <aside className="quick-nav" style={{ width: '220px', position: 'sticky', top: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', height: 'fit-content' }}>
           {navItems.map((item, idx) => (
             <a
@@ -961,61 +965,78 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           </section>
         </div>
 
-        <div 
-          style={{
-            width: '400px', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-base)', borderLeft: '1px solid var(--color-border)', overflow: 'hidden'
-          }}
-        >
-          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
-              <Sparkles size={20} />
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Asistente IA</h2>
-            </div>
-          </div>
-          
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {aiChatMessages.map((msg, i) => (
-              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
-                  {msg.role === 'user' ? 'Tú' : 'IA'}
-                </div>
-                <div style={{
-                  background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-elevated)',
-                  color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
-                  padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomRightRadius: msg.role === 'user' ? 0 : 'var(--radius-lg)', borderBottomLeftRadius: msg.role === 'assistant' ? 0 : 'var(--radius-lg)',
-                  fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'pre-wrap'
-                }}>
-                  {msg.content}
-                </div>
+        {isAiChatOpen && (
+          <div 
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: '400px',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'var(--color-bg-base)',
+              borderLeft: '1px solid var(--color-border)',
+              boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.45)',
+              zIndex: 100,
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
+                <Sparkles size={20} />
+                <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Asistente IA</h2>
               </div>
-            ))}
-            {isAiChatLoading && (
-              <div style={{ alignSelf: 'flex-start', background: 'var(--color-bg-elevated)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: 0, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <Loader2 size={16} className="animate-spin" color="var(--color-primary)" />
-                <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Pensando...</span>
-              </div>
-            )}
-          </div>
-
-          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-base)' }}>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <textarea
-                value={aiChatInput}
-                onChange={e => setAiChatInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendAiMessage(); } }}
-                placeholder="Pregunta algo sobre el cliente..."
-                style={{ flex: 1, resize: 'none', height: '42px', minHeight: '42px', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)' }}
-                disabled={isAiChatLoading}
-              />
-              <button className="btn btn-primary" onClick={handleSendAiMessage} disabled={isAiChatLoading || !aiChatInput.trim()} style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', flexShrink: 0 }}>
-                <Send size={18} />
+              <button className="btn btn-ghost" style={{ padding: '0.5rem' }} onClick={() => setIsAiChatOpen(false)}>
+                <X size={18} />
               </button>
             </div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.5rem' }}>
-              La IA tiene contexto de la BD y CRM. {crmContext ? '✅ CRM Listo' : '⏳ Cargando CRM...'}
+            
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {aiChatMessages.map((msg, i) => (
+                <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                    {msg.role === 'user' ? 'Tú' : 'IA'}
+                  </div>
+                  <div style={{
+                    background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-elevated)',
+                    color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
+                    padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomRightRadius: msg.role === 'user' ? 0 : 'var(--radius-lg)', borderBottomLeftRadius: msg.role === 'assistant' ? 0 : 'var(--radius-lg)',
+                    fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'pre-wrap'
+                  }}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {isAiChatLoading && (
+                <div style={{ alignSelf: 'flex-start', background: 'var(--color-bg-elevated)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: 0, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <Loader2 size={16} className="animate-spin" color="var(--color-primary)" />
+                  <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Pensando...</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-base)' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <textarea
+                  value={aiChatInput}
+                  onChange={e => setAiChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendAiMessage(); } }}
+                  placeholder="Pregunta algo sobre el cliente..."
+                  style={{ flex: 1, resize: 'none', height: '42px', minHeight: '42px', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)' }}
+                  disabled={isAiChatLoading}
+                />
+                <button className="btn btn-primary" onClick={handleSendAiMessage} disabled={isAiChatLoading || !aiChatInput.trim()} style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', flexShrink: 0 }}>
+                  <Send size={18} />
+                </button>
+              </div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.5rem' }}>
+                La IA tiene contexto de la BD y CRM. {crmContext ? '✅ CRM Listo' : '⏳ Cargando CRM...'}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {isRelateModalOpen && (
