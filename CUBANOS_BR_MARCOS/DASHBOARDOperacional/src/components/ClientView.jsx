@@ -739,6 +739,21 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     }
   };
 
+  const handleSendToExtension = () => {
+    const fullData = { ...client };
+    clienteDatos.forEach(cd => {
+      const campoDef = campos.find(c => c.id === cd.campo_id);
+      if (campoDef && cd.valor) {
+        fullData[campoDef.nombre_campo.toLowerCase()] = cd.valor;
+      }
+    });
+
+    window.postMessage({ type: 'CUBANOS_BR_SYNC', clientData: fullData }, '*');
+    
+    // Optional: show a small alert or toast
+    alert('Datos de ' + client.nombre + ' enviados a la extensión. ¡Abre SISMIGRA y verás el botón de autocompletar!');
+  };
+
   if (loading) {
     return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Cargando datos del cliente...</div>;
   }
@@ -975,6 +990,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           <button className="btn btn-secondary" onClick={() => setIsAiChatOpen(!isAiChatOpen)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Sparkles size={16} />
             {isAiChatOpen ? 'Cerrar Chat' : 'Asistente IA'}
+          </button>
+          <button className="btn btn-secondary" onClick={handleSendToExtension} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(23,198,113,0.1)', color: 'var(--color-success)', borderColor: 'rgba(23,198,113,0.2)' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
+            Enviar a Extensión
           </button>
           <button className="btn btn-secondary" onClick={() => openEditModal('ALL_PERSONAL')}><Edit2 size={16} /> Editar Datos</button>
         </div>

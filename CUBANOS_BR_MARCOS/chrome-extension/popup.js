@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let supaUrl = '';
   let supaKey = '';
 
-  // Load config
-  chrome.storage.local.get(['supaUrl', 'supaKey'], (res) => {
+  // Load config and active client
+  chrome.storage.local.get(['supaUrl', 'supaKey', 'activeClient'], (res) => {
     if (res.supaUrl && res.supaKey) {
       supaUrl = res.supaUrl;
       supaKey = res.supaKey;
@@ -20,6 +20,23 @@ document.addEventListener('DOMContentLoaded', () => {
       supaKeyInput.value = supaKey;
     } else {
       configSection.style.display = 'block';
+    }
+
+    if (res.activeClient && res.activeClient.nombre) {
+      document.getElementById('activeClientSection').style.display = 'block';
+      document.getElementById('activeClientName').innerText = res.activeClient.nombre;
+      
+      document.getElementById('btnAutoFillActive').addEventListener('click', () => {
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+          chrome.tabs.sendMessage(tabs[0].id, { action: "fillForm", data: res.activeClient }, function(response) {
+            if (chrome.runtime.lastError) {
+              alert("No se pudo autocompletar la página. Asegúrate de estar en una web compatible y recarga la página.");
+            } else {
+              window.close();
+            }
+          });
+        });
+      });
     }
   });
 
