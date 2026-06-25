@@ -8,7 +8,9 @@ export async function getChatHistoryFromN8n(idCrm) {
     return "No hay ID de CRM vinculado a este cliente.";
   }
 
-  const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+  // Fallback directo a tu URL de producción en Easypanel si la variable de entorno falla al compilar
+  const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://flujo-escala-n8n.l2b1t2.easypanel.host/webhook/chat-historial';
+  
   if (!webhookUrl || webhookUrl.includes('tu-n8n.com')) {
     console.warn('[CRM Bridge] El webhook de n8n no está configurado en .env. Simulando respuesta...');
     return "Simulación: No se pudo contactar al webhook de n8n. Configura VITE_N8N_WEBHOOK_URL en el .env.";
