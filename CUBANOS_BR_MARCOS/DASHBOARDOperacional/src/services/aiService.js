@@ -85,6 +85,8 @@ Analiza CUIDADOSAMENTE la imagen y extrae todos los datos personales visibles.
 Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin texto extra) con estos campos:
 {
   "NOMBRE_COMPLETO": null,
+  "NOMBRE_MADRE": null,
+  "NOMBRE_PADRE": null,
   "CPF": null,
   "RNM": null,
   "FECHA_NACIMIENTO": null,
@@ -180,6 +182,8 @@ export async function extractClientDataFromText(text) {
 Dado el siguiente texto, extrae datos del cliente y devuelve ÚNICAMENTE JSON puro:
 {
   "nombre": null,
+  "nombre_madre": null,
+  "nombre_padre": null,
   "cpf": null,
   "rnm": null,
   "fecha_nacimiento": null,
