@@ -1369,7 +1369,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
       {isEditModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             
             <datalist id="existing-fields-list">
               {categorias.flatMap(c => c.campos_datos_operacionales || []).map(f => (
@@ -1382,11 +1382,12 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               <button className="btn btn-ghost" style={{ padding: '0.5rem' }} onClick={() => setIsEditModalOpen(false)}>✕</button>
             </div>
             
-            <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
               {editFormData.map((field, idx) => {
                 if (field.id === 'nombre') {
                   return (
-                    <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
+                    <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
                       <div style={{ flex: 1 }}>
                         <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           Nombre(s) <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
@@ -1412,7 +1413,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 }
                 if (field.id === 'direccion') {
                   return (
-                    <div key={`exist-${field.campo_id}-${idx}`} style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
+                    <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
                       <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
                       </label>
@@ -1500,6 +1501,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                   </div>
                 );
               })}
+              </div>
               
               {newFields.map((field, idx) => {
                 const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
