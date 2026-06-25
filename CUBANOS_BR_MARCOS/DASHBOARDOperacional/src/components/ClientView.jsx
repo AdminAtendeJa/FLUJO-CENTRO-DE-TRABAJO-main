@@ -1383,7 +1383,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
             
             <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
               {editFormData.map((field, idx) => {
                 if (field.id === 'nombre') {
                   return (
@@ -1503,8 +1503,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               })}
               </div>
               
-              {newFields.map((field, idx) => {
-                const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
+              {newFields.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%', marginTop: '1rem' }}>
+                {newFields.map((field, idx) => {
+                  const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
                 let activeCategoriasNombres = [];
                 let activeCategoriasIds = [];
                 if (editingCategoryId === 'ALL_PERSONAL') {
@@ -1574,6 +1576,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                   </div>
                 );
               })}
+              </div>
+              )}
               <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
                 <Plus size={16} /> Añadir Más Datos
               </button>
