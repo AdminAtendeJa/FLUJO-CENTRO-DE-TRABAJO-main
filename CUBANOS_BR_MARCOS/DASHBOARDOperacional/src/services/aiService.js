@@ -13,9 +13,9 @@
 
 import { supabase } from '../supabaseClient';
 
-const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL_TEXT     = 'llama-3.3-70b-versatile';   // Texto / razonamiento general
-const MODEL_VISION   = 'llama-3.2-11b-vision-preview'; // Visión + OCR
+const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL_TEXT = 'llama-3.3-70b-versatile';   // Texto / razonamiento general
+const MODEL_VISION = 'meta-llama/llama-4-scout-17b-16e-instruct'; // Visión + OCR
 
 function getApiKey() {
   const key = import.meta.env.VITE_GROQ_API_KEY;
@@ -75,7 +75,7 @@ export async function analyzeDocumentImage(file) {
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload  = () => resolve(reader.result);
+    reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
   });
 
