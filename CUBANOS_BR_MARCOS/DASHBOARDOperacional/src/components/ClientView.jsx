@@ -41,15 +41,22 @@ const SEXO_OPTIONS = [
 const FIXED_FIELDS_CATALOG = [
   { id: 'nombre',               nombre_campo: 'Nombre',              requerido: true,  es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'cpf',                  nombre_campo: 'CPF',                 requerido: true,  es_fijo: true, category_name: 'Informaciones Personales' },
+  { id: 'email',                nombre_campo: 'Email',               requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'fecha_nacimiento',     nombre_campo: 'Fecha Nacimiento',    requerido: true,  es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'estado_civil',         nombre_campo: 'Estado Civil',        requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'sexo',                 nombre_campo: 'Sexo',                requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'nacionalidad',         nombre_campo: 'Nacionalidad',        requerido: true,  es_fijo: true, category_name: 'Informaciones Personales' },
+  { id: 'pais',                 nombre_campo: 'País de Origen',      requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
+  { id: 'estado_federal',       nombre_campo: 'Estado de Origen',    requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
+  { id: 'ciudad',               nombre_campo: 'Ciudad de Origen',    requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'fecha_entrada_brasil', nombre_campo: 'Entrada a Brasil',    requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'lugar_entrada_brasil', nombre_campo: 'Lugar Entrada',       requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
-  { id: 'direccion',            nombre_campo: 'Direccion Completa',  requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
+  { id: 'direccion',            nombre_campo: 'Dirección Completa',  requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'rnm',                  nombre_campo: 'RNM',                 requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
   { id: 'numero_pasaporte',     nombre_campo: 'Pasaporte',           requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
+  { id: 'fecha_vencimiento_pasaporte', nombre_campo: 'Fecha Vencimiento Pasaporte', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad' },
+  { id: 'numero_refugio',       nombre_campo: 'Protocolo de Refugio', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
+  { id: 'fecha_vencimiento_refugio', nombre_campo: 'Fecha Vencimiento Refugio', requerido: false, es_fijo: true, category_name: 'Documentos de Identidad'   },
   { id: 'nombre_madre',         nombre_campo: 'Nombre Madre',        requerido: false, es_fijo: true, category_name: 'Datos Familiares'           },
   { id: 'nombre_padre',         nombre_campo: 'Nombre Padre',        requerido: false, es_fijo: true, category_name: 'Datos Familiares'           },
 ];
@@ -165,6 +172,33 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   const fixedFields = FIXED_FIELDS_CATALOG;
 
+  const handleCepSearch = async (cepValue) => {
+    if (!cepValue) return;
+    const cleanCep = cepValue.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          setEditFormData(prev => prev.map(f => {
+            if (f.id === 'direccion') {
+              return { 
+                ...f, 
+                _endereco: f._endereco || data.logradouro,
+                _bairro: f._bairro || data.bairro,
+                _cidade: f._cidade || data.localidade,
+                _estado: f._estado || data.uf
+              };
+            }
+            return f;
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching CEP:', err);
+      }
+    }
+  };
+
   const openEditModal = (categoriaId) => {
     // Si esta en el generador de trámites, abrimos la categoria de Identidad por defecto para editar los datos más comunes
     let targetTabs = [];
@@ -192,6 +226,24 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         const parts = (client[f.id] || '').split(' ');
         extraArgs._nombres = parts[0] || '';
         extraArgs._apellidos = parts.slice(1).join(' ') || '';
+      }
+      if (f.id === 'direccion') {
+        let dirData = {};
+        try {
+          if (client.direccion && client.direccion.startsWith('{')) {
+            dirData = JSON.parse(client.direccion);
+          } else if (client.direccion) {
+            dirData._endereco = client.direccion;
+          }
+        } catch(e) {}
+        extraArgs._cep = dirData.cep || '';
+        extraArgs._endereco = dirData.endereco || dirData._endereco || '';
+        extraArgs._numero = dirData.numero || '';
+        extraArgs._complemento = dirData.complemento || '';
+        extraArgs._bairro = dirData.bairro || '';
+        extraArgs._cidade = dirData.cidade || '';
+        extraArgs._estado = dirData.estado || '';
+        extraArgs._ponto_referencia = dirData.ponto_referencia || '';
       }
       formData.push({
         id: f.id,
@@ -275,6 +327,19 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             upperValue = `${(field._nombres || '').trim()} ${(field._apellidos || '').trim()}`.trim().toUpperCase();
             upperValue = upperValue || null;
           }
+          if (field.id === 'direccion') {
+            const dirObj = {
+              cep: field._cep || '',
+              endereco: field._endereco || '',
+              numero: field._numero || '',
+              complemento: field._complemento || '',
+              bairro: field._bairro || '',
+              cidade: field._cidade || '',
+              estado: field._estado || '',
+              ponto_referencia: field._ponto_referencia || ''
+            };
+            upperValue = JSON.stringify(dirObj);
+          }
           if (client[field.id] !== upperValue && (client[field.id] || upperValue)) {
             fixedUpdates[field.id] = upperValue;
           }
@@ -340,7 +405,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       }
 
       if (Object.keys(fixedUpdates).length > 0) {
-        await supabase.from('clientes').update(fixedUpdates).eq('id', clientId);
+        const { error: fErr } = await supabase.from('clientes').update(fixedUpdates).eq('id', clientId);
+        if (fErr) throw fErr;
       }
 
       await fetchClientData();
@@ -680,6 +746,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
           {allCatFields.map(campo => {
+            if (campo.id === 'direccion') return null;
+
             const dato = catData.find(cd => cd.campo_id === campo.id);
             if (!dato || !dato.valor) return null;
             
@@ -699,6 +767,98 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               </div>
             );
           })}
+
+          {/* Campos Sueltos de Dirección */}
+          {(() => {
+             const dirCampo = catData.find(cd => cd.campo_id === 'direccion');
+             if (!dirCampo || !dirCampo.valor) return null;
+             let dirObj = {};
+             try {
+               if (dirCampo.valor.startsWith('{')) dirObj = JSON.parse(dirCampo.valor);
+             } catch(e) {}
+             
+             if (Object.keys(dirObj).length === 0) return null; // Fallback plain text not rendered as small tiles
+
+             const subFields = [
+               { id: 'cep', label: 'CEP', val: dirObj.cep },
+               { id: 'endereco', label: 'Endereço', val: dirObj.endereco },
+               { id: 'numero', label: 'Número', val: dirObj.numero },
+               { id: 'complemento', label: 'Complemento', val: dirObj.complemento },
+               { id: 'bairro', label: 'Bairro', val: dirObj.bairro },
+               { id: 'cidade', label: 'Cidade (Residência)', val: dirObj.cidade },
+               { id: 'estado', label: 'Estado (Residência)', val: dirObj.estado },
+               { id: 'ponto_referencia', label: 'Ponto de Referência', val: dirObj.ponto_referencia }
+             ];
+
+             return subFields.map(sf => {
+               if (!sf.val) return null;
+               return (
+                 <div key={sf.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                   <div style={{ flex: 1, overflow: 'hidden' }}>
+                     <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                       {sf.label}
+                     </label>
+                     <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
+                       {sf.val}
+                     </div>
+                   </div>
+                   <button onClick={() => handleCopy(sf.val, sf.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
+                     {copiedId === sf.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                   </button>
+                 </div>
+               );
+             });
+          })()}
+
+          {/* Endereço Formateado */}
+          {(() => {
+             const dirCampo = catData.find(cd => cd.campo_id === 'direccion');
+             if (!dirCampo || !dirCampo.valor) return null;
+             
+             let dirObj = {};
+             try {
+               if (dirCampo.valor.startsWith('{')) {
+                 dirObj = JSON.parse(dirCampo.valor);
+               } else {
+                 dirObj.endereco = dirCampo.valor;
+               }
+             } catch(e) {
+               dirObj.endereco = dirCampo.valor;
+             }
+             
+             const rua = dirObj.endereco;
+             const num = dirObj.numero;
+             const comp = dirObj.complemento;
+             const bairro = dirObj.bairro;
+             const cid = dirObj.cidade;
+             const uf = dirObj.estado;
+             const cep = dirObj.cep;
+             const ref = dirObj.ponto_referencia;
+             
+             let line1 = [rua, num].filter(Boolean).join(', ');
+             if (comp) line1 += ` - ${comp}`;
+             let line2 = [bairro, cid, uf].filter(Boolean).join(' - ');
+             let addressFull = [line1, line2, cep ? `CEP: ${cep}` : '', ref ? `Ref: ${ref}` : ''].filter(Boolean).join(' | ');
+
+             return (
+               <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                 <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                      Endereço Completo
+                    </label>
+                    <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word', lineHeight: '1.5' }}>
+                      {line1 && <div>{line1}</div>}
+                      {line2 && <div>{line2}</div>}
+                      {(cep || ref) && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>{cep ? `CEP: ${cep}` : ''} {ref ? `(Ref: ${ref})` : ''}</div>}
+                      {(!line1 && !line2 && !cep && !ref && dirObj.endereco) && <div>{dirObj.endereco}</div>}
+                    </div>
+                 </div>
+                 <button onClick={() => handleCopy(addressFull || dirObj.endereco, 'direccion')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar dirección completa">
+                   {copiedId === 'direccion' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                 </button>
+               </div>
+             )
+          })()}
           {allCatFields.every(campo => {
              const dato = catData.find(cd => cd.campo_id === campo.id);
              return !dato || !dato.valor;
@@ -1182,6 +1342,55 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                           arr[idx] = { ...arr[idx], _apellidos: e.target.value };
                           setEditFormData(arr);
                         }} />
+                      </div>
+                    </div>
+                  );
+                }
+                if (field.id === 'direccion') {
+                  return (
+                    <div key={`exist-${field.campo_id}-${idx}`} style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>CEP</label>
+                          <input className="form-input" placeholder="00000-000" type="text" value={field._cep || ''} onChange={e => {
+                            let val = e.target.value.replace(/\D/g, '');
+                            if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
+                            const arr = [...editFormData];
+                            arr[idx] = { ...arr[idx], _cep: val };
+                            setEditFormData(arr);
+                          }} onBlur={e => handleCepSearch(e.target.value)} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Endereço</label>
+                          <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Número</label>
+                          <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Complemento</label>
+                          <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Bairro</label>
+                          <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Cidade</label>
+                          <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Estado</label>
+                          <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Ponto de Referência</label>
+                          <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                        </div>
                       </div>
                     </div>
                   );
