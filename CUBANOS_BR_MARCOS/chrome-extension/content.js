@@ -50,12 +50,20 @@ function predictValueForInput(input, data) {
   if (identifier.includes('nome') || identifier.includes('name') || identifier.includes('nombre')) {
     if (!identifier.includes('mae') && !identifier.includes('pai') && !identifier.includes('filia') && !identifier.includes('madre') && !identifier.includes('padre')) {
       if (identifier.includes('sobrenome') || identifier.includes('apellido')) {
-        const parts = (data.nombre || '').split(' ');
-        valueToInject = parts.length > 1 ? parts.slice(1).join(' ') : data.nombre;
+        if (data.apellidos) {
+          valueToInject = data.apellidos;
+        } else {
+          const parts = (data.nombre || '').split(' ');
+          valueToInject = parts.length > 1 ? parts.slice(1).join(' ') : data.nombre;
+        }
       } else if (identifier.includes('completo')) {
         valueToInject = data.nombre;
       } else {
-        valueToInject = (data.nombre || '').split(' ')[0];
+        if (data.nombres) {
+          valueToInject = data.nombres;
+        } else {
+          valueToInject = (data.nombre || '').split(' ')[0];
+        }
       }
     }
   }
@@ -70,7 +78,7 @@ function predictValueForInput(input, data) {
     valueToInject = data.email;
   }
   if (identifier.includes('ocupacao') || identifier.includes('profissao') || identifier.includes('ocupación')) {
-    valueToInject = getCustom('profesion');
+    valueToInject = data.profesion || getCustom('profesion');
   }
   if (identifier.includes('sexo') || identifier.includes('gender')) {
     let sexoVal = getCustom('sexo') || data.sexo || '';
@@ -131,6 +139,17 @@ function predictValueForInput(input, data) {
      const val = input.value || input.nextElementSibling?.textContent || labelText || '';
      if (val.toLowerCase() === 'não' || val.toLowerCase() === 'no' || val === 'N') valueToInject = 'RADIO_CHECK'; // Por defecto no es dependiente de responsable
   }
+  
+  // NUEVOS CAMPOS MRE (MINISTERIO DAS RELACOES EXTERIORES)
+  if (identifier.includes('nomes anteriores') || identifier.includes('nacionalidade brasileira')) {
+    if (input.type === 'radio') {
+      const val = input.value || input.nextElementSibling?.textContent || labelText || '';
+      if (val.toLowerCase() === 'não' || val.toLowerCase() === 'no' || val === 'N') valueToInject = 'RADIO_CHECK';
+    }
+  }
+  if (identifier.includes('autoridade expedidora')) {
+    valueToInject = data.nacionalidad || data.pais;
+  }
   if (identifier.includes('documento de viaje') || identifier.includes('passaporte') || identifier.includes('pasaporte')) {
     if (identifier.includes('tipo')) {
       valueToInject = 'PASAPORTE'; // Por defecto seleccionar Pasaporte en el dropdown
@@ -166,7 +185,7 @@ function predictValueForInput(input, data) {
 
   if (identifier.includes('cep') || identifier.includes('código postal')) {
     valueToInject = dirObj ? dirObj.cep : getCustom('cep');
-  } else if (identifier.includes('calle') || identifier.includes('logradouro') || identifier.includes('endereco') || identifier.includes('dirección residencial')) {
+  } else if (identifier.includes('calle') || identifier.includes('logradouro') || (identifier.includes('endereco') && !identifier.includes('alteração') && !identifier.includes('alteracao')) || identifier.includes('dirección residencial')) {
     let calle = dirObj ? dirObj.endereco : (data.direccion && !data.direccion.startsWith('{') ? data.direccion : getCustom('calle'));
     // En Brasil a veces se incluye el número en la calle si no hay campo separado
     if (dirObj && dirObj.numero && identifier.includes('calle') && !identifier.includes('número')) {
@@ -177,9 +196,9 @@ function predictValueForInput(input, data) {
     valueToInject = dirObj ? dirObj.complemento : getCustom('complemento');
   } else if (identifier.includes('barrio') || identifier.includes('bairro')) {
     valueToInject = dirObj ? dirObj.bairro : getCustom('barrio');
-  } else if (identifier.includes('cidade') || identifier.includes('ciudad') || identifier.includes('municipio')) {
+  } else if (!identifier.includes('nascimento') && !identifier.includes('nacimiento') && (identifier.includes('cidade') || identifier.includes('ciudad') || identifier.includes('municipio'))) {
     valueToInject = dirObj ? dirObj.cidade : (data.ciudad || getCustom('ciudad'));
-  } else if (identifier.includes('uf') || identifier.includes('estado')) {
+  } else if (!identifier.includes('nascimento') && !identifier.includes('nacimiento') && (identifier.includes('uf') || identifier.includes('estado'))) {
     valueToInject = dirObj ? dirObj.estado : getCustom('uf');
   } else if (identifier.includes('teléfono') || identifier.includes('telefone') || identifier.includes('celular')) {
     valueToInject = data.telefono || getCustom('telefono');
@@ -205,22 +224,33 @@ function injectValueToInput(input, valueToInject) {
   if (valueToInject === 'RADIO_CHECK') {
     input.checked = true;
     input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new Event('click', { bubbles: true }));
     return true;
   } else if (input.tagName !== 'SELECT') {
     input.focus();
-    input.value = ''; 
-    document.execCommand('insertText', false, valueToInject);
     
-    if (input.value !== valueToInject) {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (nativeInputValueSetter) {
-        nativeInputValueSetter.call(input, valueToInject);
-      } else {
-        input.value = valueToInject;
+    let finalValue = valueToInject;
+    
+    // En agenda-web, las máscaras (Angular/React) a menudo rechazan el texto si ya viene con puntuación.
+    // Quieren los números crudos para formatearlos ellas mismas.
+    if (window.location.href.includes('agenda-web')) {
+      if (typeof finalValue === 'string' && finalValue.match(/^[\d.\-\/]+$/)) {
+        finalValue = finalValue.replace(/[.\-\/]/g, '');
       }
-      input.dispatchEvent(new Event('input', { bubbles: true }));
     }
+    
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(input, finalValue);
+    } else {
+      input.value = finalValue;
+    }
+    
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Tab' })); // Dispara plugins de máscara
     input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    
     return true;
   } else {
     let optionFound = false;
@@ -263,8 +293,8 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
-// 4. Inyectar UI flotante si estamos en una página de trámites (ej. servicos.pf.gov.br)
-if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.includes('sismigra')) {
+// 4. Inyectar UI flotante si estamos en una página de trámites (ej. servicos.pf.gov.br o MRE)
+if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.includes('sismigra') || window.location.href.includes('formulario-mre.serpro.gov.br')) {
   let floatingBtn = null;
 
   const injectOrUpdateBtn = (client) => {
@@ -403,6 +433,16 @@ if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.
     if (input.type === 'radio' || input.type === 'checkbox' || input.type === 'hidden' || input.type === 'submit' || input.type === 'button') return;
     if (input.readOnly || input.disabled) return;
 
+    // Crear copias de nombres y apellidos para la lista de respaldo
+    const displayData = { ...clientData };
+    if (displayData.nombre && !displayData.nombres && !displayData.apellidos) {
+      const parts = displayData.nombre.split(' ');
+      displayData.nombres = parts[0];
+      displayData.apellidos = parts.length > 1 ? parts.slice(1).join(' ') : '';
+      // Eliminar el 'nombre' completo de la lista si queremos que salga dividido, o dejarlo.
+      // Lo dejaremos por si acaso necesitan el completo.
+    }
+
     currentlyFocusedInput = input;
     const rect = input.getBoundingClientRect();
     
@@ -411,7 +451,7 @@ if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.
     contextualMenuEl.style.left = `${window.scrollX + rect.left}px`;
     contextualMenuEl.innerHTML = '';
     
-    const predictedValue = predictValueForInput(input, clientData);
+    const predictedValue = predictValueForInput(input, displayData);
     
     // Sección Recomendada
     if (predictedValue && predictedValue !== 'RADIO_CHECK') {
@@ -439,7 +479,7 @@ if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.
     gridContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 4px;';
     contextualMenuEl.appendChild(gridContainer);
     
-    const dataEntries = Object.entries(clientData).filter(([k,v]) => typeof v === 'string' && v.trim().length > 0 && v !== predictedValue);
+    const dataEntries = Object.entries(displayData).filter(([k,v]) => typeof v === 'string' && v.trim().length > 0 && v !== predictedValue);
     dataEntries.forEach(([key, val]) => {
       // Ignorar campos internos
       if (key === 'id' || key === 'created_at' || key === 'user_id' || key === 'estatus') return;

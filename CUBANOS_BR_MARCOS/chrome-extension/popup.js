@@ -149,14 +149,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      // Send to active tab
-      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "fillForm", data: fullData }, function(response) {
-          if (chrome.runtime.lastError) {
-            alert("No se pudo autocompletar la página. Asegúrate de estar en una web y recarga la página.");
-          } else {
-            window.close(); // Close popup on success
-          }
+      // Guardar el cliente activo en storage para que el menú contextual y el botón flotante se actualicen
+      chrome.storage.local.set({ activeClient: fullData }, () => {
+        // Send to active tab
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+          chrome.tabs.sendMessage(tabs[0].id, { action: "fillForm", data: fullData }, function(response) {
+            if (chrome.runtime.lastError) {
+              alert("No se pudo autocompletar la página. Asegúrate de estar en una web y recarga la página.");
+            } else {
+              window.close(); // Close popup on success
+            }
+          });
         });
       });
 

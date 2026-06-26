@@ -228,9 +228,42 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     activeFixedFields.forEach(f => {
       let extraArgs = {};
       if (f.id === 'nombre') {
-        const parts = (client[f.id] || '').split(' ');
-        extraArgs._nombres = parts[0] || '';
-        extraArgs._apellidos = parts.slice(1).join(' ') || '';
+        const fullName = (client[f.id] || '').trim().toUpperCase();
+        const parts = fullName.split(' ');
+        
+        // Extraer nombres de los padres para adivinar los apellidos
+        const padreName = (client.nombre_padre || '').trim().toUpperCase().split(' ');
+        const madreName = (client.nombre_madre || '').trim().toUpperCase().split(' ');
+        
+        let splitIndex = 1; // Por defecto (como estaba antes)
+        
+        if (parts.length > 2) {
+            // Asumimos por defecto convención hispana: últimos 2 son apellidos
+            splitIndex = parts.length - 2; 
+            
+            // Intentar confirmar con apellidos de los padres
+            const padreApe1 = padreName.length > 1 ? padreName[padreName.length - 2] : null;
+            const madreApe1 = madreName.length > 1 ? madreName[madreName.length - 2] : null;
+            
+            if (padreApe1 && madreApe1) {
+                // Buscar si los dos últimos del cliente coinciden con el 1ro del padre y 1ro de la madre
+                const childApe1 = parts[parts.length - 2];
+                const childApe2 = parts[parts.length - 1];
+                
+                if (childApe1 === padreApe1 && childApe2 === madreApe1) {
+                    splitIndex = parts.length - 2;
+                } else {
+                    // Quizás solo coincida uno de los apellidos, buscar dónde empieza
+                    const padreIdx = parts.indexOf(padreApe1);
+                    if (padreIdx > 0) {
+                        splitIndex = padreIdx;
+                    }
+                }
+            }
+        }
+        
+        extraArgs._nombres = parts.slice(0, splitIndex).join(' ') || '';
+        extraArgs._apellidos = parts.slice(splitIndex).join(' ') || '';
       }
       if (f.id === 'direccion') {
         let dirData = {};
@@ -748,6 +781,13 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       }
     });
 
+    // Extraer los nombres y apellidos exactamente como están divididos en la interfaz
+    const nameField = editFormData.find(f => f.id === 'nombre');
+    if (nameField) {
+      if (nameField._nombres) fullData.nombres = nameField._nombres.trim();
+      if (nameField._apellidos) fullData.apellidos = nameField._apellidos.trim();
+    }
+
     window.postMessage({ type: 'CUBANOS_BR_SYNC', clientData: fullData }, '*');
     
     // Optional: show a small alert or toast
@@ -842,6 +882,61 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                  </div>
                  {visibleFields.map(dato => {
                    const campo = sectionFields.find(c => c.id === dato.campo_id);
+                   
+                   if (campo.id === 'nombre') {
+                     const fullName = (dato.valor || '').trim().toUpperCase();
+                     const parts = fullName.split(' ');
+                     
+                     const padreName = (client.nombre_padre || '').trim().toUpperCase().split(' ');
+                     const madreName = (client.nombre_madre || '').trim().toUpperCase().split(' ');
+                     
+                     let splitIndex = 1;
+                     
+                     if (parts.length > 2) {
+                         splitIndex = parts.length - 2; 
+                         const padreApe1 = padreName.length > 1 ? padreName[padreName.length - 2] : null;
+                         const madreApe1 = madreName.length > 1 ? madreName[madreName.length - 2] : null;
+                         
+                         if (padreApe1 && madreApe1) {
+                             const childApe1 = parts[parts.length - 2];
+                             const childApe2 = parts[parts.length - 1];
+                             
+                             if (childApe1 === padreApe1 && childApe2 === madreApe1) {
+                                 splitIndex = parts.length - 2;
+                             } else {
+                                 const padreIdx = parts.indexOf(padreApe1);
+                                 if (padreIdx > 0) splitIndex = padreIdx;
+                             }
+                         }
+                     }
+                     
+                     const n_nombres = parts.slice(0, splitIndex).join(' ') || '';
+                     const n_apellidos = parts.slice(splitIndex).join(' ') || '';
+
+                     return (
+                       <React.Fragment key={campo.id}>
+                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', marginBottom: '1rem' }}>
+                           <div style={{ flex: 1, overflow: 'hidden' }}>
+                             <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>Nombres</label>
+                             <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{n_nombres}</div>
+                           </div>
+                           <button onClick={() => handleCopy(n_nombres || '', 'nombres')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
+                             {copiedId === 'nombres' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                           </button>
+                         </div>
+                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                           <div style={{ flex: 1, overflow: 'hidden' }}>
+                             <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>Apellidos</label>
+                             <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{n_apellidos}</div>
+                           </div>
+                           <button onClick={() => handleCopy(n_apellidos || '', 'apellidos')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
+                             {copiedId === 'apellidos' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                           </button>
+                         </div>
+                       </React.Fragment>
+                     );
+                   }
+
                    return (
                      <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                        <div style={{ flex: 1, overflow: 'hidden' }}>
