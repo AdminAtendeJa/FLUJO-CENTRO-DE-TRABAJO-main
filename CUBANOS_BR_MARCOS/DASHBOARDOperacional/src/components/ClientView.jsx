@@ -6,6 +6,7 @@ import { uploadDocument, deleteDocument } from '../services/storageService';
 import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, User, Search, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck, MessageSquare, Send } from 'lucide-react';
 import NewClientModal from './NewClientModal';
 import TemplateManager from './TemplateManager';
+import DocumentViewerModal from './DocumentViewerModal';
 
 // Helper for native date inputs (YYYY-MM-DD <-> DD/MM/YYYY)
 function toIsoDate(val) {
@@ -106,12 +107,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
 
 
-  // New Tramite State
-  const [isNewTramiteModalOpen, setIsNewTramiteModalOpen] = useState(false);
-  const [newTramiteServicio, setNewTramiteServicio] = useState('');
-  const [newTramiteOperario, setNewTramiteOperario] = useState('');
-  const [isCreatingTramite, setIsCreatingTramite] = useState(false);
-
   // Search state para relacionar cliente existente
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -153,6 +148,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [isAiChatLoading, setIsAiChatLoading] = useState(false);
   const [crmContext, setCrmContext] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState(null);
+
+  // New Tramite State
+  const [isNewTramiteModalOpen, setIsNewTramiteModalOpen] = useState(false);
+  const [newTramiteData, setNewTramiteData] = useState({ servicio: '', operario: '' });
+  const [isCreatingTramite, setIsCreatingTramite] = useState(false);
+
+  // Document Viewer State (doble click)
+  const [viewingDocument, setViewingDocument] = useState(null);
 
   const fetchClientData = useCallback(async (fullReload = false) => {
     if (fullReload) setLoading(true);
@@ -747,34 +750,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     }
   };
 
-  const handleCreateTramite = async () => {
-    if (!newTramiteServicio.trim()) return;
-    setIsCreatingTramite(true);
-    try {
-      const { data, error } = await supabase.from('entradas').insert({
-        id_cliente: clientId,
-        servicio: newTramiteServicio.trim().toUpperCase(),
-        operario: newTramiteOperario.trim() || null,
-        estado_tramite: 'pendiente'
-      }).select().single();
-
-      if (error) throw error;
-
-      if (data) {
-        setEntradas(prev => [data, ...prev]);
-      }
-
-      setIsNewTramiteModalOpen(false);
-      setNewTramiteServicio('');
-      setNewTramiteOperario('');
-    } catch (err) {
-      console.error('Error creating tramite:', err);
-      alert('Error al crear el trámite: ' + err.message);
-    } finally {
-      setIsCreatingTramite(false);
-    }
-  };
-
   const handleChangeTramiteState = async (entradaId, newState) => {
     try {
       const { error } = await supabase.from('entradas').update({ estado_tramite: newState }).eq('id', entradaId);
@@ -783,6 +758,31 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     } catch (err) {
       console.error('Error updating status:', err);
       alert('Error al actualizar el estado del tramite.');
+    }
+  };
+
+  const handleCreateTramite = async () => {
+    if (!newTramiteData.servicio.trim()) {
+      alert('Por favor ingresa el nombre del servicio/tramite.');
+      return;
+    }
+    setIsCreatingTramite(true);
+    try {
+      const { error } = await supabase.from('entradas').insert({
+        id_cliente: clientId,
+        servicio: newTramiteData.servicio.trim().toUpperCase(),
+        operario: newTramiteData.operario.trim().toUpperCase() || null,
+        estado_tramite: 'pendiente',
+      });
+      if (error) throw error;
+      await fetchClientData(false);
+      setIsNewTramiteModalOpen(false);
+      setNewTramiteData({ servicio: '', operario: '' });
+    } catch (err) {
+      console.error('Error creating tramite:', err);
+      alert('Error al crear el tramite.');
+    } finally {
+      setIsCreatingTramite(false);
     }
   };
 
@@ -1218,7 +1218,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.65rem' }}>
               {documentos.map(doc => (
-                <div key={doc.id} style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)', aspectRatio: '1', background: 'var(--color-bg-secondary)', border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`, transition: 'border-color 0.2s' }}>
+                <div
+                  key={doc.id}
+                  onDoubleClick={() => setViewingDocument(doc)}
+                  style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)', aspectRatio: '1', background: 'var(--color-bg-secondary)', border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`, cursor: 'pointer', transition: 'border-color 0.2s' }}
+                >
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {doc.url_archivo ? (
                       doc.tipo_contenido?.startsWith('image/') ?
@@ -1270,7 +1274,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
                 <Clock size={18} color="var(--color-primary)" /> Historial de Trámites
               </h2>
-              <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.75rem', fontSize: '0.78rem' }} onClick={() => setIsNewTramiteModalOpen(true)}>
+              <button className="btn btn-primary btn-sm" onClick={() => setIsNewTramiteModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
                 <Plus size={14} /> Nuevo Trámite
               </button>
             </div>
@@ -1376,59 +1380,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           </div>
         )}
       </div>
-
-      {isNewTramiteModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '450px', padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Plus size={18} color="var(--color-primary)" /> Nuevo Trámite
-              </h2>
-              <button className="btn btn-ghost" style={{ padding: '0.5rem' }} onClick={() => { setIsNewTramiteModalOpen(false); setNewTramiteServicio(''); setNewTramiteOperario(''); }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
-                Servicio / Tipo de Trámite <span style={{ color: 'var(--color-primary)' }}>*</span>
-              </label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="Ej: RENOVACIÓN DE PASAPORTE, RNM, REFUGIO..."
-                value={newTramiteServicio}
-                onChange={(e) => setNewTramiteServicio(e.target.value)}
-                style={{ width: '100%', fontSize: '0.875rem' }}
-                autoFocus
-              />
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
-                Operario / Responsable
-              </label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="Nombre del operario (opcional)"
-                value={newTramiteOperario}
-                onChange={(e) => setNewTramiteOperario(e.target.value)}
-                style={{ width: '100%', fontSize: '0.875rem' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <button className="btn btn-ghost" onClick={() => { setIsNewTramiteModalOpen(false); setNewTramiteServicio(''); setNewTramiteOperario(''); }}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" onClick={handleCreateTramite} disabled={isCreatingTramite || !newTramiteServicio.trim()}>
-                {isCreatingTramite ? 'Creando...' : 'Crear Trámite'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isRelateModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
@@ -1762,6 +1713,56 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
           </div>
         </div>
+      )}
+
+      {isNewTramiteModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '420px', padding: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Plus size={20} color="var(--color-primary)" /> Nuevo Trámite
+            </h2>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
+                Servicio / Tipo de Trámite <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Ej: Solicitud de Refugio, Renovación RNM, etc."
+                value={newTramiteData.servicio}
+                onChange={(e) => setNewTramiteData(prev => ({ ...prev, servicio: e.target.value }))}
+                style={{ width: '100%' }}
+                autoFocus
+              />
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
+                Operario / Responsable
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Nombre del operario (opcional)"
+                value={newTramiteData.operario}
+                onChange={(e) => setNewTramiteData(prev => ({ ...prev, operario: e.target.value }))}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button className="btn btn-ghost" onClick={() => { setIsNewTramiteModalOpen(false); setNewTramiteData({ servicio: '', operario: '' }); }}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleCreateTramite} disabled={isCreatingTramite || !newTramiteData.servicio.trim()}>
+                {isCreatingTramite ? <><Loader2 size={16} className="animate-spin" style={{ marginRight: '4px' }} /> Creando...</> : 'Crear Trámite'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingDocument && (
+        <DocumentViewerModal
+          document={viewingDocument}
+          onClose={() => setViewingDocument(null)}
+        />
       )}
     </div>
   );

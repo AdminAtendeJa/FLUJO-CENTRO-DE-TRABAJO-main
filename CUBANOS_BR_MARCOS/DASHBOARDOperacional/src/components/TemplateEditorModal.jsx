@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Plus, Save, Loader2, Tag, GripVertical, Trash2, MousePointer } from 'lucide-react';
+import { X, Plus, Save, Loader2, Tag, GripVertical, Trash2, MousePointer, Search } from 'lucide-react';
 import { AVAILABLE_CLIENT_FIELDS, saveTemplateMapping, renderPdfPageAsImage } from '../services/templateService';
 
 /**
@@ -20,6 +20,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const [showAddField, setShowAddField] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [editingLabel, setEditingLabel] = useState(null);
   const [selectedField, setSelectedField] = useState(null); // idx del campo seleccionado para editar props
   const canvasRef = useRef(null);
@@ -153,6 +154,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
 
     setMappings(prev => [...prev, newMapping]);
     setShowAddField(false);
+    setSearchTerm('');
   };
 
   // ── Eliminar campo ──
@@ -179,7 +181,9 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
 
   // Campos ya usados
   const usedFieldIds = new Set(mappings.map(m => m.fieldId));
-  const availableFields = AVAILABLE_CLIENT_FIELDS.filter(f => !usedFieldIds.has(f.id));
+  const availableFields = AVAILABLE_CLIENT_FIELDS.filter(
+    f => !usedFieldIds.has(f.id) && f.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div style={{
@@ -229,11 +233,34 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
           position: 'absolute', top: '60px', right: '200px', zIndex: 210,
           background: 'var(--color-bg-base)', border: '1px solid var(--color-border)',
           borderRadius: 'var(--radius-md)', padding: '0.5rem', maxHeight: '300px',
-          overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: '220px',
+          overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: '240px',
+          display: 'flex', flexDirection: 'column',
         }}>
+          <div style={{ 
+            position: 'sticky', top: '-0.5rem', background: 'var(--color-bg-base)', 
+            margin: '-0.5rem -0.5rem 0.5rem -0.5rem', padding: '0.5rem', zIndex: 2,
+            borderBottom: '1px solid var(--color-border)'
+          }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+              <input 
+                autoFocus
+                type="text" 
+                placeholder="Buscar campo..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%', padding: '0.4rem 0.4rem 0.4rem 1.75rem', 
+                  fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', 
+                  border: '1px solid var(--color-border)', background: 'var(--color-bg-elevated)',
+                  color: 'var(--color-text-primary)', outline: 'none'
+                }}
+              />
+            </div>
+          </div>
           {availableFields.length === 0 ? (
-            <div style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              Todos los campos del cliente ya están asignados
+            <div style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
+              No se encontraron campos
             </div>
           ) : (
             availableFields.map(f => (
