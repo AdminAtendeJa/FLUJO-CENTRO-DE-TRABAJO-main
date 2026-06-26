@@ -1113,7 +1113,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                     Documentos Asociados
                   </h3>
                 </div>
-                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
                   {docGroups.map(group => {
                     const hasData = group.fields.some(f => group.fieldValue(f.id));
                     if (!hasData) return null;
@@ -1172,6 +1172,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               </React.Fragment>
             );
           })()}
+
 
           {/* Dirección Section */}
           {(() => {
@@ -1263,10 +1264,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                   </button>
                 </div>
               </React.Fragment>
-            )
+            );
           })()}
         </div>
-      </section>
+      </section >
     );
   };
 
@@ -1453,7 +1454,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
           </section>
 
-          {/* Sección unificada: Documentos y Datos Asociados */}
           <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
               <FileText size={18} color="var(--color-primary)" /> Documentos
@@ -1770,7 +1770,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 </div>
               ) : (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
                     {filteredEditFormData.map((field, idx) => {
                       const originalIdx = editFormData.findIndex(f => f.campo_id === field.campo_id && f.id === field.id);
                       if (field.id === 'nombre') {
@@ -1805,7 +1805,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                             <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                               Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
                             </label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>CEP</label>
                                 <input className="form-input" placeholder="00000-000" type="text" value={field._cep || ''} onChange={e => {
@@ -1889,9 +1889,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                         </div>
                       );
                     })}
-                    </div>
+                  </div>
 
-                    {newFields.length > 0 && (
+                  {newFields.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%', marginTop: '1rem' }}>
                       {newFields.map((field, idx) => {
                         const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
@@ -1963,7 +1963,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                             </div>
                           </div>
                         );
-                    })}
+                      })}
                     </div>
                   )}
                   <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
@@ -1971,7 +1971,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                   </button>
                 </>
               )}
-          </div>
+            </div>
 
             <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
               <button className="btn btn-ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>
