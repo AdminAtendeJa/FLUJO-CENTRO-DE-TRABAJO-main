@@ -863,6 +863,39 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   if (!client) return null;
 
+  const normalizeEditSearchText = (value = '') =>
+    String(value || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const editModalQuery = normalizeEditSearchText(editModalSearchQuery);
+  const filteredEditFormData = editFormData.filter(field => {
+    if (!editModalQuery) return true;
+
+    const fieldName = normalizeEditSearchText(field.nombre_campo);
+    let fieldValue = '';
+
+    if (field.id === 'nombre') {
+      fieldValue = normalizeEditSearchText(`${field._nombres || ''} ${field._apellidos || ''}`);
+    } else if (field.id === 'direccion') {
+      fieldValue = normalizeEditSearchText(`${field._endereco || ''} ${field._numero || ''} ${field._bairro || ''} ${field._cidade || ''}`);
+    } else {
+      fieldValue = normalizeEditSearchText(field.valor);
+    }
+
+    return fieldName.includes(editModalQuery) || fieldValue.includes(editModalQuery);
+  });
+
+  const filteredNewFields = newFields.filter(field => {
+    if (!editModalQuery) return true;
+
+    const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
+    const fieldName = normalizeEditSearchText(field.customName || campoRef?.nombre_campo || '');
+    const fieldValue = normalizeEditSearchText(field.valor);
+
+    return fieldName.includes(editModalQuery) || fieldValue.includes(editModalQuery);
+  });
+
+  const hasEditModalResults = filteredEditFormData.length > 0 || filteredNewFields.length > 0;
+
   const renderUnifiedPersonalData = () => {
     const targetNames = ['Informaciones Personales', 'Datos Familiares'];
     const targetCats = categorias.filter(c => targetNames.includes(c.nombre));
@@ -1731,46 +1764,12 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
 
             <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {(() => {
-                const query = editModalSearchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-                const filteredEditFormData = editFormData.filter(field => {
-                  if (!query) return true;
-
-                  const fieldName = field.nombre_campo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  let fieldValue = '';
-
-                  if (field.id === 'nombre') {
-                    fieldValue = `${field._nombres || ''} ${field._apellidos || ''}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  } else if (field.id === 'direccion') {
-                    fieldValue = `${field._endereco || ''} ${field._numero || ''} ${field._bairro || ''} ${field._cidade || ''}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  } else {
-                    fieldValue = String(field.valor || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  }
-
-                  return fieldName.includes(query) || fieldValue.includes(query);
-                });
-
-                const filteredNewFields = newFields.filter(field => {
-                  if (!query) return true;
-
-                  const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
-                  const fieldName = (field.customName || campoRef?.nombre_campo || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  const fieldValue = String(field.valor || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-                  return fieldName.includes(query) || fieldValue.includes(query);
-                });
-
-                if (filteredEditFormData.length === 0 && filteredNewFields.length === 0) {
-                  return (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                      No se encontraron campos que coincidan con "{editModalSearchQuery}"
-                    </div>
-                  );
-                }
-
-                return (
-                  <>
+              {!hasEditModalResults ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                  No se encontraron campos que coincidan con "{editModalSearchQuery}"
+                </div>
+              ) : (
+                <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
                     {filteredEditFormData.map((field, idx) => {
                       const originalIdx = editFormData.findIndex(f => f.campo_id === field.campo_id && f.id === field.id);
@@ -1783,7 +1782,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                               </label>
                               <input className="form-input" type="text" value={field._nombres || ''} onChange={(e) => {
                                 const arr = [...editFormData];
-                                arr[idx] = { ...arr[idx], _nombres: e.target.value };
+                                arr[originalIdx] = { ...arr[originalIdx], _nombres: e.target.value };
                                 setEditFormData(arr);
                               }} />
                             </div>
@@ -1793,7 +1792,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                               </label>
                               <input className="form-input" type="text" value={field._apellidos || ''} onChange={(e) => {
                                 const arr = [...editFormData];
-                                arr[idx] = { ...arr[idx], _apellidos: e.target.value };
+                                arr[originalIdx] = { ...arr[originalIdx], _apellidos: e.target.value };
                                 setEditFormData(arr);
                               }} />
                             </div>
@@ -1813,37 +1812,37 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                                   let val = e.target.value.replace(/\D/g, '');
                                   if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
                                   const arr = [...editFormData];
-                                  arr[idx] = { ...arr[idx], _cep: val };
+                                  arr[originalIdx] = { ...arr[originalIdx], _cep: val };
                                   setEditFormData(arr);
                                 }} onBlur={e => handleCepSearch(e.target.value)} style={{ width: '100%' }} />
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Endereço</label>
-                                <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                                <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Número</label>
-                                <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                                <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Complemento</label>
-                                <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                                <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Bairro</label>
-                                <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                                <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Cidade</label>
-                                <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                                <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Estado</label>
-                                <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                                <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Ponto de Referência</label>
-                                <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                                <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
                               </div>
                             </div>
                           </div>
@@ -1859,7 +1858,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                             {field.id === 'estado_civil' ? (
                               <select className="form-input" value={field.valor || ''} onChange={(e) => {
                                 const arr = [...editFormData];
-                                arr[idx] = { ...arr[idx], valor: e.target.value };
+                                arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
                                 setEditFormData(arr);
                               }}>
                                 <option value="">Selecione</option>
@@ -1868,7 +1867,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                             ) : field.id === 'sexo' ? (
                               <select className="form-input" value={field.valor || ''} onChange={(e) => {
                                 const arr = [...editFormData];
-                                arr[idx] = { ...arr[idx], valor: e.target.value };
+                                arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
                                 setEditFormData(arr);
                               }}>
                                 <option value="">Selecione</option>
@@ -1877,7 +1876,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                             ) : (
                               <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={(e) => {
                                 const arr = [...editFormData];
-                                arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
+                                arr[originalIdx] = { ...arr[originalIdx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
                                 setEditFormData(arr);
                               }} />
                             )}
@@ -1970,9 +1969,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                   <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
                     <Plus size={16} /> Añadir Más Datos
                   </button>
-                  </>
-                );
-              })()}
+                </>
+              )}
           </div>
 
             <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
