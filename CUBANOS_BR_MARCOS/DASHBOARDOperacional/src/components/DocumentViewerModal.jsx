@@ -248,15 +248,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
 
     return (
         <>
-            {/* Backdrop - sin blur y sin cerrar al hacer clic fuera */}
-            <div
-                style={{
-                    position: 'fixed',
-                    inset: 0,
-                    background: 'rgba(0,0,0,0.25)',
-                    zIndex: 200,
-                }}
-            />
+            {/* No backdrop - la ventana es flotante y no bloquea la interacción con la app */}
 
             {/* Modal window */}
             <div
@@ -274,11 +266,12 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                     border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-lg)',
                     boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
-                    zIndex: 201,
+                    zIndex: 9999,
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
                     userSelect: isDragging || resizeDirection ? 'none' : 'auto',
+                    pointerEvents: 'auto',
                 }}
             >
                 {/* Resize edges */}

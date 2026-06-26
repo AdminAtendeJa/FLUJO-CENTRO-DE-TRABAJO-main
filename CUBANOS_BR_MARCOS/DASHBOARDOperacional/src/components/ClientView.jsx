@@ -1299,11 +1299,13 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
           </section>
 
+          {/* Sección unificada: Documentos y Datos Asociados */}
           <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <FileText size={18} color="var(--color-primary)" /> Documentos Subidos
+              <FileText size={18} color="var(--color-primary)" /> Documentos
             </h2>
 
+            {/* Upload zone */}
             <label
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -1313,7 +1315,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 border: `2px dashed ${isDragging ? 'var(--color-primary)' : 'var(--color-border)'}`,
                 backgroundColor: isDragging ? 'rgba(99,102,241,0.05)' : 'transparent',
                 borderRadius: 'var(--radius-md)',
-                padding: '1.5rem',
+                padding: '1.25rem',
                 textAlign: 'center',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
@@ -1322,95 +1324,319 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             >
               <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
               {uploading ? (
-                <Loader2 className="animate-spin" size={24} color="var(--color-primary)" style={{ margin: '0 auto 0.5rem' }} />
+                <Loader2 className="animate-spin" size={20} color="var(--color-primary)" style={{ margin: '0 auto 0.25rem' }} />
               ) : (
-                <UploadCloud size={24} color={isDragging ? "var(--color-primary)" : "var(--color-text-muted)"} style={{ margin: '0 auto 0.5rem' }} />
+                <UploadCloud size={20} color={isDragging ? "var(--color-primary)" : "var(--color-text-muted)"} style={{ margin: '0 auto 0.25rem' }} />
               )}
-              <div style={{ fontSize: '0.875rem', fontWeight: 500, color: isDragging ? "var(--color-primary)" : "inherit" }}>
-                {uploading ? 'Subiendo...' : isDragging ? 'Suelta el documento aquí' : 'Subir Documento (o arrastrar)'}
+              <div style={{ fontSize: '0.75rem', fontWeight: 500, color: isDragging ? "var(--color-primary)" : "inherit" }}>
+                {uploading ? 'Subiendo...' : isDragging ? 'Suelta el documento aquí' : 'Subir Documento'}
               </div>
             </label>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.65rem' }}>
-              {documentos.map(doc => (
-                <div
-                  key={doc.id}
-                  draggable
-                  onDragStart={(e) => {
-                    setDraggedDocument(doc);
-                    e.dataTransfer.setData('text/plain', doc.nombre_archivo);
+            {/* Document Groups */}
+            {(() => {
+              // Definir grupos de documentos con sus campos asociados
+              const docGroups = [
+                {
+                  id: 'cpf',
+                  label: 'CPF',
+                  icon: '🆔',
+                  fields: [
+                    { id: 'cpf', label: 'Nº CPF' }
+                  ],
+                  fieldValue: (fieldId) => client?.[fieldId],
+                  color: '#378ADD'
+                },
+                {
+                  id: 'pasaporte',
+                  label: 'Pasaporte',
+                  icon: '🛂',
+                  fields: [
+                    { id: 'numero_pasaporte', label: 'Nº Pasaporte' },
+                    { id: 'fecha_emision_pasaporte', label: 'Emisión' },
+                    { id: 'fecha_vencimiento_pasaporte', label: 'Vencimiento' }
+                  ],
+                  fieldValue: (fieldId) => client?.[fieldId],
+                  color: '#1D9E75'
+                },
+                {
+                  id: 'rnm',
+                  label: 'RNM / Identidad',
+                  icon: '🪪',
+                  fields: [
+                    { id: 'rnm', label: 'Nº RNM' },
+                    { id: 'carnet_identidad', label: 'Carnet Identidad' }
+                  ],
+                  fieldValue: (fieldId) => client?.[fieldId],
+                  color: '#BA7517'
+                },
+                {
+                  id: 'refugio',
+                  label: 'Refugio',
+                  icon: '🛡️',
+                  fields: [
+                    { id: 'numero_refugio', label: 'Protocolo Refugio' },
+                    { id: 'fecha_vencimiento_refugio', label: 'Vencimiento' }
+                  ],
+                  fieldValue: (fieldId) => client?.[fieldId],
+                  color: '#D85A30'
+                }
+              ];
 
-                    // Permitir arrastrar a aplicaciones externas (WhatsApp, Explorer, etc.)
-                    const mimeType = doc.tipo_contenido || 'application/octet-stream';
-                    const fileName = doc.nombre_archivo || 'documento';
-                    // Format DownloadURL: "mimeType:fileName:url"
-                    e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
-                    // Fallback para navegadores que soportan URL
-                    try {
-                      e.dataTransfer.setData('text/uri-list', doc.url_archivo);
-                    } catch (err) { }
-                    e.dataTransfer.effectAllowed = 'copyLink';
-                  }}
-                  onDragEnd={() => {
-                    setDraggedDocument(null);
-                    setDragOverRelId(null);
-                  }}
-                  onDoubleClick={() => setViewingDocument(doc)}
-                  style={{
-                    position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
-                    aspectRatio: '1',
-                    background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
-                    border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
-                    cursor: 'grab',
-                    transition: 'all 0.2s',
-                    opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
-                    outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
-                  }}
-                >
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {doc.url_archivo ? (
-                      doc.tipo_contenido?.startsWith('image/') ?
-                        <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: 'var(--color-text-muted)' }}>
-                          <FileText size={28} />
-                          <span style={{ fontSize: '0.6rem', textAlign: 'center', padding: '0 4px' }}>{doc.nombre_archivo}</span>
+              // Agrupar documentos por tipo según nombre/nombre_archivo
+              const groupDocs = (groupId) => {
+                return documentos.filter(doc => {
+                  const name = (doc.nombre_archivo || doc.tipo_documento || '').toLowerCase();
+                  switch (groupId) {
+                    case 'cpf': return name.includes('cpf');
+                    case 'pasaporte': return name.includes('pasaport') || name.includes('passport');
+                    case 'rnm': return name.includes('rnm') || name.includes('identidad') || name.includes('carnet') || name.includes('identidade');
+                    case 'refugio': return name.includes('refug') || name.includes('protocolo');
+                    default: return false;
+                  }
+                });
+              };
+
+              // También mostrar docs no clasificados
+              const classifiedIds = new Set();
+              docGroups.forEach(g => groupDocs(g.id).forEach(d => classifiedIds.add(d.id)));
+              const unclassifiedDocs = documentos.filter(d => !classifiedIds.has(d.id));
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {docGroups.map(group => {
+                    const groupDocuments = groupDocs(group.id);
+                    const hasData = group.fields.some(f => group.fieldValue(f.id));
+                    if (!hasData && groupDocuments.length === 0) return null;
+
+                    return (
+                      <div
+                        key={group.id}
+                        style={{
+                          border: `1px solid ${group.color}33`,
+                          borderRadius: 'var(--radius-md)',
+                          overflow: 'hidden',
+                          background: `${group.color}08`
+                        }}
+                      >
+                        {/* Header del grupo */}
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.5rem 0.75rem',
+                          background: `${group.color}15`,
+                          borderBottom: `1px solid ${group.color}22`,
+                          fontSize: '0.78rem', fontWeight: 600,
+                          color: group.color
+                        }}>
+                          <span>{group.icon}</span>
+                          <span>{group.label}</span>
+                          {groupDocuments.length > 0 && (
+                            <span style={{
+                              fontSize: '0.6rem', fontWeight: 700,
+                              background: group.color,
+                              color: 'white',
+                              padding: '1px 6px', borderRadius: '10px',
+                              marginLeft: 'auto'
+                            }}>
+                              {groupDocuments.length} doc{groupDocuments.length > 1 ? 's' : ''}
+                            </span>
+                          )}
                         </div>
-                    ) : <ImageIcon size={26} color="var(--color-text-muted)" />}
-                  </div>
 
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0.3rem 0.4rem', background: 'rgba(10,20,35,0.9)', backdropFilter: 'blur(4px)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                      <div style={{ color: 'white', fontSize: '0.58rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 85 }}>{doc.nombre_archivo}</div>
-                      <button
-                        onClick={() => handleToggleDocumentStatus(doc)}
-                        title={doc.estado === 'verificado' ? 'Marcar como Pendiente' : 'Marcar como Verificado'}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-                      >
-                        <span style={{ fontSize: '0.52rem', fontWeight: 700, color: doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-warning)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                          {doc.estado === 'verificado' ? '✓ Verificado' : '● Pendiente'}
+                        <div style={{ padding: '0.65rem' }}>
+                          {/* Campos de datos */}
+                          {group.fields.map(field => {
+                            const val = group.fieldValue(field.id);
+                            if (!val) return null;
+                            return (
+                              <div key={field.id} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                padding: '0.35rem 0', gap: '0.5rem'
+                              }}>
+                                <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                  {field.label}
+                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', textAlign: 'right', wordBreak: 'break-word' }}>
+                                    {field.id.includes('fecha') ? new Date(val).toLocaleDateString() : val}
+                                  </span>
+                                  <button onClick={() => handleCopy(val, `${group.id}-${field.id}`)} className="btn btn-ghost" style={{ padding: '0.15rem', borderRadius: '4px', flexShrink: 0 }}>
+                                    {copiedId === `${group.id}-${field.id}` ? <Check size={11} color="var(--color-success)" /> : <Copy size={11} />}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Miniaturas de documentos del grupo */}
+                          {groupDocuments.length > 0 && (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+                              gap: '0.4rem',
+                              marginTop: hasData ? '0.5rem' : 0,
+                              paddingTop: hasData ? '0.5rem' : 0,
+                              borderTop: hasData ? '1px solid var(--color-border)' : 'none'
+                            }}>
+                              {groupDocuments.map(doc => (
+                                <div
+                                  key={doc.id}
+                                  draggable
+                                  onDragStart={(e) => {
+                                    setDraggedDocument(doc);
+                                    e.dataTransfer.setData('text/plain', doc.nombre_archivo);
+                                    const mimeType = doc.tipo_contenido || 'application/octet-stream';
+                                    const fileName = doc.nombre_archivo || 'documento';
+                                    e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
+                                    try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
+                                    e.dataTransfer.effectAllowed = 'copyLink';
+                                  }}
+                                  onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
+                                  onDoubleClick={() => setViewingDocument(doc)}
+                                  style={{
+                                    position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
+                                    aspectRatio: '1',
+                                    background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
+                                    border: `1px solid ${doc.estado === 'verificado' ? group.color : 'var(--color-border)'}`,
+                                    cursor: 'grab', transition: 'all 0.2s',
+                                    opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
+                                    outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
+                                  }}
+                                >
+                                  {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
+                                    <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <FileText size={18} color="var(--color-text-muted)" />
+                                    </div>
+                                  )}
+                                  <div style={{
+                                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                                    padding: '0.15rem 0.25rem',
+                                    background: 'rgba(10,20,35,0.85)',
+                                    fontSize: '0.45rem', color: 'white',
+                                    textAlign: 'center',
+                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                                  }}>
+                                    {doc.nombre_archivo}
+                                  </div>
+                                  {/* Status dot */}
+                                  <div style={{
+                                    position: 'absolute', top: '3px', right: '3px',
+                                    width: '6px', height: '6px', borderRadius: '50%',
+                                    background: doc.estado === 'verificado' ? group.color : 'var(--color-warning)',
+                                    border: '1px solid rgba(0,0,0,0.3)'
+                                  }} />
+                                  {/* Delete small button */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
+                                    style={{
+                                      position: 'absolute', top: '3px', left: '3px',
+                                      width: '14px', height: '14px',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '3px',
+                                      cursor: 'pointer', padding: 0, opacity: 0.7
+                                    }}
+                                    title="Eliminar"
+                                  >
+                                    <X size={8} color="white" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {!hasData && groupDocuments.length === 0 && (
+                            <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', padding: '0.25rem 0' }}>
+                              Sin datos registrados
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Documentos sin clasificar */}
+                  {unclassifiedDocs.length > 0 && (
+                    <div style={{
+                      border: '1px dashed var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        padding: '0.4rem 0.75rem',
+                        background: 'var(--color-bg-secondary)',
+                        borderBottom: '1px solid var(--color-border)',
+                        fontSize: '0.72rem', fontWeight: 500, color: 'var(--color-text-secondary)'
+                      }}>
+                        📄 Otros documentos
+                        <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
+                          {unclassifiedDocs.length} docs
                         </span>
-                      </button>
+                      </div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
+                        gap: '0.4rem', padding: '0.5rem'
+                      }}>
+                        {unclassifiedDocs.map(doc => (
+                          <div
+                            key={doc.id}
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggedDocument(doc);
+                              e.dataTransfer.setData('text/plain', doc.nombre_archivo);
+                              const mimeType = doc.tipo_contenido || 'application/octet-stream';
+                              const fileName = doc.nombre_archivo || 'documento';
+                              e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
+                              try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
+                              e.dataTransfer.effectAllowed = 'copyLink';
+                            }}
+                            onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
+                            onDoubleClick={() => setViewingDocument(doc)}
+                            style={{
+                              position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
+                              aspectRatio: '1',
+                              background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
+                              border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
+                              cursor: 'grab', transition: 'all 0.2s',
+                              opacity: draggedDocument?.id === doc.id ? 0.5 : 1
+                            }}
+                          >
+                            {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
+                              <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FileText size={14} color="var(--color-text-muted)" />
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
+                              style={{
+                                position: 'absolute', top: '2px', right: '2px',
+                                width: '12px', height: '12px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '2px',
+                                cursor: 'pointer', padding: 0, opacity: 0.6
+                              }}
+                            >
+                              <X size={6} color="white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
-                      <a
-                        href={doc.url_archivo}
-                        download={doc.nombre_archivo}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Descargar"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.2rem', borderRadius: '4px', color: 'var(--color-primary)', background: 'rgba(99,102,241,0.15)', textDecoration: 'none' }}
-                      >
-                        <Download size={11} />
-                      </a>
-                      <button className="btn btn-ghost" onClick={() => handleDeleteDocument(doc)} style={{ color: 'var(--color-danger)', padding: '0.2rem', borderRadius: '4px', background: 'rgba(216,90,48,0.15)' }} title="Eliminar">
-                        <Trash2 size={11} />
-                      </button>
+                  )}
+
+                  {documentos.length === 0 && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>
+                      Sin documentos subidos.
                     </div>
-                  </div>
+                  )}
                 </div>
-              ))}
-              {documentos.length === 0 && <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', gridColumn: '1/-1' }}>Sin documentos subidos.</div>}
-            </div>
+              );
+            })()}
           </section>
 
           <section id="historial-tramites" className="glass-panel" style={{ padding: '1.5rem' }}>
