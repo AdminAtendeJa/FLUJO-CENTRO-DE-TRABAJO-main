@@ -1210,7 +1210,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
                 <Users size={18} color="var(--color-primary)" /> Relacionamientos
               </h2>
-              <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => setIsRelateModalOpen(true)}><Plus size={18} /></button>
+              <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => { setSearchQuery(''); setSelectedRelateId(''); setIsRelateModalOpen(true); }}><Plus size={18} /></button>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1449,13 +1449,30 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Vincular Familiar / Amigo</h2>
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Buscar Cliente</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <select style={{flex:1, padding:'0.5rem', background:'var(--color-bg-elevated)', color:'var(--color-text-primary)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)'}} value={selectedRelateId} onChange={(e) => setSelectedRelateId(e.target.value)}>
-                  <option value="">Seleccione un cliente...</option>
-                  {allClientes.filter(c => c.id !== clientId).map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre} ({c.cpf || 'Sin CPF'})</option>
-                  ))}
-                </select>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                  <input 
+                    type="text" 
+                    placeholder="Escriba para filtrar clientes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{width:'100%', padding:'0.5rem', background:'var(--color-bg-elevated)', color:'var(--color-text-primary)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)'}}
+                  />
+                  <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', maxHeight: '150px', overflowY: 'auto', background: 'var(--color-bg-elevated)' }}>
+                    {allClientes.filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
+                      <div 
+                        key={c.id} 
+                        style={{ padding: '0.5rem', cursor: 'pointer', background: selectedRelateId === c.id ? 'var(--color-primary)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', color: selectedRelateId === c.id ? 'white' : 'var(--color-text-primary)', transition: 'background 0.2s' }}
+                        onClick={() => setSelectedRelateId(c.id)}
+                      >
+                        {c.nombre} ({c.cpf || 'Sin CPF'})
+                      </div>
+                    ))}
+                    {allClientes.filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                      <div style={{ padding: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No hay resultados</div>
+                    )}
+                  </div>
+                </div>
                 <button className="btn btn-secondary" style={{ padding: '0.5rem' }} onClick={() => setIsNewRelateClientModalOpen(true)} title="Crear Nuevo Cliente">
                   <UserPlus size={18} />
                 </button>
