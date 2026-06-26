@@ -29,7 +29,6 @@ import { GlobalAiChatProvider } from './context/GlobalAiChatContext';
 import { GlobalAiChat } from './components/GlobalAiChat';
 import { supabase } from './supabaseClient';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider } from './context/ThemeContext';
 // import { useTheme } from './hooks/useTheme'; // Comentado temporalmente para evitar error de importación
 import { useSession } from './hooks/useSession';
