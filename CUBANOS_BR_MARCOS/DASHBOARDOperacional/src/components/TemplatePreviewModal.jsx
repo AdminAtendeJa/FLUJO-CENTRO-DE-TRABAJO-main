@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, Loader2, CheckCircle, AlertTriangle, Edit2, GripVertical } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Download, Loader2, CheckCircle, AlertTriangle, Edit2, GripVertical, RefreshCw } from 'lucide-react';
 import { generateFilledPDF, renderPdfPageAsImage, AVAILABLE_CLIENT_FIELDS } from '../services/templateService';
 
 /**
@@ -11,6 +11,7 @@ import { generateFilledPDF, renderPdfPageAsImage, AVAILABLE_CLIENT_FIELDS } from
 export default function TemplatePreviewModal({ template, client, onClose }) {
   const [bgImage, setBgImage] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [editableValues, setEditableValues] = useState({});
   const [editingField, setEditingField] = useState(null);
@@ -19,34 +20,37 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
   const tagsRef = useRef({});
 
   // Cargar imagen de fondo y valores del cliente
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        if (template.tipo_contenido === 'application/pdf') {
-          const imgUrl = await renderPdfPageAsImage(template.url_archivo, 1, 2);
-          setBgImage(imgUrl);
-        } else {
-          setBgImage(template.url_archivo);
-        }
-
-        // Pre-cargar valores del cliente y mapeos
-        const loadedMappings = template.field_mappings || [];
-        setLocalMappings(loadedMappings);
-
-        const values = {};
-        for (const m of loadedMappings) {
-          values[m.fieldId] = getClientValue(client, m.fieldId);
-        }
-        setEditableValues(values);
-      } catch (err) {
-        console.error('Error loading preview:', err);
-      } finally {
-        setLoading(false);
+  const loadPreview = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      if (template.tipo_contenido === 'application/pdf') {
+        const imgUrl = await renderPdfPageAsImage(template.url_archivo, 1, 2);
+        setBgImage(imgUrl);
+      } else {
+        setBgImage(template.url_archivo);
       }
-    };
-    load();
+
+      // Pre-cargar valores del cliente y mapeos
+      const loadedMappings = template.field_mappings || [];
+      setLocalMappings(loadedMappings);
+
+      const values = {};
+      for (const m of loadedMappings) {
+        values[m.fieldId] = getClientValue(client, m.fieldId);
+      }
+      setEditableValues(values);
+    } catch (err) {
+      console.error('Error loading preview:', err);
+      setLoadError(err.message || 'Error al cargar la vista previa');
+    } finally {
+      setLoading(false);
+    }
   }, [template, client]);
+
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
 
   const getClientValue = (clientData, fieldId) => {
     if (!clientData || !fieldId) return '';
@@ -167,6 +171,14 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
     }
   };
 
+  const updateWidth = (idx, newWidth) => {
+    setLocalMappings(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], width: Math.max(0.05, Math.min(1, newWidth)) };
+      return updated;
+    });
+  };
+
   // Contar campos con/sin valor
   const filledCount = localMappings.filter(m => m.isCustomText || editableValues[m.fieldId]?.trim()).length;
   const emptyCount = localMappings.length - filledCount;
@@ -229,6 +241,19 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
               <Loader2 size={32} className="animate-spin" color="var(--color-primary)" />
               <span style={{ color: 'var(--color-text-secondary)' }}>Cargando vista previa...</span>
             </div>
+          ) : loadError ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginTop: '4rem' }}>
+              <AlertTriangle size={32} color="var(--color-danger)" />
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>
+                Error al cargar la vista previa
+              </span>
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', maxWidth: '400px', textAlign: 'center' }}>
+                {loadError}
+              </span>
+              <button className="btn btn-primary" onClick={loadPreview} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <RefreshCw size={14} /> Reintentar
+              </button>
+            </div>
           ) : (
             <div
               ref={containerRef}
@@ -267,6 +292,7 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
                       transform: 'translate(0, -50%)',
                       display: 'flex', flexDirection: 'column', gap: '2px',
                       maxWidth: `${(mapping.width || 0.3) * 100}%`,
+                      width: `${(mapping.width || 0.3) * 100}%`,
                       cursor: dragState.current?.idx === idx && dragState.current?.active ? 'grabbing' : 'grab',
                       zIndex: editingField === idx ? 50 : 10,
                     }}
@@ -308,11 +334,33 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
                           style={{
                             background: 'white', border: '1px solid var(--color-primary)',
                             borderRadius: '3px', fontSize: '0.75rem', padding: '1px 4px',
-                            outline: 'none', width: '150px', color: '#111', fontWeight: 600,
+                            outline: 'none', width: '100%', minWidth: '60px', color: '#111', fontWeight: 600,
                           }}
                         />
                       ) : null}
                     </div>
+                    {/* Width slider when editing */}
+                    {editingField === idx && (
+                      <div
+                        onMouseDown={(e) => e.stopPropagation()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px',
+                        }}
+                      >
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="0.8"
+                          step="0.01"
+                          value={mapping.width || 0.3}
+                          onChange={(e) => updateWidth(idx, parseFloat(e.target.value))}
+                          style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap' }}>
+                          {Math.round((mapping.width || 0.3) * 100)}%
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -376,6 +424,28 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
                     }}
                     placeholder="Sin dato..."
                   />
+                  {/* Width control per field in panel */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem',
+                  }}>
+                    <span style={{
+                      fontSize: '0.6rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap',
+                    }}>
+                      Ancho:
+                    </span>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="0.8"
+                      step="0.01"
+                      value={mapping.width || 0.3}
+                      onChange={(e) => updateWidth(idx, parseFloat(e.target.value))}
+                      style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', minWidth: '30px', textAlign: 'right' }}>
+                      {Math.round((mapping.width || 0.3) * 100)}%
+                    </span>
+                  </div>
                 </div>
               );
             })}
