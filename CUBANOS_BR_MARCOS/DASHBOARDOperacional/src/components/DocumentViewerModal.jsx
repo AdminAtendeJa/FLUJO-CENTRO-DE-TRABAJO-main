@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download, X, FileText, Image as ImageIcon, Loader2, Maximize2 } from 'lucide-react';
+import { Download, X, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Plus, RotateCw } from 'lucide-react';
 
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 240;
+const ZOOM_STEP = 0.15;
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 5;
 
 export default function DocumentViewerModal({ document: doc, onClose }) {
     const [position, setPosition] = useState({ x: 80, y: 40 });
@@ -16,6 +19,13 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [imgLoaded, setImgLoaded] = useState(false);
     const [imgError, setImgError] = useState(false);
+    const [zoom, setZoom] = useState(1);
+    const [rotation, setRotation] = useState(0);
+    const [isPanning, setIsPanning] = useState(false);
+    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const contentRef = useRef(null);
+    const imgRef = useRef(null);
     const modalRef = useRef(null);
 
     // Center on mount
@@ -36,6 +46,15 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [onClose]);
+
+    // Reset zoom when image changes
+    useEffect(() => {
+        setZoom(1);
+        setRotation(0);
+        setPanOffset({ x: 0, y: 0 });
+        setImgLoaded(false);
+        setImgError(false);
+    }, [doc?.id]);
 
     // Global mouse move / up for dragging & resizing
     const handleMouseMove = useCallback((e) => {
@@ -79,15 +98,25 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
             setSize({ width: newWidth, height: newHeight });
             setPosition({ x: newX, y: newY });
         }
-    }, [isDragging, resizeDirection, dragOffset, resizeStart, resizeStartSize, resizeStartPos]);
+        if (isPanning) {
+            setPanOffset({
+                x: e.clientX - panStart.x,
+                y: e.clientY - panStart.y,
+            });
+        }
+    }, [isDragging, resizeDirection, isPanning, dragOffset, resizeStart, resizeStartSize, resizeStartPos, panStart]);
 
     const handleMouseUp = useCallback(() => {
         setIsDragging(false);
         setResizeDirection(null);
-    }, []);
+        if (isPanning) {
+            setPanOffset({ x: 0, y: 0 });
+            setIsPanning(false);
+        }
+    }, [isPanning]);
 
     useEffect(() => {
-        if (isDragging || resizeDirection) {
+        if (isDragging || resizeDirection || isPanning) {
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
             return () => {
@@ -95,7 +124,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                 window.removeEventListener('mouseup', handleMouseUp);
             };
         }
-    }, [isDragging, resizeDirection, handleMouseMove, handleMouseUp]);
+    }, [isDragging, resizeDirection, isPanning, handleMouseMove, handleMouseUp]);
 
     const handleHeaderMouseDown = (e) => {
         // Only left click on header (not on buttons)
@@ -112,6 +141,52 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
         setResizeStart({ x: e.clientX, y: e.clientY });
         setResizeStartSize({ width: size.width, height: size.height });
         setResizeStartPos({ x: position.x, y: position.y });
+    };
+
+    const handleImageMouseDown = (e) => {
+        if (zoom > 1 && e.button === 0) {
+            setIsPanning(true);
+            setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+        }
+    };
+
+    const handleWheel = useCallback((e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+            setZoom(prev => {
+                const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev + delta));
+                return Math.round(newZoom * 100) / 100;
+            });
+        }
+    }, []);
+
+    // Attach wheel event listener to the content area for zoom
+    useEffect(() => {
+        const contentEl = contentRef.current;
+        if (contentEl) {
+            contentEl.addEventListener('wheel', handleWheel, { passive: false });
+            return () => contentEl.removeEventListener('wheel', handleWheel);
+        }
+    }, [handleWheel]);
+
+    const handleZoomIn = () => {
+        setZoom(prev => Math.min(MAX_ZOOM, Math.round((prev + ZOOM_STEP) * 100) / 100));
+    };
+
+    const handleZoomOut = () => {
+        setZoom(prev => Math.max(MIN_ZOOM, Math.round((prev - ZOOM_STEP) * 100) / 100));
+    };
+
+    const handleZoomReset = () => {
+        setZoom(1);
+        setRotation(0);
+        setPanOffset({ x: 0, y: 0 });
+    };
+
+    const handleRotate = () => {
+        setRotation(prev => (prev + 90) % 360);
     };
 
     const handleDownload = async () => {
@@ -173,16 +248,14 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
 
     return (
         <>
-            {/* Backdrop */}
+            {/* Backdrop - sin blur y sin cerrar al hacer clic fuera */}
             <div
                 style={{
                     position: 'fixed',
                     inset: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    backdropFilter: 'blur(3px)',
+                    background: 'rgba(0,0,0,0.25)',
                     zIndex: 200,
                 }}
-                onClick={onClose}
             />
 
             {/* Modal window */}
@@ -272,8 +345,73 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                     </div>
                 </div>
 
+                {/* Toolbar for zoom controls (only for images) */}
+                {isImage && (
+                    <div
+                        style={{
+                            padding: '0.35rem 0.75rem',
+                            borderBottom: '1px solid var(--color-border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            background: 'var(--color-bg-surface)',
+                            flexShrink: 0,
+                        }}
+                    >
+                        <button
+                            className="btn btn-ghost"
+                            onClick={handleZoomOut}
+                            disabled={zoom <= MIN_ZOOM}
+                            title="Alejar (Ctrl + Rueda)"
+                            style={{ padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                        >
+                            <Minus size={14} />
+                        </button>
+                        <button
+                            className="btn btn-ghost"
+                            onClick={handleZoomReset}
+                            title="Restablecer zoom"
+                            style={{
+                                padding: '0.15rem 0.5rem',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                fontVariantNumeric: 'tabular-nums',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                            }}
+                        >
+                            {Math.round(zoom * 100)}%
+                        </button>
+                        <button
+                            className="btn btn-ghost"
+                            onClick={handleZoomIn}
+                            disabled={zoom >= MAX_ZOOM}
+                            title="Acercar (Ctrl + Rueda)"
+                            style={{ padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                        >
+                            <Plus size={14} />
+                        </button>
+                        <div style={{ width: '1px', height: '16px', background: 'var(--color-border)', margin: '0 0.25rem' }} />
+                        <button
+                            className="btn btn-ghost"
+                            onClick={handleRotate}
+                            title="Rotar 90°"
+                            style={{ padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                        >
+                            <RotateCw size={14} />
+                        </button>
+                        <div style={{ flex: 1 }} />
+                        <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>
+                            Ctrl + Rueda para zoom • Arrastra para mover
+                        </span>
+                    </div>
+                )}
+
                 {/* Content area */}
                 <div
+                    ref={contentRef}
+                    onMouseDown={handleImageMouseDown}
                     style={{
                         flex: 1,
                         overflow: 'hidden',
@@ -282,6 +420,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                         justifyContent: 'center',
                         background: 'var(--color-bg-base)',
                         position: 'relative',
+                        cursor: isPanning ? 'grabbing' : (zoom > 1 ? 'grab' : 'default'),
                     }}
                 >
                     {isImage ? (
@@ -299,15 +438,20 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                                 </div>
                             )}
                             <img
+                                ref={imgRef}
                                 src={doc?.url_archivo}
                                 alt={doc?.nombre_archivo || 'Imagen'}
                                 onLoad={() => setImgLoaded(true)}
                                 onError={() => setImgError(true)}
                                 style={{
-                                    maxWidth: '100%',
-                                    maxHeight: '100%',
-                                    objectFit: 'contain',
+                                    transform: `scale(${zoom}) rotate(${rotation}deg) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`,
+                                    transformOrigin: 'center center',
+                                    maxWidth: zoom <= 1 ? '100%' : 'none',
+                                    maxHeight: zoom <= 1 ? '100%' : 'none',
+                                    objectFit: zoom <= 1 ? 'contain' : 'none',
                                     display: imgLoaded && !imgError ? 'block' : 'none',
+                                    transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                    pointerEvents: 'none',
                                 }}
                                 draggable={false}
                             />
@@ -330,6 +474,27 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                             <span style={{ fontSize: '0.8rem' }}>
                                 Vista previa no disponible para este tipo de archivo
                             </span>
+                        </div>
+                    )}
+
+                    {/* Zoom level indicator inside content */}
+                    {isImage && zoom !== 1 && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                bottom: '0.5rem',
+                                right: '0.5rem',
+                                fontSize: '0.65rem',
+                                color: 'white',
+                                background: 'rgba(0,0,0,0.6)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                pointerEvents: 'none',
+                                fontWeight: 600,
+                                fontVariantNumeric: 'tabular-nums',
+                            }}
+                        >
+                            {Math.round(zoom * 100)}%
                         </div>
                     )}
                 </div>
