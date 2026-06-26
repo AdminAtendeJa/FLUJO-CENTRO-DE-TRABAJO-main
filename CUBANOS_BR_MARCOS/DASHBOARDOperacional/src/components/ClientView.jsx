@@ -3,9 +3,9 @@ import { supabase } from '../supabaseClient';
 import { analyzeDocumentImage, chatWithClientContext } from '../services/aiService';
 import { getChatHistoryFromN8n } from '../services/crmBridgeService';
 import { uploadDocument, deleteDocument } from '../services/storageService';
-import { generateDocumentPDF } from '../services/pdfGenerator';
 import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, User, Search, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck, MessageSquare, Send } from 'lucide-react';
 import NewClientModal from './NewClientModal';
+import TemplateManager from './TemplateManager';
 
 // Helper for native date inputs (YYYY-MM-DD <-> DD/MM/YYYY)
 function toIsoDate(val) {
@@ -104,8 +104,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [isNewRelateClientModalOpen, setIsNewRelateClientModalOpen] = useState(false);
   const [editingRelId, setEditingRelId] = useState(null);
   
-  // PDF Missing Data state
-  const [missingFieldsData, setMissingFieldsData] = useState(null); // { tipoDocumento, missingFields: [{id, label, valor}] }
+
 
   // Search state para relacionar cliente existente
   const [searchQuery, setSearchQuery] = useState('');
@@ -660,75 +659,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       alert('Error actualizando estado del documento.');
     }
   }, []);
-  // ================= PDF GENERATOR LOGIC =================
-  const REQUIRED_FIELDS_PER_DOC = {
-    'HIPOSSUFICIENCIA': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
-    'ANTECEDENTES': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
-    'PROCURACAO_RETIRAR_DOCS': ['nombre', 'cpf', 'rnm', 'nacionalidad', 'estado_civil', 'profesion', 'direccion'],
-    'PROCURACAO_MENORES': ['nombre', 'cpf', 'rnm', 'estado_civil', 'profesion', 'direccion'],
-    'DECLARACAO_RESIDENCIA_CHAMANTE': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
-    'DECLARACAO_ENTRADA_BRASIL': ['nombre', 'fecha_entrada_brasil', 'lugar_entrada_brasil'],
-    'DECLARACAO_ELETRONICA': ['nombre', 'cpf', 'numero_pasaporte', 'email', 'telefono', 'direccion', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
-    'DECLARACAO_SEI': ['nombre', 'cpf', 'email', 'telefono', 'direccion'],
-    'DECLARACAO_CONJUNTA': ['nombre', 'nacionalidad', 'fecha_nacimiento'],
-    'DECLARACAO_CONDICAO_FISCAL': ['nombre', 'nacionalidad', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre', 'direccion'],
-    'DECLARACAO_GERAL_MIGRANTE': ['nombre', 'cpf', 'numero_pasaporte', 'nacionalidad', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre', 'telefono', 'email', 'direccion'],
-    'DECLARACAO_MAIS_MEDICOS': ['nombre', 'nacionalidad', 'estado_civil', 'fecha_nacimiento', 'nombre_madre', 'nombre_padre'],
-    'DATOS_PODER': ['nombre', 'nacionalidad', 'fecha_nacimiento', 'cpf', 'numero_pasaporte', 'estado_civil', 'profesion', 'nombre_madre', 'nombre_padre', 'direccion'],
-    'SERVICIO_CONSULAR': ['nombre', 'numero_pasaporte', 'cpf', 'sexo', 'estado_civil', 'nombre_madre', 'nombre_padre', 'direccion', 'email', 'telefono', 'profesion'],
-    'INSCRIPCION_CONSULAR': ['nombre', 'fecha_nacimiento', 'cpf', 'numero_pasaporte', 'rnm', 'estado_civil', 'profesion', 'nombre_madre', 'nombre_padre', 'direccion', 'telefono', 'email', 'sexo']
-  };
 
-  const handleGeneratePDF = async (tipoDocumento) => {
-    const required = REQUIRED_FIELDS_PER_DOC[tipoDocumento] || [];
-    const missing = required.filter(f => !client[f] || String(client[f]).trim() === '');
-
-    if (missing.length > 0) {
-      setMissingFieldsData({
-        tipoDocumento,
-        missingFields: missing.map(mf => {
-          const fieldDef = FIXED_FIELDS_CATALOG.find(f => f.id === mf);
-          return { id: mf, label: fieldDef?.nombre_campo || mf, valor: '' };
-        })
-      });
-      return;
-    }
-
-    try {
-      await generateDocumentPDF(tipoDocumento, client, clienteDatos, null); // Pasaremos el familiar en el futuro si aplica
-    } catch (err) {
-      console.error(err);
-      alert('Error generando el documento PDF. Revisa la consola.');
-    }
-  };
-
-  const handleSaveMissingDataAndGenerate = async () => {
-    if (!missingFieldsData) return;
-    setIsSaving(true);
-    try {
-      const updates = {};
-      for (const field of missingFieldsData.missingFields) {
-        if (field.valor) {
-          updates[field.id] = field.valor.toUpperCase();
-        }
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        await supabase.from('clientes').update(updates).eq('id', client.id);
-        const { data: updatedClient } = await supabase.from('clientes').select('*').eq('id', client.id).single();
-        setClient(updatedClient);
-        
-        // Generate PDF immediately with updated client
-        await generateDocumentPDF(missingFieldsData.tipoDocumento, updatedClient, clienteDatos, null);
-      }
-      setMissingFieldsData(null);
-    } catch (err) {
-      console.error(err);
-      alert('Error guardando los datos faltantes.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   // ================= AI CHAT LOGIC =================
   useEffect(() => {
@@ -1148,107 +1079,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
           {renderUnifiedPersonalData()}
 
-          <section id="tramites-builder" className="glass-panel" style={{ padding: '2rem' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FileText size={20} /> Generador de Trámites y Declaraciones
-            </h2>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>
-              Genera rápidamente los documentos legales requeridos usando los datos del cliente.
-            </p>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('HIPOSSUFICIENCIA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Hipossuficiência Econômica</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de incapacidad de pagar tasas.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('ANTECEDENTES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Antecedentes Criminais</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Ausencia de antecedentes en Brasil y exterior.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_RETIRAR_DOCS')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Retirar Docs</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar RNM u otros documentos.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('PROCURACAO_MENORES')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Procuração p/ Menores</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Poder para retirar documentos de menores de edad.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_RESIDENCIA_CHAMANTE')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Residência do Chamante</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de que el familiar llamante reside en Brasil.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ENTRADA_BRASIL')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Entrada ao Brasil</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de frontera de entrada al país.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_ELETRONICA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Declaração Eletrônica</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de medios de contacto electrónicos.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_SEI')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Usuário Externo SEI</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Cadastro Ministério da Justiça e Segurança Pública.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_CONJUNTA')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Declaração Conjunta</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Para Casados ou União Estável.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_CONDICAO_FISCAL')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Condição Fiscal (CPF)</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de la Receita Federal.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_GERAL_MIGRANTE')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Geral do Migrante</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Polícia Federal (Antecedentes, Taxas, etc).</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DECLARACAO_MAIS_MEDICOS')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Programa Mais Médicos</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Declaración de integración al programa.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('DATOS_PODER')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Solicitar Poder</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Datos para solicitar poder consular.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('SERVICIO_CONSULAR')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Servicio Consular</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Planilla simplificada para pasaportes, prórrogas.</span>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={() => handleGeneratePDF('INSCRIPCION_CONSULAR')} style={{ justifyContent: 'flex-start', padding: '1rem', height: 'auto', border: '1px solid var(--color-border)', textAlign: 'left' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>Inscripción Consular</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', whiteSpace: 'normal' }}>Solicitud de inscripción en el consulado de Cuba.</span>
-                </div>
-              </button>
-            </div>
-          </section>
+          <TemplateManager client={client} clienteDatos={clienteDatos} />
         </div>
 
         {/* Columna Derecha: Sidebar (Relaciones, Docs, Historial) */}
@@ -1799,68 +1630,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         />
       )}
 
-      {missingFieldsData && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Sparkles size={20} /> Datos Faltantes
-              </h2>
-              <button className="btn btn-ghost" style={{ padding: '0.5rem' }} onClick={() => setMissingFieldsData(null)}>✕</button>
-            </div>
-            
-            <div style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
-                Para generar este documento, necesitamos que completes los siguientes datos obligatorios:
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, overflowY: 'auto' }}>
-                {missingFieldsData.missingFields.map((f, idx) => {
-                  const isDate = f.label?.toLowerCase().includes('fecha') || String(f.id).toLowerCase().includes('fecha');
-                  return (
-                    <div key={idx}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
-                        {f.label}
-                      </label>
-                      {f.id === 'estado_civil' ? (
-                        <select className="form-input" value={f.valor || ''} onChange={(e) => {
-                          const arr = [...missingFieldsData.missingFields];
-                          arr[idx] = { ...arr[idx], valor: e.target.value };
-                          setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
-                        }}>
-                          <option value="">Selecione</option>
-                          {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      ) : f.id === 'sexo' ? (
-                        <select className="form-input" value={f.valor || ''} onChange={(e) => {
-                          const arr = [...missingFieldsData.missingFields];
-                          arr[idx] = { ...arr[idx], valor: e.target.value };
-                          setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
-                        }}>
-                          <option value="">Selecione</option>
-                          {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      ) : (
-                        <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(f.valor) : (f.valor || '')} onChange={(e) => {
-                          const arr = [...missingFieldsData.missingFields];
-                          arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
-                          setMissingFieldsData({ ...missingFieldsData, missingFields: arr });
-                        }} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            
-            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <button className="btn btn-ghost" onClick={() => setMissingFieldsData(null)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleSaveMissingDataAndGenerate} disabled={isSaving}>
-                {isSaving ? 'Guardando y Generando...' : 'Guardar y Continuar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {isExtractionModalOpen && extractedData && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
