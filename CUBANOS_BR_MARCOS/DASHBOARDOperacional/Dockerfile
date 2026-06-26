@@ -9,8 +9,8 @@ WORKDIR /app
 # Copiar archivos de dependencias
 COPY package*.json ./
 
-# Instalar dependencias con modo producción
-RUN npm ci --frozen-lockfile --only=production
+# Instalar todas las dependencias (producción y desarrollo)
+RUN npm ci --frozen-lockfile
 
 # Copiar solo los archivos necesarios para la construcción
 COPY public ./public
