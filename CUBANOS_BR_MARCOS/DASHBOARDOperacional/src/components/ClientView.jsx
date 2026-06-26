@@ -99,6 +99,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Drag document state (for dragging thumbnails to related clients)
+  const [draggedDocument, setDraggedDocument] = useState(null);
+  const [dragOverRelId, setDragOverRelId] = useState(null);
+
   // Relate State
   const [selectedRelateId, setSelectedRelateId] = useState('');
   const [selectedRelateType, setSelectedRelateType] = useState('familiar');
@@ -499,6 +503,50 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     if (error) { alert(`Error eliminando documento: ${error}`); return; }
     await fetchClientData(false);
   }, [fetchClientData]);
+
+  // Copiar documento a otro cliente (arrastrar miniatura a relacionamiento)
+  const handleCopyDocumentToClient = useCallback(async (doc, targetClientId) => {
+    if (!doc || !targetClientId || targetClientId === clientId) return;
+
+    try {
+      // Fetch the source document to get its URL
+      const { data: sourceDoc } = await supabase
+        .from('documentos_operacionales')
+        .select('*')
+        .eq('id', doc.id)
+        .single();
+
+      if (!sourceDoc) {
+        alert('Error: Documento no encontrado en la base de datos.');
+        return;
+      }
+
+      // Insert the document record for the target client (same file reference)
+      const { data: newDoc, error } = await supabase
+        .from('documentos_operacionales')
+        .insert({
+          id_cliente: targetClientId,
+          nombre_archivo: sourceDoc.nombre_archivo,
+          url_archivo: sourceDoc.url_archivo,
+          tipo_contenido: sourceDoc.tipo_contenido,
+          tipo_documento: sourceDoc.tipo_documento,
+          estado: 'pendiente'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        alert(`Error al copiar el documento: ${error.message}`);
+        return;
+      }
+
+      alert('Documento copiado al cliente relacionado exitosamente.');
+      setDraggedDocument(null);
+    } catch (err) {
+      console.error('Error copying document:', err);
+      alert('Error al copiar el documento. Verifica la consola.');
+    }
+  }, [clientId]);
 
   // Subir documento — delegado al storageService
   const handleFileUpload = useCallback(async (e) => {
@@ -1127,16 +1175,83 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => { setSearchQuery(''); setSelectedRelateId(''); setIsRelateModalOpen(true); }}><Plus size={18} /></button>
             </div>
 
+            {/* Indicación de arrastrar documentos a relacionamientos */}
+            <div style={{
+              marginBottom: '0.75rem', padding: '0.5rem 0.75rem',
+              background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--radius-md)',
+              border: '1px dashed rgba(99,102,241,0.3)',
+              fontSize: '0.7rem', color: 'var(--color-text-secondary)',
+              display: 'flex', alignItems: 'center', gap: '0.4rem'
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="5 9 2 12 5 15"></polyline>
+                <polyline points="9 5 12 2 15 5"></polyline>
+                <path d="M2 12h20"></path>
+                <path d="M12 2v20"></path>
+              </svg>
+              Arrastra documentos aquí para copiarlos al cliente relacionado
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {relaciones.map(rel => {
                 const isPrincipal = rel.cliente_id === clientId;
                 const related = isPrincipal ? rel.cliente_secundario : rel.cliente_principal;
                 if (!related) return null;
+                const relKey = `rel-${rel.id}`;
+                const isDragOver = dragOverRelId === relKey;
                 return (
-                  <div key={rel.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0.75rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                  <div
+                    key={rel.id}
+                    onDragOver={(e) => {
+                      if (draggedDocument) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                        setDragOverRelId(relKey);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      setDragOverRelId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverRelId(null);
+                      if (draggedDocument) {
+                        handleCopyDocumentToClient(draggedDocument, related.id);
+                      }
+                    }}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '0.65rem 0.75rem',
+                      background: isDragOver ? 'rgba(99,102,241,0.12)' : 'var(--color-bg-secondary)',
+                      borderRadius: 'var(--radius-md)',
+                      border: isDragOver ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                      transition: 'all 0.2s',
+                      cursor: draggedDocument ? 'copy' : 'default',
+                      position: 'relative'
+                    }}
+                  >
+                    {isDragOver && (
+                      <div style={{
+                        position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)',
+                        border: '2px dashed var(--color-primary)',
+                        pointerEvents: 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(99,102,241,0.05)'
+                      }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-primary)' }}>
+                          SOLTAR PARA COPIAR DOCUMENTO
+                        </span>
+                      </div>
+                    )}
                     <button
                       onClick={() => onNavigateToClient?.(related.id)}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', background: 'none', border: 'none', cursor: onNavigateToClient ? 'pointer' : 'default', padding: 0, flex: 1, textAlign: 'left' }}
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                        background: 'none', border: 'none', cursor: onNavigateToClient ? 'pointer' : 'default',
+                        padding: 0, flex: 1, textAlign: 'left',
+                        opacity: isDragOver ? 0.2 : 1
+                      }}
                       title={onNavigateToClient ? `Ver perfil de ${related.nombre}` : ''}
                     >
                       <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -1220,8 +1335,27 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               {documentos.map(doc => (
                 <div
                   key={doc.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedDocument(doc);
+                    e.dataTransfer.setData('text/plain', doc.nombre_archivo);
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                  onDragEnd={() => {
+                    setDraggedDocument(null);
+                    setDragOverRelId(null);
+                  }}
                   onDoubleClick={() => setViewingDocument(doc)}
-                  style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)', aspectRatio: '1', background: 'var(--color-bg-secondary)', border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`, cursor: 'pointer', transition: 'border-color 0.2s' }}
+                  style={{
+                    position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
+                    aspectRatio: '1',
+                    background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
+                    border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
+                    cursor: 'grab',
+                    transition: 'all 0.2s',
+                    opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
+                    outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
+                  }}
                 >
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {doc.url_archivo ? (
