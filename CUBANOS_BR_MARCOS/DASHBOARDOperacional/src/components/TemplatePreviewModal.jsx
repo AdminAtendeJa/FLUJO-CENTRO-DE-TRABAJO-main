@@ -33,7 +33,7 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
         // Pre-cargar valores del cliente y mapeos
         const loadedMappings = template.field_mappings || [];
         setLocalMappings(loadedMappings);
-        
+
         const values = {};
         for (const m of loadedMappings) {
           values[m.fieldId] = getClientValue(client, m.fieldId);
@@ -119,9 +119,9 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
 
   const handleMouseUp = useCallback(() => {
     if (!dragState.current.active) return;
-    
+
     const { idx, newX, newY, moved } = dragState.current;
-    
+
     if (moved) {
       setLocalMappings(prev => {
         const updated = [...prev];
@@ -157,7 +157,7 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
 
       const { error } = await generateFilledPDF(template.url_archivo, localMappings, filledData);
       if (error) throw new Error(error);
-      
+
       // Mostrar alerta de éxito y cerrar
       onClose();
     } catch (err) {
@@ -256,46 +256,46 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
                 const isEmpty = !mapping.isCustomText && !value.trim();
 
                 return (
+                  <div
+                    key={idx}
+                    ref={(el) => (tagsRef.current[idx] = el)}
+                    onMouseDown={(e) => handleMouseDown(e, idx)}
+                    style={{
+                      position: 'absolute',
+                      left: `${mapping.x * 100}%`,
+                      top: `${mapping.y * 100}%`,
+                      transform: 'translate(0, -50%)',
+                      display: 'flex', flexDirection: 'column', gap: '2px',
+                      maxWidth: `${(mapping.width || 0.3) * 100}%`,
+                      cursor: dragState.current?.idx === idx && dragState.current?.active ? 'grabbing' : 'grab',
+                      zIndex: editingField === idx ? 50 : 10,
+                    }}
+                  >
+                    {/* Label */}
+                    <span style={{
+                      fontSize: '0.55rem', color: mapping.isCustomText ? 'rgba(16,185,129,1)' : 'var(--color-primary)',
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                      fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', gap: '2px'
+                    }}>
+                      <GripVertical size={8} style={{ opacity: 0.6 }} />
+                      {mapping.fieldLabel}
+                    </span>
+                    {/* Value */}
                     <div
-                      key={idx}
-                      ref={(el) => (tagsRef.current[idx] = el)}
-                      onMouseDown={(e) => handleMouseDown(e, idx)}
                       style={{
-                        position: 'absolute',
-                        left: `${mapping.x * 100}%`,
-                        top: `${mapping.y * 100}%`,
-                        transform: 'translate(0, -50%)',
-                        display: 'flex', flexDirection: 'column', gap: '2px',
-                        maxWidth: `${(mapping.width || 0.3) * 100}%`,
-                        cursor: dragState.current?.idx === idx && dragState.current?.active ? 'grabbing' : 'grab',
-                        zIndex: editingField === idx ? 50 : 10,
+                        fontSize: '0.75rem', fontWeight: 600,
+                        color: isEmpty ? 'var(--color-danger)' : '#111',
+                        background: isEmpty
+                          ? 'rgba(239,68,68,0.15)'
+                          : mapping.isCustomText ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,200,0.85)',
+                        padding: '2px 6px', borderRadius: '3px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        border: `1px solid ${isEmpty ? 'rgba(239,68,68,0.3)' : mapping.isCustomText ? 'rgba(16,185,129,0.4)' : 'rgba(200,180,0,0.3)'}`,
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        transition: 'all 0.15s',
                       }}
                     >
-                      {/* Label */}
-                      <span style={{
-                        fontSize: '0.55rem', color: mapping.isCustomText ? 'rgba(16,185,129,1)' : 'var(--color-primary)',
-                        textTransform: 'uppercase', letterSpacing: '0.05em',
-                        fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', gap: '2px'
-                      }}>
-                        <GripVertical size={8} style={{ opacity: 0.6 }} />
-                        {mapping.fieldLabel}
-                      </span>
-                      {/* Value */}
-                      <div
-                        style={{
-                          fontSize: '0.75rem', fontWeight: 600,
-                          color: isEmpty ? 'var(--color-danger)' : '#111',
-                          background: isEmpty
-                            ? 'rgba(239,68,68,0.15)'
-                            : mapping.isCustomText ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,200,0.85)',
-                          padding: '2px 6px', borderRadius: '3px',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden', textOverflow: 'ellipsis',
-                          border: `1px solid ${isEmpty ? 'rgba(239,68,68,0.3)' : mapping.isCustomText ? 'rgba(16,185,129,0.4)' : 'rgba(200,180,0,0.3)'}`,
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                          transition: 'all 0.15s',
-                        }}
-                      >
                       {editingField === idx ? (
                         <input
                           autoFocus
@@ -311,9 +311,7 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
                             outline: 'none', width: '150px', color: '#111', fontWeight: 600,
                           }}
                         />
-                      ) : (
-                        </>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 );
