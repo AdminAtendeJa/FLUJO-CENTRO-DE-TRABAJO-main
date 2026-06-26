@@ -176,7 +176,9 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-text-primary)' }}>Cargando...</div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-text-primary)' }}>
+        <LoadingSpinner size="lg" />
+      </div>
     );
   }
 
@@ -214,139 +216,141 @@ function App() {
 
   return (
     <GlobalAiChatProvider selectedClientId={currentView === 'client' ? selectedClientId : null}>
-      <div className="app-layout" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      <ErrorBoundary>
+        <div className="app-layout" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
 
-        {/* Sidebar */}
-        <aside style={{ width: '240px', background: 'var(--color-bg-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '2rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '32px', height: '32px', background: 'var(--color-primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={18} color="white" />
-            </div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.025em' }}>OpDash</h1>
-          </div>
-
-          <nav style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-            <button
-              onClick={navigateToHome}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
-                borderRadius: 'var(--radius-md)', background: currentView === 'dashboard' ? 'var(--color-bg-elevated)' : 'transparent',
-                color: currentView === 'dashboard' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                border: 'none', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
-                fontWeight: currentView === 'dashboard' ? 500 : 400
-              }}
-            >
-              <LayoutDashboard size={18} />
-              Trámites
-            </button>
-            <button
-              onClick={navigateToClientsList}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
-                borderRadius: 'var(--radius-md)', background: currentView === 'clients' ? 'var(--color-bg-elevated)' : 'transparent',
-                color: currentView === 'clients' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                border: 'none', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
-                fontWeight: currentView === 'clients' ? 500 : 400
-              }}
-            >
-              <Users size={18} />
-              Clientes
-            </button>
-            <button
-              onClick={() => setIsNewClientModalOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
-                borderRadius: 'var(--radius-md)', background: 'transparent',
-                color: 'var(--color-primary)', border: '1px solid var(--color-primary)', cursor: 'pointer', width: '100%', textAlign: 'left', marginTop: '1rem', justifyContent: 'center', fontWeight: 500
-              }}
-            >
-              <UserPlus size={18} />
-              Nuevo Cliente
-            </button>
-          </nav>
-
-          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
-                AD
+          {/* Sidebar */}
+          <aside style={{ width: '240px', background: 'var(--color-bg-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '2rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: '32px', height: '32px', background: 'var(--color-primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={18} color="white" />
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-primary)' }}>Admin</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Operaciones</p>
-              </div>
-            </div>
-            <button
-              onClick={() => supabase.auth.signOut()}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem',
-                borderRadius: 'var(--radius-md)', background: 'transparent',
-                color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', justifyContent: 'center', fontSize: '0.875rem'
-              }}
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        </aside>
-
-        {/* Main Content Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
-
-          {/* Top Bar / Search */}
-          <header style={{ height: '70px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', padding: '0 2.5rem', justifyContent: 'space-between', background: 'var(--color-bg-surface)', zIndex: 10 }}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-              {currentView === 'client' && (
-                <button onClick={navigateToHome} className="btn btn-ghost" style={{ paddingLeft: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <ArrowLeft size={18} /> Volver a Trámites
-                </button>
-              )}
+              <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.025em' }}>OpDash</h1>
             </div>
 
-            <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-full)', padding: '0.5rem 1rem', width: '400px', border: '1px solid var(--color-border)', maxWidth: '100%' }}>
-                <Search size={18} color="var(--color-text-muted)" style={{ marginRight: '0.5rem' }} />
-                <input
-                  type="text"
-                  placeholder="Buscar por cliente, CPF, email..."
-                  value={globalSearch}
-                  onChange={handleSearchChange}
-                  style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--color-text-primary)', width: '100%', fontSize: '0.875rem' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ flex: 1, display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <nav style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
               <button
-                className="btn btn-ghost"
-                onClick={toggleTheme}
-                style={{ padding: '0.5rem' }}
-                title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                onClick={navigateToHome}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-md)', background: currentView === 'dashboard' ? 'var(--color-bg-elevated)' : 'transparent',
+                  color: currentView === 'dashboard' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  border: 'none', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
+                  fontWeight: currentView === 'dashboard' ? 500 : 400
+                }}
               >
-                {theme === 'dark' ? <Sun size={20} color="var(--color-text-secondary)" /> : <Moon size={20} color="var(--color-text-secondary)" />}
+                <LayoutDashboard size={18} />
+                Trámites
               </button>
-              <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Bell size={20} color="var(--color-text-secondary)" /></button>
-              <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Settings size={20} color="var(--color-text-secondary)" /></button>
+              <button
+                onClick={navigateToClientsList}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-md)', background: currentView === 'clients' ? 'var(--color-bg-elevated)' : 'transparent',
+                  color: currentView === 'clients' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  border: 'none', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
+                  fontWeight: currentView === 'clients' ? 500 : 400
+                }}
+              >
+                <Users size={18} />
+                Clientes
+              </button>
+              <button
+                onClick={() => setIsNewClientModalOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-md)', background: 'transparent',
+                  color: 'var(--color-primary)', border: '1px solid var(--color-primary)', cursor: 'pointer', width: '100%', textAlign: 'left', marginTop: '1rem', justifyContent: 'center', fontWeight: 500
+                }}
+              >
+                <UserPlus size={18} />
+                Nuevo Cliente
+              </button>
+            </nav>
+
+            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
+                  AD
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-primary)' }}>Admin</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Operaciones</p>
+                </div>
+              </div>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem',
+                  borderRadius: 'var(--radius-md)', background: 'transparent',
+                  color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', justifyContent: 'center', fontSize: '0.875rem'
+                }}
+              >
+                Cerrar Sesión
+              </button>
             </div>
-          </header>
+          </aside>
 
-          <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: currentView === 'client' ? 'hidden' : 'auto' }}>
-            {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} />}
-            {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
-            {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}
-          </main>
+          {/* Main Content Area */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
+
+            {/* Top Bar / Search */}
+            <header style={{ height: '70px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', padding: '0 2.5rem', justifyContent: 'space-between', background: 'var(--color-bg-surface)', zIndex: 10 }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                {currentView === 'client' && (
+                  <button onClick={navigateToHome} className="btn btn-ghost" style={{ paddingLeft: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ArrowLeft size={18} /> Volver a Trámites
+                  </button>
+                )}
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-full)', padding: '0.5rem 1rem', width: '400px', border: '1px solid var(--color-border)', maxWidth: '100%' }}>
+                  <Search size={18} color="var(--color-text-muted)" style={{ marginRight: '0.5rem' }} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por cliente, CPF, email..."
+                    value={globalSearch}
+                    onChange={handleSearchChange}
+                    style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--color-text-primary)', width: '100%', fontSize: '0.875rem' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={toggleTheme}
+                  style={{ padding: '0.5rem' }}
+                  title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                >
+                  {theme === 'dark' ? <Sun size={20} color="var(--color-text-secondary)" /> : <Moon size={20} color="var(--color-text-secondary)" />}
+                </button>
+                <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Bell size={20} color="var(--color-text-secondary)" /></button>
+                <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Settings size={20} color="var(--color-text-secondary)" /></button>
+              </div>
+            </header>
+
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: currentView === 'client' ? 'hidden' : 'auto' }}>
+              {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} />}
+              {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
+              {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}
+            </main>
+          </div>
+
+          {isNewClientModalOpen && (
+            <NewClientModal
+              onClose={() => setIsNewClientModalOpen(false)}
+              onClientCreated={(client) => {
+                setIsNewClientModalOpen(false);
+                navigateToClient(client.id);
+              }}
+            />
+          )}
+
+          <GlobalAiChat />
         </div>
-
-        {isNewClientModalOpen && (
-          <NewClientModal
-            onClose={() => setIsNewClientModalOpen(false)}
-            onClientCreated={(client) => {
-              setIsNewClientModalOpen(false);
-              navigateToClient(client.id);
-            }}
-          />
-        )}
-
-        <GlobalAiChat />
-      </div>
+      </ErrorBoundary>
     </GlobalAiChatProvider>
   );
 }

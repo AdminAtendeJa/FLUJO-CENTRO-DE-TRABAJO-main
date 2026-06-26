@@ -2014,10 +2014,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </h2>
             <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
               Se extrajeron los siguientes datos del documento. ¿Deseas guardarlos en la categoría actual?
-            </p> PUSH ractedData.ILEGIBLE && (
-            <div style={{ background: 'rgba(216,90,48,0.1)', color: '#D85A30', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontWeight: 600 }}>⚠️ Aviso:</span> La parte superior del documento estaba borrosa, por lo que la IA extrajo los datos del código inferior (MRZ). Verifica que sean correctos.
-            </div>
+            </p>
+            {extractedData.ILEGIBLE && (
+              <div style={{ background: 'rgba(216,90,48,0.1)', color: '#D85A30', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 600 }}>⚠️ Aviso:</span> La parte superior del documento estaba borrosa, por lo que la IA extrajo los datos del código inferior (MRZ). Verifica que sean correctos.
+              </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
               {Object.entries(extractedData).map(([k, v]) => (
