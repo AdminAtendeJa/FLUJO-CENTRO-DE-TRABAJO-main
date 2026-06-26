@@ -1,0 +1,29 @@
+version: '3.9'
+
+services:
+  opdash:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_SECRET_KEY=${VITE_SUPABASE_SECRET_KEY}
+        - VITE_GROQ_API_KEY=${VITE_GROQ_API_KEY}
+        - VITE_OPENROUTER_API_KEY=${VITE_OPENROUTER_API_KEY}
+    container_name: opdash-app
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opdash.rule=Host(`tu-dominio.com`)"
+      - "traefik.http.routers.opdash.entrypoints=websecure"
+      - "traefik.http.routers.opdash.tls.certresolver=letsencrypt"
+
+# Para usar con Traefik (SSL automático) descomenta la red:
+# networks:
+#   default:
+#     external:
+#       name: traefik-public

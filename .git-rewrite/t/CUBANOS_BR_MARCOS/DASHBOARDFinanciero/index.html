@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Plataforma Cubanos BR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="dash">
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <div class="menu-wrapper">
+            <button id="menuToggle" class="menu-toggle" aria-label="Abrir menú">☰</button>
+            <nav id="appNav" class="app-nav hidden">
+              <a href="#dashboard" class="active">Dashboard</a>
+              <a href="#clientes">Clientes</a>
+              <a href="#entradas">Trámites</a>
+              <a href="#gastos">Gastos</a>
+            </nav>
+          </div>
+          <div>
+            <div class="subtitle" id="pageSubtitleText">Business intelligence</div>
+            <h1 id="pageTitleText">Plataforma Cubanos BR — <span id="anoLabel">2026</span></h1>
+          </div>
+        </div>
+        <div class="actions" style="display:flex; gap:8px; align-items:center;">
+          <button type="button" id="openNewGastoModal" class="button primary">+ Nuevo gasto</button>
+          <span id="statusBadge" class="status-badge status-loading">Conectando...</span>
+        </div>
+      </div>
+
+
+
+      <!-- DASHBOARD VIEW -->
+      <div id="view-dashboard" class="spa-view active">
+        <section class="dashboard-hero">
+          <div class="dashboard-hero-copy">
+            <div class="subtitle">Análisis financiero</div>
+            <h2>Facturación, gastos, resultado y rentabilidad</h2>
+            <p>Vista consolidada por mes, recurrencia, servicio y categoría con filtros combinados de fecha.</p>
+          </div>
+          <div class="dashboard-filters-panel">
+            <div class="filters dashboard-filters">
+              <input id="filtroFechaInicioDash" type="date" aria-label="Fecha inicial">
+              <input id="filtroFechaFinDash" type="date" aria-label="Fecha final">
+              <select id="filtroMesDash" aria-label="Mes">
+                <option value="0">Todos los meses</option>
+              </select>
+              <select id="filtroAtendenteDash" aria-label="Atendente">
+                <option value="todos">Todos</option>
+              </select>
+              <button type="button" id="resetDashboardFilters" class="button secondary">Limpiar filtros</button>
+            </div>
+            <div class="dashboard-filter-note">Los filtros de fecha se combinan con mes y atendente.</div>
+          </div>
+        </section>
+
+        <div class="metric-grid" id="metricGrid"></div>
+
+        <div class="dashboard-grid dashboard-grid-2">
+          <section class="analysis-card analysis-card--wide">
+            <div class="analysis-card-head">
+              <div>
+                <div class="chart-title">Por mes</div>
+                <div class="analysis-card-subtitle">Facturación, gastos y resultado del período filtrado.</div>
+              </div>
+              <div class="legend legend-inline">
+                <span><span class="legend-dot" style="background:#378ADD"></span>Facturación</span>
+                <span><span class="legend-dot" style="background:#D85A30"></span>Gastos</span>
+                <span><span class="legend-dot" style="background:#1D9E75"></span>Resultado</span>
+              </div>
+            </div>
+            <div class="chart-frame chart-frame--tall">
+              <canvas id="chartMensual"></canvas>
+            </div>
+          </section>
+
+          <section class="analysis-card">
+            <div class="chart-title">Por recurrencia</div>
+            <div class="analysis-card-subtitle">Distribución de ingresos y cantidad por tipo de recurrencia.</div>
+            <div class="legend" id="legendRecurrencia"></div>
+            <div class="chart-frame">
+              <canvas id="chartRecurrencia"></canvas>
+            </div>
+          </section>
+
+          <section class="analysis-card">
+            <div class="chart-title">Por servicio</div>
+            <div class="analysis-card-subtitle">Servicios con mayor facturación en el rango elegido.</div>
+            <div class="legend" id="legendServicio"></div>
+            <div class="chart-frame">
+              <canvas id="chartServicio"></canvas>
+            </div>
+          </section>
+
+          <section class="analysis-card">
+            <div class="chart-title">Por categoría</div>
+            <div class="analysis-card-subtitle">Agrupación por categoría detectada o derivada del servicio.</div>
+            <div class="legend" id="legendCategoria"></div>
+            <div class="chart-frame">
+              <canvas id="chartCategoria"></canvas>
+            </div>
+          </section>
+        </div>
+
+        <div class="dashboard-grid dashboard-grid-2">
+          <section class="analysis-card">
+            <div class="chart-title">Rentabilidad por servicio</div>
+            <div class="table-card analysis-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Servicio</th>
+                    <th>Facturación</th>
+                    <th>Gastos</th>
+                    <th>Resultado</th>
+                    <th>Margen</th>
+                    <th>ROI</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaServicios"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="analysis-card">
+            <div class="chart-title">Gastos por categoría</div>
+            <div class="table-card analysis-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Categoría</th>
+                    <th>Gasto</th>
+                    <th>Participación</th>
+                    <th>Movimientos</th>
+                    <th>Verificado</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaCategorias"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="analysis-card" style="margin-bottom: 1.5rem;">
+        <div class="analysis-card-head">
+          <div>
+            <div class="chart-title">Por atendente</div>
+            <div class="analysis-card-subtitle">Haz clic en un atendente para abrir su detalle filtrado.</div>
+          </div>
+          <div class="legend legend-inline" id="legendAtendente"></div>
+        </div>
+        <div class="chart-frame chart-frame--tall">
+          <canvas id="chartAtendente" role="img" aria-label="Gráfico de barras por atendente"></canvas>
+        </div>
+      </section>
+
+      <section class="analysis-card" style="margin-bottom: 1.5rem;">
+        <div class="analysis-card-head">
+          <div>
+            <div class="chart-title">Catálogo de trámites</div>
+              <div class="analysis-card-subtitle">Servicios, categoría y precios vigentes definidos en Supabase.</div>
+            </div>
+          </div>
+          <div class="table-card analysis-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Trámite</th>
+                  <th>Categoría</th>
+                  <th>Precio</th>
+                  <th>Costo</th>
+                  <th>Margen objetivo</th>
+                </tr>
+              </thead>
+              <tbody id="tablaTramites"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="analysis-card" style="margin-bottom: 1.5rem;">
+          <div class="analysis-card-head">
+            <div>
+              <div class="chart-title">Actividad reciente</div>
+              <div class="analysis-card-subtitle">Trámites y movimientos recientes del período filtrado.</div>
+            </div>
+          </div>
+          <div id="activityFeed" class="activity-feed"></div>
+        </section>
+      </div>
+
+      <!-- ENTRADAS VIEW -->
+      <div id="view-entradas" class="spa-view hidden">
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="tabs-4" style="margin-bottom: 1rem; display: flex; gap: 8px;">
+          <button type="button" class="tab active" data-tab="todas" style="padding: 8px 12px; border: 1px solid var(--color-border-tertiary); background: var(--color-background-primary); border-radius: 6px; cursor: pointer;">Todas</button>
+          <button type="button" class="tab" data-tab="pendiente" style="padding: 8px 12px; border: 1px solid var(--color-border-tertiary); background: var(--color-background-primary); border-radius: 6px; cursor: pointer;">🔴 Pendientes</button>
+          <button type="button" class="tab" data-tab="procesando" style="padding: 8px 12px; border: 1px solid var(--color-border-tertiary); background: var(--color-background-primary); border-radius: 6px; cursor: pointer;">🟡 Procesando</button>
+          <button type="button" class="tab" data-tab="completada" style="padding: 8px 12px; border: 1px solid var(--color-border-tertiary); background: var(--color-background-primary); border-radius: 6px; cursor: pointer;">🟢 Completadas</button>
+        </div>
+
+        <div class="filter-row" style="display: flex; gap: 12px; margin-bottom: 1.5rem; flex-wrap: wrap;">
+          <input id="searchInputEntradas" type="search" placeholder="Buscar por cliente, servicio, atendente..." style="flex: 1; min-width: 200px; padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+          <select id="filtroMesEntradas" style="padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+            <option value="0">Todos los meses</option>
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+          <select id="filtroAtendenteEntradas" style="padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+            <option value="todos">Todos atendentes</option>
+          </select>
+          <button type="button" class="button primary" onclick="openNewEntradaModal()" style="margin-left: auto;">+ Nueva Entrada</button>
+        </div>
+
+        <div class="table-card" style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Fecha</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Cliente</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Teléfono</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Nombre PIX</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Servicio</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Valor</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Atendente</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Estado</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Operario</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="entradasTabla"></tbody>
+          </table>
+          <div id="paginationEntradas" class="pagination"></div>
+        </div>
+      </div>
+
+      <!-- CLIENTES VIEW -->
+      <div id="view-clientes" class="spa-view hidden">
+        <div class="tabs" style="display:flex; gap:8px; margin-bottom:1rem;">
+          <button type="button" class="tab active" id="tabRecent" data-tab="recent" style="flex:1; padding: 14px; background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: 10px; cursor: pointer; font-weight: 500;">Clientes nuevos</button>
+          <button type="button" class="tab" id="tabAll" data-tab="all" style="flex:1; padding: 14px; background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: 10px; cursor: pointer; font-weight: 500;">Todos los clientes</button>
+        </div>
+
+        <div class="controls" style="margin-bottom: 1.5rem; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <input id="searchInputClientes" type="search" placeholder="Buscar por nombre, email, teléfono, canal o ciudad..." style="flex: 1; min-width: 300px; padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+          <button type="button" class="button primary" onclick="openNewClienteModal()" style="margin-left: auto;">+ Nuevo Cliente</button>
+        </div>
+        <div class="note" style="color: var(--color-text-secondary); font-size: 13px; max-width: 400px; margin-bottom: 1rem;">Clientes nuevos ingresados por n8n se muestran aquí hasta que el administrador los valida y guarda.</div>
+
+        <div class="table-card" style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Fecha</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">ID Kommo</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">CPF</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Nombre</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Teléfono</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Email</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Valor</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">País</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Ciudad</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Estado</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Canal</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Atendente</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="clientesTabla"></tbody>
+          </table>
+          <div id="pagination" class="pagination"></div>
+        </div>
+      </div>
+
+      <!-- GASTOS VIEW -->
+      <div id="view-gastos" class="spa-view hidden">
+        <div class="controls" style="margin-bottom: 1rem; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <input id="filtroFechaDesdeGastos" type="date" style="padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+          <input id="filtroFechaHastaGastos" type="date" style="padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+          <select id="filtroCategoriaGastos" style="padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+            <option value="todas">Todas las categorías</option>
+          </select>
+          <select id="filtroVerificadoGastos" style="padding: 10px 12px; border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);">
+            <option value="todos">Todos</option>
+            <option value="true">Verificados</option>
+            <option value="false">No verificados</option>
+          </select>
+          <button type="button" id="resetGastosFilters" class="button secondary">Limpiar filtros</button>
+        </div>
+
+        <div class="summary-grid" id="gastosSummaryGrid"></div>
+
+        <div class="table-card" style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Fecha</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Razón</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Categoría</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Subcategoría</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Valor</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Verificado</th>
+                <th style="padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border-tertiary); background: #fafafa; color: var(--color-text-secondary); font-size: 11px; text-transform: uppercase;">Observación</th>
+              </tr>
+            </thead>
+            <tbody id="gastosTabla"></tbody>
+          </table>
+          <div id="paginationGastos" class="pagination"></div>
+        </div>
+      </div>
+
+      <!-- Modals for Entradas -->
+      <div id="editModalEntradas" class="modal hidden" aria-hidden="true">
+        <div class="modal-dialog" role="dialog" aria-modal="true" style="width: min(700px, 100%); background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(15, 23, 42, 0.22); border: 1px solid rgba(226, 232, 240, 0.8);">
+          <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 28px; background: linear-gradient(135deg, #EFF6FF, #F8FAFC);">
+            <div>
+              <div class="subtitle" style="color: #475569; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;">Edición de entrada</div>
+              <h2 id="editModalTitleEntradas" class="modal-title" style="font-size: 18px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">Editar entrada</h2>
+            </div>
+            <button type="button" id="editModalCloseEntradas" class="modal-close" aria-label="Cerrar edición" style="width: 40px; height: 40px; border: 1px solid #CBD5E1; border-radius: 50%; background: #fff; color: #475569; font-size: 18px; line-height: 1; cursor: pointer; padding: 0;">✕</button>
+          </div>
+          <form id="editModalFormEntradas">
+            <div class="modal-body" style="display: grid; gap: 18px; padding: 24px 28px; max-height: calc(100vh - 240px); overflow-y: auto;">
+              <div id="editFormFieldsEntradas"></div>
+            </div>
+            <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 12px; padding: 18px 28px; border-top: 1px solid #E2E8F0; background: #fff;">
+              <button type="button" id="editModalCancelEntradas" class="button secondary" style="padding: 10px 18px; border-radius: 999px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; cursor: pointer;">Cancelar</button>
+              <button type="submit" class="button primary" style="padding: 10px 18px; border-radius: 999px; border: none; background: #2563EB; color: #fff; cursor: pointer; font-weight: 600;">Guardar cambios</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modals for Clientes -->
+      <div id="editModalClientes" class="modal hidden" aria-hidden="true">
+        <div class="modal-dialog" role="dialog" aria-modal="true" style="width: min(920px, 100%); background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(15, 23, 42, 0.22); border: 1px solid rgba(226, 232, 240, 0.8);">
+          <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 28px; background: linear-gradient(135deg, #EFF6FF, #F8FAFC);">
+            <div>
+              <div class="subtitle" style="color: #475569; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;">Edición de cliente</div>
+              <h2 id="editModalTitleClientes" class="modal-title" style="font-size: 18px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">Editar cliente</h2>
+            </div>
+            <button type="button" id="editModalCloseClientes" class="modal-close" aria-label="Cerrar edición" style="width: 40px; height: 40px; border: 1px solid #CBD5E1; border-radius: 50%; background: #fff; color: #475569; font-size: 18px; line-height: 1; cursor: pointer; padding: 0;">✕</button>
+          </div>
+          <form id="editModalFormClientes">
+            <div class="modal-body" style="display: grid; gap: 18px; padding: 24px 28px; max-height: calc(100vh - 240px); overflow-y: auto;">
+              <div id="editFormFieldsClientes"></div>
+            </div>
+            <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 12px; padding: 18px 28px; border-top: 1px solid #E2E8F0; background: #fff;">
+              <button type="button" id="editModalCancelClientes" class="button secondary" style="padding: 10px 18px; border-radius: 999px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; cursor: pointer;">Cancelar</button>
+              <button type="submit" class="button primary" style="padding: 10px 18px; border-radius: 999px; border: none; background: #2563EB; color: #fff; cursor: pointer; font-weight: 600;">Guardar cambios</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="historialModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-dialog" role="dialog" aria-modal="true" style="width: min(900px, 100%); background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(15, 23, 42, 0.22); border: 1px solid rgba(226, 232, 240, 0.8);">
+          <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 28px; background: linear-gradient(135deg, #EFF6FF, #F8FAFC);">
+            <div>
+              <div class="subtitle" style="color: #475569; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;">Detalles del cliente</div>
+              <h2 id="historialModalTitle" class="modal-title" style="font-size: 18px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">Trámites y Historial</h2>
+            </div>
+            <button type="button" id="historialModalClose" class="modal-close" aria-label="Cerrar historial" style="width: 40px; height: 40px; border: 1px solid #CBD5E1; border-radius: 50%; background: #fff; color: #475569; font-size: 18px; line-height: 1; cursor: pointer; padding: 0;">✕</button>
+          </div>
+          <div class="modal-body" style="background: #F8FAFC; padding: 24px 28px; max-height: calc(100vh - 240px); overflow-y: auto;">
+            <div class="historial-grid" style="display: grid; gap: 18px;">
+              <!-- Panel Trámites -->
+              <div class="historial-section">
+                <div class="historial-section-title" style="font-weight: 600; margin-bottom: 8px;">
+                  <span class="icon">📦</span> Trámites
+                </div>
+                <div style="background: #fff; border-radius: 12px; border: 1px solid #E2E8F0; padding: 12px; overflow-x: auto;">
+                  <table class="mini-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                      <tr>
+                        <th style="padding: 6px; text-align: left; border-bottom: 1px solid #E2E8F0;">Servicio</th>
+                        <th style="padding: 6px; text-align: left; border-bottom: 1px solid #E2E8F0;">Valor</th>
+                        <th style="padding: 6px; text-align: left; border-bottom: 1px solid #E2E8F0;">Estado</th>
+                        <th style="padding: 6px; text-align: left; border-bottom: 1px solid #E2E8F0;">Atendente</th>
+                        <th style="padding: 6px; text-align: left; border-bottom: 1px solid #E2E8F0;">Fecha</th>
+                      </tr>
+                    </thead>
+                    <tbody id="historialTramitesBody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Panel Historial -->
+              <div class="historial-section">
+                <div class="historial-section-title" style="font-weight: 600; margin-bottom: 8px;">
+                  <span class="icon">🕒</span> Historial de cambios
+                </div>
+                <div style="background: #fff; border-radius: 12px; border: 1px solid #E2E8F0; padding: 20px;">
+                  <div class="timeline" id="historialTimeline"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="dashboardDetailModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-dialog" role="dialog" aria-modal="true" style="width: min(1040px, 100%); background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(15, 23, 42, 0.22); border: 1px solid rgba(226, 232, 240, 0.8);">
+          <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 28px; background: linear-gradient(135deg, #EFF6FF, #F8FAFC);">
+            <div>
+              <div class="subtitle" style="color: #475569; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;">Detalle interactivo</div>
+              <h2 id="dashboardDetailTitle" class="modal-title" style="font-size: 18px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">Detalle</h2>
+              <div id="dashboardDetailSubtitle" class="analysis-card-subtitle">Selecciona una métrica o un atendente para ver el desglose.</div>
+            </div>
+            <button type="button" id="dashboardDetailClose" class="modal-close" aria-label="Cerrar detalle">✕</button>
+          </div>
+          <div class="modal-body" style="display:grid; gap: 18px; padding: 24px 28px; max-height: calc(100vh - 240px); overflow-y: auto;">
+            <div id="dashboardDetailSummary" class="detail-summary-grid"></div>
+            <div class="detail-actions" id="dashboardDetailActions"></div>
+            <div class="table-card detail-table-card">
+              <table class="detail-table">
+                <thead>
+                  <tr id="dashboardDetailHead"></tr>
+                </thead>
+                <tbody id="dashboardDetailBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="editModalGastos" class="modal hidden" aria-hidden="true">
+        <div class="modal-dialog" role="dialog" aria-modal="true" style="width: min(820px, 100%); background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(15, 23, 42, 0.22); border: 1px solid rgba(226, 232, 240, 0.8);">
+          <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 28px; background: linear-gradient(135deg, #EFF6FF, #F8FAFC);">
+            <div>
+              <div class="subtitle" style="color: #475569; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;">Nuevo gasto</div>
+              <h2 id="editModalTitleGastos" class="modal-title" style="font-size: 18px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">Nuevo gasto</h2>
+            </div>
+            <button type="button" id="editModalCloseGastos" class="modal-close" aria-label="Cerrar gasto">✕</button>
+          </div>
+          <form id="editModalFormGastos">
+            <div class="modal-body" style="display: grid; gap: 18px; padding: 24px 28px; max-height: calc(100vh - 240px); overflow-y: auto;">
+              <div id="gastoFormFields"></div>
+            </div>
+            <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 12px; padding: 18px 28px; border-top: 1px solid #E2E8F0; background: #fff;">
+              <button type="button" id="editModalCancelGastos" class="button secondary" style="padding: 10px 18px; border-radius: 999px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; cursor: pointer;">Cancelar</button>
+              <button type="submit" class="button primary" style="padding: 10px 18px; border-radius: 999px; border: none; background: #2563EB; color: #fff; cursor: pointer; font-weight: 600;">Guardar gasto</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js?v=6"></script>
+  <script src="utils.js?v=1"></script>
+  <script src="router.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="app.js?v=2"></script>
+  <script src="entradas.js"></script>
+  <script src="gastos.js"></script>
+  <script src="clientes.js?v=7"></script>
+
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const appNav = document.getElementById('appNav');
+
+    function closeMenu() {
+      appNav.classList.add('hidden');
+      menuToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMenu(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const isHidden = appNav.classList.contains('hidden');
+      appNav.classList.toggle('hidden', !isHidden);
+      menuToggle.setAttribute('aria-expanded', String(isHidden));
+    }
+
+    if (menuToggle && appNav) {
+      menuToggle.addEventListener('click', toggleMenu);
+      appNav.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', closeMenu);
+      });
+      document.addEventListener('click', event => {
+        if (!appNav.classList.contains('hidden') && 
+            !appNav.contains(event.target) && 
+            event.target !== menuToggle &&
+            !event.target.closest('button[id^="tab"]')) {
+          closeMenu();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
