@@ -1339,7 +1339,17 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                   onDragStart={(e) => {
                     setDraggedDocument(doc);
                     e.dataTransfer.setData('text/plain', doc.nombre_archivo);
-                    e.dataTransfer.effectAllowed = 'copy';
+
+                    // Permitir arrastrar a aplicaciones externas (WhatsApp, Explorer, etc.)
+                    const mimeType = doc.tipo_contenido || 'application/octet-stream';
+                    const fileName = doc.nombre_archivo || 'documento';
+                    // Format DownloadURL: "mimeType:fileName:url"
+                    e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
+                    // Fallback para navegadores que soportan URL
+                    try {
+                      e.dataTransfer.setData('text/uri-list', doc.url_archivo);
+                    } catch (err) { }
+                    e.dataTransfer.effectAllowed = 'copyLink';
                   }}
                   onDragEnd={() => {
                     setDraggedDocument(null);
