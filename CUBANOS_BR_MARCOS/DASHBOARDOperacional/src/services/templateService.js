@@ -10,7 +10,6 @@
 
 import { supabase } from '../supabaseClient';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 const BUCKET = 'documentos_operacionales';
 const TABLE = 'plantillas_documentos';
@@ -328,7 +327,7 @@ export async function renderPdfPageAsImage(url, pageNum = 1, scale = 2) {
   
   // Configurar worker
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
   }
 
   const loadingTask = pdfjsLib.getDocument(url);
