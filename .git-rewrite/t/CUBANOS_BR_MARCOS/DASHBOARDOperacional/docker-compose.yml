@@ -1,7 +1,7 @@
 version: '3.9'
 
 services:
-  opdash:
+  dashboard-operacional:
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,17 +10,58 @@ services:
         - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
         - VITE_GROQ_API_KEY=${VITE_GROQ_API_KEY}
         - VITE_OPENROUTER_API_KEY=${VITE_OPENROUTER_API_KEY}
-    container_name: opdash-app
+        - VITE_N8N_WEBHOOK_URL=${VITE_N8N_WEBHOOK_URL}
+        - VITE_KOMMO_WEBHOOK_URL=${VITE_KOMMO_WEBHOOK_URL}
+        - VITE_CHATWOOT_TOKEN=${VITE_CHATWOOT_TOKEN}
+    container_name: dashboard-operacional-app
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "3000:80"
     environment:
       - NODE_ENV=production
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.opdash.rule=Host(`tu-dominio.com`)"
-      - "traefik.http.routers.opdash.entrypoints=websecure"
-      - "traefik.http.routers.opdash.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard-operacional.rule=Host(`tu-dominio.com`)"
+      - "traefik.http.routers.dashboard-operacional.entrypoints=websecure"
+      - "traefik.http.routers.dashboard-operacional.tls.certresolver=letsencrypt"
+
+  # Servicio opcional de desarrollo con hot reload para facilitar debugging
+  dashboard-operacional-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: dashboard-operacional-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      - VITE_GROQ_API_KEY=${VITE_GROQ_API_KEY}
+      - VITE_OPENROUTER_API_KEY=${VITE_OPENROUTER_API_KEY}
+      - VITE_N8N_WEBHOOK_URL=${VITE_N8N_WEBHOOK_URL}
+      - VITE_KOMMO_WEBHOOK_URL=${VITE_KOMMO_WEBHOOK_URL}
+      - VITE_CHATWOOT_TOKEN=${VITE_CHATWOOT_TOKEN}
+    stdin_open: true
+    tty: true
+    restart: "no"
 
 # Para usar con Traefik (SSL automático) descomenta la red:
 # networks:
