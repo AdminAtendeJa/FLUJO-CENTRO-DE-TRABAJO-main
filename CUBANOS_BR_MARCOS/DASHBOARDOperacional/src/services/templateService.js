@@ -330,7 +330,7 @@ export async function renderPdfPageAsImage(url, pageNum = 1, scale = 2) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
   }
 
-  const loadingTask = pdfjsLib.getDocument(url);
+  const loadingTask = pdfjsLib.getDocument({ url });
   const pdf = await loadingTask.promise;
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale });
