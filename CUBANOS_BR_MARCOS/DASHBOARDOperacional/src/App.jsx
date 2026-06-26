@@ -31,7 +31,7 @@ import { supabase } from './supabaseClient';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider } from './context/ThemeContext';
-import { useTheme } from './hooks/useTheme';
+// import { useTheme } from './hooks/useTheme'; // Comentado temporalmente para evitar error de importación
 import { useSession } from './hooks/useSession';
 import { useNavigation } from './hooks/useNavigation';
 import { useSearch } from './hooks/useSearch';
