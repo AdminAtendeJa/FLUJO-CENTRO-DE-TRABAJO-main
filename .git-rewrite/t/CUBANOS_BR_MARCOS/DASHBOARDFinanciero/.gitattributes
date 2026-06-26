@@ -1,4 +1,0 @@
-# Force LF line endings for shell scripts (prevents ENOEXEC on Linux/Docker)
-*.sh text eol=lf
-Dockerfile text eol=lf
-docker/entrypoint.sh text eol=lf
