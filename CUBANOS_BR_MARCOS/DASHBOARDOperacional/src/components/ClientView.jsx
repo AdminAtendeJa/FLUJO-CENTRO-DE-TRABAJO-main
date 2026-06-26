@@ -112,6 +112,30 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
+  // Efecto para buscar clientes dinámicamente en la DB cuando excede el límite inicial
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      const searchDb = async () => {
+        try {
+          const { data } = await supabase
+            .from('clientes')
+            .select('id, nombre, cpf')
+            .ilike('nombre', `%${searchQuery.trim()}%`)
+            .limit(50);
+          if (data) {
+            setSearchResults(data);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      const timeoutId = setTimeout(searchDb, 300);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
+
   // AI Extraction State
   const [extractedData, setExtractedData] = useState(null);
   const [isExtractionModalOpen, setIsExtractionModalOpen] = useState(false);
@@ -1459,7 +1483,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                     style={{width:'100%', padding:'0.5rem', background:'var(--color-bg-elevated)', color:'var(--color-text-primary)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)'}}
                   />
                   <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', maxHeight: '150px', overflowY: 'auto', background: 'var(--color-bg-elevated)' }}>
-                    {allClientes.filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
+                    {(searchQuery.trim().length >= 2 ? searchResults : allClientes).filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 50).map(c => (
                       <div 
                         key={c.id} 
                         style={{ padding: '0.5rem', cursor: 'pointer', background: selectedRelateId === c.id ? 'var(--color-primary)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', color: selectedRelateId === c.id ? 'white' : 'var(--color-text-primary)', transition: 'background 0.2s' }}
@@ -1468,7 +1492,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                         {c.nombre} ({c.cpf || 'Sin CPF'})
                       </div>
                     ))}
-                    {allClientes.filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                    {(searchQuery.trim().length >= 2 ? searchResults : allClientes).filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
                       <div style={{ padding: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No hay resultados</div>
                     )}
                   </div>
