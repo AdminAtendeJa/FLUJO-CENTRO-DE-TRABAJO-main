@@ -96,6 +96,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   // Upload State
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Relate State
   const [selectedRelateId, setSelectedRelateId] = useState('');
@@ -493,7 +494,13 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   // Subir documento — delegado al storageService
   const handleFileUpload = useCallback(async (e) => {
-    const file = e.target.files?.[0];
+    e.preventDefault();
+    let file;
+    if (e.dataTransfer && e.dataTransfer.files) {
+      file = e.dataTransfer.files[0];
+    } else if (e.target && e.target.files) {
+      file = e.target.files[0];
+    }
     if (!file) return;
     setUploading(true);
     try {
@@ -527,9 +534,27 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       }
     } finally {
       setUploading(false);
-      e.target.value = '';
+      if (e.target && e.target.type === 'file') {
+        e.target.value = '';
+      }
     }
   }, [clientId, fetchClientData]);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileUpload(e);
+  }, [handleFileUpload]);
 
   const handleSaveExtractedData = async () => {
     setIsSaving(true);
@@ -1300,15 +1325,30 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </h2>
             
             <label 
-              style={{ display: 'block', border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1.5rem', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', marginBottom: '1.25rem' }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              style={{ 
+                display: 'block', 
+                border: `2px dashed ${isDragging ? 'var(--color-primary)' : 'var(--color-border)'}`, 
+                backgroundColor: isDragging ? 'rgba(99,102,241,0.05)' : 'transparent',
+                borderRadius: 'var(--radius-md)', 
+                padding: '1.5rem', 
+                textAlign: 'center', 
+                cursor: 'pointer', 
+                transition: 'all 0.2s', 
+                marginBottom: '1.25rem' 
+              }}
             >
               <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
               {uploading ? (
                  <Loader2 className="animate-spin" size={24} color="var(--color-primary)" style={{ margin: '0 auto 0.5rem' }} />
               ) : (
-                <UploadCloud size={24} color="var(--color-text-muted)" style={{ margin: '0 auto 0.5rem' }} />
+                <UploadCloud size={24} color={isDragging ? "var(--color-primary)" : "var(--color-text-muted)"} style={{ margin: '0 auto 0.5rem' }} />
               )}
-              <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{uploading ? 'Subiendo...' : 'Subir Documento'}</div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 500, color: isDragging ? "var(--color-primary)" : "inherit" }}>
+                {uploading ? 'Subiendo...' : isDragging ? 'Suelta el documento aquí' : 'Subir Documento (o arrastrar)'}
+              </div>
             </label>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.65rem' }}>
