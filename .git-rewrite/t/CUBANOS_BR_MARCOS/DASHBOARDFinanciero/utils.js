@@ -32,10 +32,15 @@
     return safeText(value).trim().toLowerCase();
   }
 
-  window.DashboardUtils = { escapeHtml, safeText, setStatus, fmt, norm };
+  function cls(value) {
+    return value ? String(value).trim() : '';
+  }
+
+  window.DashboardUtils = { escapeHtml, safeText, setStatus, fmt, norm, cls };
   window.escapeHtml = escapeHtml;
   window.safeText = safeText;
   window.setStatus = setStatus;
   window.fmt = fmt;
   window.norm = norm;
+  window.cls = cls;
 })();

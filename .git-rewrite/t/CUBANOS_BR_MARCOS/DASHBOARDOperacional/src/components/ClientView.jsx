@@ -7,6 +7,17 @@ import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, User, Search, 
 import NewClientModal from './NewClientModal';
 import TemplateManager from './TemplateManager';
 import DocumentViewerModal from './DocumentViewerModal';
+import ClientPersonalData from './ClientPersonalData';
+import ClientDocuments from './ClientDocuments';
+import ClientRelations from './ClientRelations';
+import PDFGenerator from './PDFGenerator';
+import useClientData from '../hooks/useClientData';
+import useDebounce from '../hooks/useDebounce';
+import { useNavigate } from 'react-router-dom';
+
+// Importar componentes adicionales para la optimización
+import VirtualizedList from './VirtualizedList';
+import PaginatedTable from '../../DASHBOARDFinanciero/src/components/PaginatedTable';
 
 // Helper for native date inputs (YYYY-MM-DD <-> DD/MM/YYYY)
 function toIsoDate(val) {
