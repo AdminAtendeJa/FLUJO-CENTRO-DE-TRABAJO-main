@@ -94,6 +94,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   // Edit State
   const [editFormData, setEditFormData] = useState([]);
   const [newFields, setNewFields] = useState([]);
+  const [editModalSearchQuery, setEditModalSearchQuery] = useState('');
 
   // Upload State
   const [uploading, setUploading] = useState(false);
@@ -862,8 +863,41 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   if (!client) return null;
 
+  const normalizeEditSearchText = (value = '') =>
+    String(value || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const editModalQuery = normalizeEditSearchText(editModalSearchQuery);
+  const filteredEditFormData = editFormData.filter(field => {
+    if (!editModalQuery) return true;
+
+    const fieldName = normalizeEditSearchText(field.nombre_campo);
+    let fieldValue = '';
+
+    if (field.id === 'nombre') {
+      fieldValue = normalizeEditSearchText(`${field._nombres || ''} ${field._apellidos || ''}`);
+    } else if (field.id === 'direccion') {
+      fieldValue = normalizeEditSearchText(`${field._endereco || ''} ${field._numero || ''} ${field._bairro || ''} ${field._cidade || ''}`);
+    } else {
+      fieldValue = normalizeEditSearchText(field.valor);
+    }
+
+    return fieldName.includes(editModalQuery) || fieldValue.includes(editModalQuery);
+  });
+
+  const filteredNewFields = newFields.filter(field => {
+    if (!editModalQuery) return true;
+
+    const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
+    const fieldName = normalizeEditSearchText(field.customName || campoRef?.nombre_campo || '');
+    const fieldValue = normalizeEditSearchText(field.valor);
+
+    return fieldName.includes(editModalQuery) || fieldValue.includes(editModalQuery);
+  });
+
+  const hasEditModalResults = filteredEditFormData.length > 0 || filteredNewFields.length > 0;
+
   const renderUnifiedPersonalData = () => {
-    const targetNames = ['Informaciones Personales', 'Datos Familiares', 'Documentos de Identidad'];
+    const targetNames = ['Informaciones Personales', 'Datos Familiares'];
     const targetCats = categorias.filter(c => targetNames.includes(c.nombre));
     if (targetCats.length === 0) return null;
 
@@ -1019,6 +1053,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             );
           })}
 
+
           {/* Documentos Asociados (Datos) */}
           {(() => {
             const docGroups = [
@@ -1078,7 +1113,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                     Documentos Asociados
                   </h3>
                 </div>
-                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
                   {docGroups.map(group => {
                     const hasData = group.fields.some(f => group.fieldValue(f.id));
                     if (!hasData) return null;
@@ -1137,6 +1172,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               </React.Fragment>
             );
           })()}
+
 
           {/* Dirección Section */}
           {(() => {
@@ -1228,10 +1264,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                   </button>
                 </div>
               </React.Fragment>
-            )
+            );
           })()}
         </div>
-      </section>
+      </section >
     );
   };
 
@@ -1418,7 +1454,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
           </section>
 
-          {/* Sección unificada: Documentos y Datos Asociados */}
           <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
               <FileText size={18} color="var(--color-primary)" /> Documentos
@@ -1452,310 +1487,84 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               </div>
             </label>
 
-            {/* Document Groups */}
-            {(() => {
-              // Definir grupos de documentos con sus campos asociados
-              const docGroups = [
-                {
-                  id: 'cpf',
-                  label: 'CPF',
-                  icon: '🆔',
-                  fields: [
-                    { id: 'cpf', label: 'Nº CPF' }
-                  ],
-                  fieldValue: (fieldId) => client?.[fieldId],
-                  color: '#378ADD'
-                },
-                {
-                  id: 'pasaporte',
-                  label: 'Pasaporte',
-                  icon: '🛂',
-                  fields: [
-                    { id: 'numero_pasaporte', label: 'Nº Pasaporte' },
-                    { id: 'fecha_emision_pasaporte', label: 'Emisión' },
-                    { id: 'fecha_vencimiento_pasaporte', label: 'Vencimiento' }
-                  ],
-                  fieldValue: (fieldId) => client?.[fieldId],
-                  color: '#1D9E75'
-                },
-                {
-                  id: 'rnm',
-                  label: 'RNM / Identidad',
-                  icon: '🪪',
-                  fields: [
-                    { id: 'rnm', label: 'Nº RNM' },
-                    { id: 'carnet_identidad', label: 'Carnet Identidad' }
-                  ],
-                  fieldValue: (fieldId) => client?.[fieldId],
-                  color: '#BA7517'
-                },
-                {
-                  id: 'refugio',
-                  label: 'Refugio',
-                  icon: '🛡️',
-                  fields: [
-                    { id: 'numero_refugio', label: 'Protocolo Refugio' },
-                    { id: 'fecha_vencimiento_refugio', label: 'Vencimiento' }
-                  ],
-                  fieldValue: (fieldId) => client?.[fieldId],
-                  color: '#D85A30'
-                }
-              ];
-
-              // Agrupar documentos por tipo según nombre/nombre_archivo
-              const groupDocs = (groupId) => {
-                return documentos.filter(doc => {
-                  const name = (doc.nombre_archivo || doc.tipo_documento || '').toLowerCase();
-                  switch (groupId) {
-                    case 'cpf': return name.includes('cpf');
-                    case 'pasaporte': return name.includes('pasaport') || name.includes('passport');
-                    case 'rnm': return name.includes('rnm') || name.includes('identidad') || name.includes('carnet') || name.includes('identidade');
-                    case 'refugio': return name.includes('refug') || name.includes('protocolo');
-                    default: return false;
-                  }
-                });
-              };
-
-              // También mostrar docs no clasificados
-              const classifiedIds = new Set();
-              docGroups.forEach(g => groupDocs(g.id).forEach(d => classifiedIds.add(d.id)));
-              const unclassifiedDocs = documentos.filter(d => !classifiedIds.has(d.id));
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {docGroups.map(group => {
-                    const groupDocuments = groupDocs(group.id);
-                    const hasData = group.fields.some(f => group.fieldValue(f.id));
-                    if (!hasData && groupDocuments.length === 0) return null;
-
-                    return (
-                      <div
-                        key={group.id}
-                        style={{
-                          border: `1px solid ${group.color}33`,
-                          borderRadius: 'var(--radius-md)',
-                          overflow: 'hidden',
-                          background: `${group.color}08`
-                        }}
-                      >
-                        {/* Header del grupo */}
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          padding: '0.5rem 0.75rem',
-                          background: `${group.color}15`,
-                          borderBottom: `1px solid ${group.color}22`,
-                          fontSize: '0.78rem', fontWeight: 600,
-                          color: group.color
-                        }}>
-                          <span>{group.icon}</span>
-                          <span>{group.label}</span>
-                          {groupDocuments.length > 0 && (
-                            <span style={{
-                              fontSize: '0.6rem', fontWeight: 700,
-                              background: group.color,
-                              color: 'white',
-                              padding: '1px 6px', borderRadius: '10px',
-                              marginLeft: 'auto'
-                            }}>
-                              {groupDocuments.length} doc{groupDocuments.length > 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </div>
-
-                        <div style={{ padding: '0.65rem' }}>
-                          {/* Campos de datos */}
-                          {group.fields.map(field => {
-                            const val = group.fieldValue(field.id);
-                            if (!val) return null;
-                            return (
-                              <div key={field.id} style={{
-                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                padding: '0.35rem 0', gap: '0.5rem'
-                              }}>
-                                <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0 }}>
-                                  {field.label}
-                                </span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', textAlign: 'right', wordBreak: 'break-word' }}>
-                                    {field.id.includes('fecha') ? new Date(val).toLocaleDateString() : val}
-                                  </span>
-                                  <button onClick={() => handleCopy(val, `${group.id}-${field.id}`)} className="btn btn-ghost" style={{ padding: '0.15rem', borderRadius: '4px', flexShrink: 0 }}>
-                                    {copiedId === `${group.id}-${field.id}` ? <Check size={11} color="var(--color-success)" /> : <Copy size={11} />}
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          {/* Miniaturas de documentos del grupo */}
-                          {groupDocuments.length > 0 && (
-                            <div style={{
-                              display: 'grid',
-                              gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
-                              gap: '0.4rem',
-                              marginTop: hasData ? '0.5rem' : 0,
-                              paddingTop: hasData ? '0.5rem' : 0,
-                              borderTop: hasData ? '1px solid var(--color-border)' : 'none'
-                            }}>
-                              {groupDocuments.map(doc => (
-                                <div
-                                  key={doc.id}
-                                  draggable
-                                  onDragStart={(e) => {
-                                    setDraggedDocument(doc);
-                                    e.dataTransfer.setData('text/plain', doc.nombre_archivo);
-                                    const mimeType = doc.tipo_contenido || 'application/octet-stream';
-                                    const fileName = doc.nombre_archivo || 'documento';
-                                    e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
-                                    try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
-                                    e.dataTransfer.effectAllowed = 'copyLink';
-                                  }}
-                                  onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
-                                  onDoubleClick={() => setViewingDocument(doc)}
-                                  style={{
-                                    position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
-                                    aspectRatio: '1',
-                                    background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
-                                    border: `1px solid ${doc.estado === 'verificado' ? group.color : 'var(--color-border)'}`,
-                                    cursor: 'grab', transition: 'all 0.2s',
-                                    opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
-                                    outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
-                                  }}
-                                >
-                                  {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
-                                    <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  ) : (
-                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      <FileText size={18} color="var(--color-text-muted)" />
-                                    </div>
-                                  )}
-                                  <div style={{
-                                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                                    padding: '0.15rem 0.25rem',
-                                    background: 'rgba(10,20,35,0.85)',
-                                    fontSize: '0.45rem', color: 'white',
-                                    textAlign: 'center',
-                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                                  }}>
-                                    {doc.nombre_archivo}
-                                  </div>
-                                  {/* Status dot */}
-                                  <div style={{
-                                    position: 'absolute', top: '3px', right: '3px',
-                                    width: '6px', height: '6px', borderRadius: '50%',
-                                    background: doc.estado === 'verificado' ? group.color : 'var(--color-warning)',
-                                    border: '1px solid rgba(0,0,0,0.3)'
-                                  }} />
-                                  {/* Delete small button */}
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
-                                    style={{
-                                      position: 'absolute', top: '3px', left: '3px',
-                                      width: '14px', height: '14px',
-                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                      background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '3px',
-                                      cursor: 'pointer', padding: 0, opacity: 0.7
-                                    }}
-                                    title="Eliminar"
-                                  >
-                                    <X size={8} color="white" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {!hasData && groupDocuments.length === 0 && (
-                            <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', padding: '0.25rem 0' }}>
-                              Sin datos registrados
-                            </div>
-                          )}
-                        </div>
+            {/* Miniaturas de todos los documentos */}
+            {documentos.length > 0 ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+                gap: '0.4rem'
+              }}>
+                {documentos.map(doc => (
+                  <div
+                    key={doc.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedDocument(doc);
+                      e.dataTransfer.setData('text/plain', doc.nombre_archivo);
+                      const mimeType = doc.tipo_contenido || 'application/octet-stream';
+                      const fileName = doc.nombre_archivo || 'documento';
+                      e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
+                      try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
+                      e.dataTransfer.effectAllowed = 'copyLink';
+                    }}
+                    onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
+                    onDoubleClick={() => setViewingDocument(doc)}
+                    style={{
+                      position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
+                      aspectRatio: '1',
+                      background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
+                      border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
+                      cursor: 'grab', transition: 'all 0.2s',
+                      opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
+                      outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
+                    }}
+                  >
+                    {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
+                      <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FileText size={18} color="var(--color-text-muted)" />
                       </div>
-                    );
-                  })}
-
-                  {/* Documentos sin clasificar */}
-                  {unclassifiedDocs.length > 0 && (
+                    )}
                     <div style={{
-                      border: '1px dashed var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      overflow: 'hidden'
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      padding: '0.15rem 0.25rem',
+                      background: 'rgba(10,20,35,0.85)',
+                      fontSize: '0.45rem', color: 'white',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                     }}>
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: '0.5rem',
-                        padding: '0.4rem 0.75rem',
-                        background: 'var(--color-bg-secondary)',
-                        borderBottom: '1px solid var(--color-border)',
-                        fontSize: '0.72rem', fontWeight: 500, color: 'var(--color-text-secondary)'
-                      }}>
-                        📄 Otros documentos
-                        <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
-                          {unclassifiedDocs.length} docs
-                        </span>
-                      </div>
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
-                        gap: '0.4rem', padding: '0.5rem'
-                      }}>
-                        {unclassifiedDocs.map(doc => (
-                          <div
-                            key={doc.id}
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedDocument(doc);
-                              e.dataTransfer.setData('text/plain', doc.nombre_archivo);
-                              const mimeType = doc.tipo_contenido || 'application/octet-stream';
-                              const fileName = doc.nombre_archivo || 'documento';
-                              e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
-                              try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
-                              e.dataTransfer.effectAllowed = 'copyLink';
-                            }}
-                            onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
-                            onDoubleClick={() => setViewingDocument(doc)}
-                            style={{
-                              position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
-                              aspectRatio: '1',
-                              background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
-                              border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
-                              cursor: 'grab', transition: 'all 0.2s',
-                              opacity: draggedDocument?.id === doc.id ? 0.5 : 1
-                            }}
-                          >
-                            {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
-                              <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <FileText size={14} color="var(--color-text-muted)" />
-                              </div>
-                            )}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
-                              style={{
-                                position: 'absolute', top: '2px', right: '2px',
-                                width: '12px', height: '12px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '2px',
-                                cursor: 'pointer', padding: 0, opacity: 0.6
-                              }}
-                            >
-                              <X size={6} color="white" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                      {doc.nombre_archivo}
                     </div>
-                  )}
-
-                  {documentos.length === 0 && (
-                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>
-                      Sin documentos subidos.
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                    {/* Status dot */}
+                    <div style={{
+                      position: 'absolute', top: '3px', right: '3px',
+                      width: '6px', height: '6px', borderRadius: '50%',
+                      background: doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-warning)',
+                      border: '1px solid rgba(0,0,0,0.3)'
+                    }} />
+                    {/* Delete small button */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
+                      style={{
+                        position: 'absolute', top: '3px', left: '3px',
+                        width: '14px', height: '14px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '3px',
+                        cursor: 'pointer', padding: 0, opacity: 0.7
+                      }}
+                      title="Eliminar"
+                    >
+                      <X size={8} color="white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>
+                Sin documentos subidos.
+              </div>
+            )}
           </section>
 
           <section id="historial-tramites" className="glass-panel" style={{ padding: '1.5rem' }}>
@@ -1925,6 +1734,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
       )}
 
+
       {isEditModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
           <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
@@ -1935,210 +1745,232 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               ))}
             </datalist>
 
-            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Editar Datos del Cliente</h2>
-              <button className="btn btn-ghost" style={{ padding: '0.5rem' }} onClick={() => setIsEditModalOpen(false)}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, maxWidth: '400px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Filtrar campos (ej. Pasaporte, Madre)..."
+                    className="form-input"
+                    value={editModalSearchQuery}
+                    onChange={e => setEditModalSearchQuery(e.target.value)}
+                    style={{ paddingLeft: '2.2rem', width: '100%', fontSize: '0.875rem' }}
+                  />
+                </div>
+                <button className="btn btn-ghost" style={{ padding: '0.5rem', flexShrink: 0 }} onClick={() => setIsEditModalOpen(false)}>✕</button>
+              </div>
             </div>
 
             <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
-                {editFormData.map((field, idx) => {
-                  if (field.id === 'nombre') {
-                    return (
-                      <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Nombre(s) <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                          </label>
-                          <input className="form-input" type="text" value={field._nombres || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[idx] = { ...arr[idx], _nombres: e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Apellidos <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                          </label>
-                          <input className="form-input" type="text" value={field._apellidos || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[idx] = { ...arr[idx], _apellidos: e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (field.id === 'direccion') {
-                    return (
-                      <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
-                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                        </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>CEP</label>
-                            <input className="form-input" placeholder="00000-000" type="text" value={field._cep || ''} onChange={e => {
-                              let val = e.target.value.replace(/\D/g, '');
-                              if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
-                              const arr = [...editFormData];
-                              arr[idx] = { ...arr[idx], _cep: val };
-                              setEditFormData(arr);
-                            }} onBlur={e => handleCepSearch(e.target.value)} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Endereço</label>
-                            <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Número</label>
-                            <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Complemento</label>
-                            <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Bairro</label>
-                            <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Cidade</label>
-                            <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Estado</label>
-                            <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Ponto de Referência</label>
-                            <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[idx] = { ...arr[idx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  const isDate = field.nombre_campo?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
-                  return (
-                    <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          {field.nombre_campo}{field.es_fijo && <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>}
-                        </label>
-                        {field.id === 'estado_civil' ? (
-                          <select className="form-input" value={field.valor || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[idx] = { ...arr[idx], valor: e.target.value };
-                            setEditFormData(arr);
-                          }}>
-                            <option value="">Selecione</option>
-                            {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : field.id === 'sexo' ? (
-                          <select className="form-input" value={field.valor || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[idx] = { ...arr[idx], valor: e.target.value };
-                            setEditFormData(arr);
-                          }}>
-                            <option value="">Selecione</option>
-                            {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : (
-                          <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        )}
-                      </div>
-                      {field.es_fijo && field.id === 'nombre' ? null : (
-                        <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteFieldData(field.id, field.es_fijo)} title="Borrar dato">
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {newFields.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%', marginTop: '1rem' }}>
-                  {newFields.map((field, idx) => {
-                    const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
-                    let activeCategoriasNombres = [];
-                    let activeCategoriasIds = [];
-                    if (editingCategoryId === 'ALL_PERSONAL') {
-                      const cats = categorias.filter(c => ["Informaciones Personales", "Datos Familiares", "Documentos de Identidad"].includes(c.nombre));
-                      activeCategoriasNombres = cats.map(c => c.nombre);
-                      activeCategoriasIds = cats.map(c => c.id);
-                    } else {
-                      const editingCategory = categorias.find(c => c.id === editingCategoryId);
-                      if (editingCategory) {
-                        activeCategoriasNombres = [editingCategory.nombre];
-                        activeCategoriasIds = [editingCategory.id];
-                      }
-                    }
-                    const avFixed = FIXED_FIELDS_CATALOG.filter(f => activeCategoriasNombres.includes(f.category_name) && !client?.[f.id] && !usedIds.includes(f.id));
-                    const avDynamic = campos.filter(c => activeCategoriasIds.includes(c.categoria_id) && !usedIds.includes(c.id));
-                    return (
-                      <div key={field.id} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '0.875rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                          <div style={{ flex: '1 1 160px' }}>
-                            <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Campo</label>
-                            <select className="form-input" value={field.campo_id} onChange={(e) => {
-                              const arr = [...newFields];
-                              arr[idx] = { ...arr[idx], campo_id: e.target.value, customName: '' };
-                              setNewFields(arr);
-                            }}>
-                              <option value="">-- Seleccionar --</option>
-                              {avFixed.length > 0 && <optgroup label="Campos Base">{avFixed.map(f => <option key={f.id} value={f.id}>{f.nombre_campo}</option>)}</optgroup>}
-                              {avDynamic.length > 0 && <optgroup label="Campos Operacionales">{avDynamic.map(c => <option key={c.id} value={c.id}>{c.nombre_campo}</option>)}</optgroup>}
-                              <optgroup label="Nuevo"><option value="custom">+ Crear Campo Personalizado</option></optgroup>
-                            </select>
-                          </div>
-                          {field.campo_id === 'custom' && (
-                            <div style={{ flex: '1 1 140px' }}>
-                              <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Nombre del Campo</label>
-                              <input className="form-input" type="text" placeholder="Ej: Talla Camisa" value={field.customName || ''} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], customName: e.target.value }; setNewFields(arr); }} />
-                            </div>
-                          )}
-                          <div style={{ flex: '1 1 140px' }}>
-                            <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Valor</label>
-                            {(() => {
-                              const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
-                              const nombreParaCheck = field.campo_id === 'custom' ? field.customName : (campoRef?.nombre_campo || '');
-                              const isDate = nombreParaCheck?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
-                              if (field.campo_id === 'estado_civil') {
-                                return (
-                                  <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
-                                    <option value="">Selecione</option>
-                                    {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                );
-                              }
-                              if (field.campo_id === 'sexo') {
-                                return (
-                                  <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
-                                    <option value="">Selecione</option>
-                                    {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                );
-                              }
-                              return (
-                                <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} disabled={!field.campo_id} placeholder="Valor" onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value }; setNewFields(arr); }} />
-                              );
-                            })()}
-                          </div>
-                          <button className="btn btn-ghost" style={{ color: 'var(--color-danger)', padding: '0.4rem' }} onClick={() => setNewFields(newFields.filter((_, i) => i !== idx))}><X size={16} /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
+              {!hasEditModalResults ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                  No se encontraron campos que coincidan con "{editModalSearchQuery}"
                 </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
+                    {filteredEditFormData.map((field, idx) => {
+                      const originalIdx = editFormData.findIndex(f => f.campo_id === field.campo_id && f.id === field.id);
+                      if (field.id === 'nombre') {
+                        return (
+                          <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
+                            <div style={{ flex: 1 }}>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Nombre(s) <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                              </label>
+                              <input className="form-input" type="text" value={field._nombres || ''} onChange={(e) => {
+                                const arr = [...editFormData];
+                                arr[originalIdx] = { ...arr[originalIdx], _nombres: e.target.value };
+                                setEditFormData(arr);
+                              }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Apellidos <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                              </label>
+                              <input className="form-input" type="text" value={field._apellidos || ''} onChange={(e) => {
+                                const arr = [...editFormData];
+                                arr[originalIdx] = { ...arr[originalIdx], _apellidos: e.target.value };
+                                setEditFormData(arr);
+                              }} />
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (field.id === 'direccion') {
+                        return (
+                          <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
+                            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                            </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>CEP</label>
+                                <input className="form-input" placeholder="00000-000" type="text" value={field._cep || ''} onChange={e => {
+                                  let val = e.target.value.replace(/\D/g, '');
+                                  if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
+                                  const arr = [...editFormData];
+                                  arr[originalIdx] = { ...arr[originalIdx], _cep: val };
+                                  setEditFormData(arr);
+                                }} onBlur={e => handleCepSearch(e.target.value)} style={{ width: '100%' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Endereço</label>
+                                <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Número</label>
+                                <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Complemento</label>
+                                <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Bairro</label>
+                                <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Cidade</label>
+                                <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Estado</label>
+                                <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Ponto de Referência</label>
+                                <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      const isDate = field.nombre_campo?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
+                      return (
+                        <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              {field.nombre_campo}{field.es_fijo && <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>}
+                            </label>
+                            {field.id === 'estado_civil' ? (
+                              <select className="form-input" value={field.valor || ''} onChange={(e) => {
+                                const arr = [...editFormData];
+                                arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
+                                setEditFormData(arr);
+                              }}>
+                                <option value="">Selecione</option>
+                                {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                              </select>
+                            ) : field.id === 'sexo' ? (
+                              <select className="form-input" value={field.valor || ''} onChange={(e) => {
+                                const arr = [...editFormData];
+                                arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
+                                setEditFormData(arr);
+                              }}>
+                                <option value="">Selecione</option>
+                                {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                              </select>
+                            ) : (
+                              <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={(e) => {
+                                const arr = [...editFormData];
+                                arr[originalIdx] = { ...arr[originalIdx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
+                                setEditFormData(arr);
+                              }} />
+                            )}
+                          </div>
+                          {field.es_fijo && field.id === 'nombre' ? null : (
+                            <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteFieldData(field.id, field.es_fijo)} title="Borrar dato">
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {newFields.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%', marginTop: '1rem' }}>
+                      {newFields.map((field, idx) => {
+                        const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
+                        let activeCategoriasNombres = [];
+                        let activeCategoriasIds = [];
+                        if (editingCategoryId === 'ALL_PERSONAL') {
+                          const cats = categorias.filter(c => ["Informaciones Personales", "Datos Familiares", "Documentos de Identidad"].includes(c.nombre));
+                          activeCategoriasNombres = cats.map(c => c.nombre);
+                          activeCategoriasIds = cats.map(c => c.id);
+                        } else {
+                          const editingCategory = categorias.find(c => c.id === editingCategoryId);
+                          if (editingCategory) {
+                            activeCategoriasNombres = [editingCategory.nombre];
+                            activeCategoriasIds = [editingCategory.id];
+                          }
+                        }
+                        const avFixed = FIXED_FIELDS_CATALOG.filter(f => activeCategoriasNombres.includes(f.category_name) && !client?.[f.id] && !usedIds.includes(f.id));
+                        const avDynamic = campos.filter(c => activeCategoriasIds.includes(c.categoria_id) && !usedIds.includes(c.id));
+                        return (
+                          <div key={field.id} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '0.875rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                              <div style={{ flex: '1 1 160px' }}>
+                                <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Campo</label>
+                                <select className="form-input" value={field.campo_id} onChange={(e) => {
+                                  const arr = [...newFields];
+                                  arr[idx] = { ...arr[idx], campo_id: e.target.value, customName: '' };
+                                  setNewFields(arr);
+                                }}>
+                                  <option value="">-- Seleccionar --</option>
+                                  {avFixed.length > 0 && <optgroup label="Campos Base">{avFixed.map(f => <option key={f.id} value={f.id}>{f.nombre_campo}</option>)}</optgroup>}
+                                  {avDynamic.length > 0 && <optgroup label="Campos Operacionales">{avDynamic.map(c => <option key={c.id} value={c.id}>{c.nombre_campo}</option>)}</optgroup>}
+                                  <optgroup label="Nuevo"><option value="custom">+ Crear Campo Personalizado</option></optgroup>
+                                </select>
+                              </div>
+                              {field.campo_id === 'custom' && (
+                                <div style={{ flex: '1 1 140px' }}>
+                                  <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Nombre del Campo</label>
+                                  <input className="form-input" type="text" placeholder="Ej: Talla Camisa" value={field.customName || ''} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], customName: e.target.value }; setNewFields(arr); }} />
+                                </div>
+                              )}
+                              <div style={{ flex: '1 1 140px' }}>
+                                <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Valor</label>
+                                {(() => {
+                                  const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
+                                  const nombreParaCheck = field.campo_id === 'custom' ? field.customName : (campoRef?.nombre_campo || '');
+                                  const isDate = nombreParaCheck?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
+                                  if (field.campo_id === 'estado_civil') {
+                                    return (
+                                      <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
+                                        <option value="">Selecione</option>
+                                        {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                      </select>
+                                    );
+                                  }
+                                  if (field.campo_id === 'sexo') {
+                                    return (
+                                      <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
+                                        <option value="">Selecione</option>
+                                        {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                      </select>
+                                    );
+                                  }
+                                  return (
+                                    <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} disabled={!field.campo_id} placeholder="Valor" onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value }; setNewFields(arr); }} />
+                                  );
+                                })()}
+                              </div>
+                              <button className="btn btn-ghost" style={{ color: 'var(--color-danger)', padding: '0.4rem' }} onClick={() => setNewFields(newFields.filter((_, i) => i !== idx))}><X size={16} /></button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
+                    <Plus size={16} /> Añadir Más Datos
+                  </button>
+                </>
               )}
-              <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
-                <Plus size={16} /> Añadir Más Datos
-              </button>
             </div>
 
             <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
