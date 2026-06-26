@@ -1019,6 +1019,125 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             );
           })}
 
+          {/* Documentos Asociados (Datos) */}
+          {(() => {
+            const docGroups = [
+              {
+                id: 'cpf',
+                label: 'CPF',
+                icon: '🆔',
+                fields: [
+                  { id: 'cpf', label: 'Nº CPF' }
+                ],
+                fieldValue: (fieldId) => client?.[fieldId],
+                color: '#378ADD'
+              },
+              {
+                id: 'pasaporte',
+                label: 'Pasaporte',
+                icon: '🛂',
+                fields: [
+                  { id: 'numero_pasaporte', label: 'Nº Pasaporte' },
+                  { id: 'fecha_emision_pasaporte', label: 'Emisión' },
+                  { id: 'fecha_vencimiento_pasaporte', label: 'Vencimiento' }
+                ],
+                fieldValue: (fieldId) => client?.[fieldId],
+                color: '#1D9E75'
+              },
+              {
+                id: 'rnm',
+                label: 'RNM / Identidad',
+                icon: '🪪',
+                fields: [
+                  { id: 'rnm', label: 'Nº RNM' },
+                  { id: 'carnet_identidad', label: 'Carnet Identidad' }
+                ],
+                fieldValue: (fieldId) => client?.[fieldId],
+                color: '#BA7517'
+              },
+              {
+                id: 'refugio',
+                label: 'Refugio',
+                icon: '🛡️',
+                fields: [
+                  { id: 'numero_refugio', label: 'Protocolo Refugio' },
+                  { id: 'fecha_vencimiento_refugio', label: 'Vencimiento' }
+                ],
+                fieldValue: (fieldId) => client?.[fieldId],
+                color: '#D85A30'
+              }
+            ];
+
+            const hasAnyData = docGroups.some(g => g.fields.some(f => g.fieldValue(f.id)));
+            if (!hasAnyData) return null;
+
+            return (
+              <React.Fragment>
+                <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: '0.5rem' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                    Documentos Asociados
+                  </h3>
+                </div>
+                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  {docGroups.map(group => {
+                    const hasData = group.fields.some(f => group.fieldValue(f.id));
+                    if (!hasData) return null;
+
+                    return (
+                      <div
+                        key={group.id}
+                        style={{
+                          border: `1px solid ${group.color}33`,
+                          borderRadius: 'var(--radius-md)',
+                          overflow: 'hidden',
+                          background: `${group.color}08`
+                        }}
+                      >
+                        {/* Header del grupo */}
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.5rem 0.75rem',
+                          background: `${group.color}15`,
+                          borderBottom: `1px solid ${group.color}22`,
+                          fontSize: '0.78rem', fontWeight: 600,
+                          color: group.color
+                        }}>
+                          <span>{group.icon}</span>
+                          <span>{group.label}</span>
+                        </div>
+
+                        <div style={{ padding: '0.65rem' }}>
+                          {group.fields.map(field => {
+                            const val = group.fieldValue(field.id);
+                            if (!val) return null;
+                            return (
+                              <div key={field.id} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                padding: '0.35rem 0', gap: '0.5rem'
+                              }}>
+                                <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                  {field.label}
+                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', textAlign: 'right', wordBreak: 'break-word' }}>
+                                    {field.id.includes('fecha') ? new Date(val).toLocaleDateString() : val}
+                                  </span>
+                                  <button onClick={() => handleCopy(val, `${group.id}-${field.id}`)} className="btn btn-ghost" style={{ padding: '0.15rem', borderRadius: '4px', flexShrink: 0 }}>
+                                    {copiedId === `${group.id}-${field.id}` ? <Check size={11} color="var(--color-success)" /> : <Copy size={11} />}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </React.Fragment>
+            );
+          })()}
+
           {/* Dirección Section */}
           {(() => {
             const dirDato = client['direccion'] || clienteDatos.find(cd => cd.campo_id === 'direccion')?.valor;
