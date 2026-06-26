@@ -21,6 +21,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
   const [dragIndex, setDragIndex] = useState(null);
   const [showAddField, setShowAddField] = useState(false);
   const [editingLabel, setEditingLabel] = useState(null);
+  const [selectedField, setSelectedField] = useState(null); // idx del campo seleccionado para editar props
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -122,6 +123,9 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
       y: 0.5,
       width: 0.3,
       height: 0.025,
+      fontSize: 11,
+      fontFamily: 'Helvetica',
+      fontColor: '#000000',
     };
 
     setMappings(prev => [...prev, newMapping]);
@@ -243,6 +247,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
         ) : (
           <div
             ref={containerRef}
+            onClick={() => setSelectedField(null)}
             style={{
               position: 'relative', display: 'inline-block',
               boxShadow: '0 8px 40px rgba(0,0,0,0.5)', borderRadius: 'var(--radius-md)',
@@ -269,6 +274,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
                 key={mapping._id || idx}
                 onMouseDown={(e) => handleMouseDown(e, idx)}
                 onDoubleClick={() => setEditingLabel(idx)}
+                onClick={(e) => { e.stopPropagation(); setSelectedField(idx); }}
                 style={{
                   position: 'absolute',
                   left: `${mapping.x * 100}%`,
@@ -288,10 +294,12 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
                   boxShadow: dragIndex === idx
                     ? '0 4px 16px rgba(59,130,246,0.5)'
                     : '0 2px 8px rgba(0,0,0,0.3)',
-                  transition: dragIndex === idx ? 'none' : 'box-shadow 0.2s',
+                  transition: dragIndex === idx ? 'none' : 'box-shadow 0.2s, outline 0.1s',
                   whiteSpace: 'nowrap',
-                  zIndex: dragIndex === idx ? 50 : 10,
+                  zIndex: (dragIndex === idx || selectedField === idx) ? 50 : 10,
                   border: '1px solid rgba(255,255,255,0.3)',
+                  outline: selectedField === idx ? '2px solid var(--color-warning)' : 'none',
+                  outlineOffset: '2px',
                 }}
               >
                 <GripVertical size={12} style={{ opacity: 0.7, flexShrink: 0 }} />
@@ -357,12 +365,87 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
         )}
       </div>
 
+        {/* Properties Panel for Selected Field */}
+        {selectedField !== null && mappings[selectedField] && (
+          <div style={{
+            position: 'absolute', bottom: '80px', right: '24px', width: '260px',
+            background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--color-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            padding: '1rem', zIndex: 100, animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+              Propiedades del texto
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>
+                  Tamaño de fuente (pt)
+                </label>
+                <input 
+                  type="number" min="6" max="72"
+                  className="form-input"
+                  style={{ padding: '0.4rem', fontSize: '0.8rem' }}
+                  value={mappings[selectedField].fontSize || 11}
+                  onChange={(e) => {
+                    const arr = [...mappings];
+                    arr[selectedField].fontSize = parseInt(e.target.value, 10) || 11;
+                    setMappings(arr);
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>
+                  Tipo de letra
+                </label>
+                <select 
+                  className="form-input"
+                  style={{ padding: '0.4rem', fontSize: '0.8rem' }}
+                  value={mappings[selectedField].fontFamily || 'Helvetica'}
+                  onChange={(e) => {
+                    const arr = [...mappings];
+                    arr[selectedField].fontFamily = e.target.value;
+                    setMappings(arr);
+                  }}
+                >
+                  <option value="Helvetica">Helvetica (Arial)</option>
+                  <option value="TimesRoman">Times Roman</option>
+                  <option value="Courier">Courier (Mono)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>
+                  Color del texto
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {['#000000', '#2563eb', '#dc2626'].map(color => (
+                    <button
+                      key={color}
+                      onClick={() => {
+                        const arr = [...mappings];
+                        arr[selectedField].fontColor = color;
+                        setMappings(arr);
+                      }}
+                      style={{
+                        width: '24px', height: '24px', borderRadius: '4px',
+                        background: color, border: 'none', cursor: 'pointer',
+                        outline: (mappings[selectedField].fontColor || '#000000') === color ? '2px solid var(--color-text-primary)' : 'none',
+                        outlineOffset: '2px'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       {/* Footer with instructions */}
       <div style={{
         padding: '0.75rem 1.5rem', background: 'var(--color-bg-base)',
         borderTop: '1px solid var(--color-border)', flexShrink: 0,
         display: 'flex', gap: '2rem', fontSize: '0.75rem', color: 'var(--color-text-muted)',
       }}>
+        <span>🖱️ <strong>Clic</strong> — editar propiedades</span>
         <span>🖱️ <strong>Arrastrar</strong> — mover etiqueta</span>
         <span>🖱️🖱️ <strong>Doble clic</strong> — renombrar</span>
         <span>❌ <strong>X</strong> — eliminar</span>

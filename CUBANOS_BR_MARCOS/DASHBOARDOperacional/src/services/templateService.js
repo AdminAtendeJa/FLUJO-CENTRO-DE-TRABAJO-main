@@ -227,7 +227,10 @@ export async function generateFilledPDF(templateUrl, mappings, clientData) {
     // Descargar el PDF original
     const templateBytes = await fetch(templateUrl).then(r => r.arrayBuffer());
     const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontHelvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontTimes = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    const fontCourier = await pdfDoc.embedFont(StandardFonts.Courier);
+    
     const pages = pdfDoc.getPages();
 
     if (pages.length === 0) throw new Error('El PDF no tiene páginas.');
@@ -244,14 +247,23 @@ export async function generateFilledPDF(templateUrl, mappings, clientData) {
       // PDF tiene Y invertido (0 = abajo)
       const y = pageHeight - (mapping.y * pageHeight) - 12;
 
-      const fontSize = Math.min(11, (mapping.height || 0.025) * pageHeight * 0.7);
+      // Configuración de estilo
+      const fontSize = mapping.fontSize || Math.min(11, (mapping.height || 0.025) * pageHeight * 0.7);
+      
+      let selectedFont = fontHelvetica;
+      if (mapping.fontFamily === 'TimesRoman') selectedFont = fontTimes;
+      if (mapping.fontFamily === 'Courier') selectedFont = fontCourier;
+
+      let fontColor = rgb(0, 0, 0); // Black default
+      if (mapping.fontColor === '#2563eb' || mapping.fontColor === 'blue') fontColor = rgb(0.145, 0.388, 0.917); // Blue
+      if (mapping.fontColor === '#dc2626' || mapping.fontColor === 'red') fontColor = rgb(0.862, 0.149, 0.149); // Red
 
       page.drawText(String(value), {
         x,
         y,
         size: Math.max(8, fontSize),
-        font,
-        color: rgb(0, 0, 0),
+        font: selectedFont,
+        color: fontColor,
       });
     }
 
