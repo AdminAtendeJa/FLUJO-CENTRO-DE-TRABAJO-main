@@ -239,7 +239,12 @@ export async function generateFilledPDF(templateUrl, mappings, clientData) {
     const { width: pageWidth, height: pageHeight } = page.getSize();
 
     for (const mapping of mappings) {
-      const value = getClientFieldValue(clientData, mapping.fieldId);
+      let value = '';
+      if (mapping.isCustomText) {
+        value = mapping.fieldLabel;
+      } else {
+        value = getClientFieldValue(clientData, mapping.fieldId);
+      }
       if (!value) continue;
 
       // Convertir coordenadas relativas a absolutas

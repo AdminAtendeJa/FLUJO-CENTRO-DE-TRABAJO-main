@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, Loader2, CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
+import { X, Download, Loader2, CheckCircle, AlertTriangle, Edit2, GripVertical } from 'lucide-react';
 import { generateFilledPDF, renderPdfPageAsImage, AVAILABLE_CLIENT_FIELDS } from '../services/templateService';
 
 /**
@@ -14,9 +14,9 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
   const [generating, setGenerating] = useState(false);
   const [editableValues, setEditableValues] = useState({});
   const [editingField, setEditingField] = useState(null);
+  const [localMappings, setLocalMappings] = useState([]);
   const containerRef = useRef(null);
-
-  const mappings = template.field_mappings || [];
+  const tagsRef = useRef({});
 
   // Cargar imagen de fondo y valores del cliente
   useEffect(() => {
@@ -30,9 +30,12 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
           setBgImage(template.url_archivo);
         }
 
-        // Pre-cargar valores del cliente
+        // Pre-cargar valores del cliente y mapeos
+        const loadedMappings = template.field_mappings || [];
+        setLocalMappings(loadedMappings);
+        
         const values = {};
-        for (const m of mappings) {
+        for (const m of loadedMappings) {
           values[m.fieldId] = getClientValue(client, m.fieldId);
         }
         setEditableValues(values);
@@ -63,6 +66,86 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
     return String(val);
   };
 
+  // ── Drag Logic ──
+  const dragState = useRef({ active: false, idx: null, offsetX: 0, offsetY: 0, newX: 0, newY: 0, moved: false });
+
+  const handleMouseDown = useCallback((e, idx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const mapping = localMappings[idx];
+    const tagX = mapping.x * rect.width;
+    const tagY = mapping.y * rect.height;
+
+    dragState.current = {
+      active: true,
+      idx,
+      offsetX: e.clientX - rect.left - tagX,
+      offsetY: e.clientY - rect.top - tagY,
+      newX: mapping.x,
+      newY: mapping.y,
+      moved: false,
+    };
+  }, [localMappings]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!dragState.current.active) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    dragState.current.moved = true;
+
+    const rect = container.getBoundingClientRect();
+    const { idx, offsetX, offsetY } = dragState.current;
+
+    let newX = (e.clientX - rect.left - offsetX) / rect.width;
+    let newY = (e.clientY - rect.top - offsetY) / rect.height;
+
+    newX = Math.max(0, Math.min(1, newX));
+    newY = Math.max(0, Math.min(1, newY));
+
+    dragState.current.newX = newX;
+    dragState.current.newY = newY;
+
+    const tagEl = tagsRef.current[idx];
+    if (tagEl) {
+      tagEl.style.left = `${newX * 100}%`;
+      tagEl.style.top = `${newY * 100}%`;
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    if (!dragState.current.active) return;
+    
+    const { idx, newX, newY, moved } = dragState.current;
+    
+    if (moved) {
+      setLocalMappings(prev => {
+        const updated = [...prev];
+        if (updated[idx].x !== newX || updated[idx].y !== newY) {
+          updated[idx] = { ...updated[idx], x: newX, y: newY };
+        }
+        return updated;
+      });
+    } else {
+      setEditingField(idx);
+    }
+
+    dragState.current.active = false;
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
   const handleGenerate = async () => {
     setGenerating(true);
     try {
@@ -72,7 +155,7 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
         filledData[fieldId] = value;
       }
 
-      const { error } = await generateFilledPDF(template.url_archivo, mappings, filledData);
+      const { error } = await generateFilledPDF(template.url_archivo, localMappings, filledData);
       if (error) throw new Error(error);
       
       // Mostrar alerta de éxito y cerrar
@@ -85,8 +168,8 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
   };
 
   // Contar campos con/sin valor
-  const filledCount = mappings.filter(m => editableValues[m.fieldId]?.trim()).length;
-  const emptyCount = mappings.length - filledCount;
+  const filledCount = localMappings.filter(m => m.isCustomText || editableValues[m.fieldId]?.trim()).length;
+  const emptyCount = localMappings.length - filledCount;
 
   return (
     <div style={{
@@ -107,11 +190,11 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
           </h2>
           <span style={{
             fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)',
-            background: filledCount === mappings.length ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
-            color: filledCount === mappings.length ? 'var(--color-success)' : 'var(--color-warning)',
+            background: filledCount === localMappings.length ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+            color: filledCount === localMappings.length ? 'var(--color-success)' : 'var(--color-warning)',
             fontWeight: 500,
           }}>
-            {filledCount}/{mappings.length} campos con datos
+            {filledCount}/{localMappings.length} campos listos
           </span>
           {emptyCount > 0 && (
             <span style={{
@@ -167,47 +250,52 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
               />
 
               {/* Overlay values */}
-              {mappings.map((mapping, idx) => {
-                const value = editableValues[mapping.fieldId] || '';
-                const isEmpty = !value.trim();
+              {localMappings.map((mapping, idx) => {
+                let value = editableValues[mapping.fieldId] || '';
+                if (mapping.isCustomText) value = mapping.fieldLabel || '';
+                const isEmpty = !mapping.isCustomText && !value.trim();
 
                 return (
-                  <div
-                    key={idx}
-                    style={{
-                      position: 'absolute',
-                      left: `${mapping.x * 100}%`,
-                      top: `${mapping.y * 100}%`,
-                      transform: 'translate(0, -50%)',
-                      display: 'flex', flexDirection: 'column', gap: '2px',
-                      maxWidth: `${(mapping.width || 0.3) * 100}%`,
-                    }}
-                  >
-                    {/* Label */}
-                    <span style={{
-                      fontSize: '0.55rem', color: 'var(--color-primary)',
-                      textTransform: 'uppercase', letterSpacing: '0.05em',
-                      fontWeight: 700, lineHeight: 1,
-                    }}>
-                      {mapping.fieldLabel}
-                    </span>
-                    {/* Value */}
                     <div
-                      onClick={() => setEditingField(idx)}
+                      key={idx}
+                      ref={(el) => (tagsRef.current[idx] = el)}
+                      onMouseDown={(e) => handleMouseDown(e, idx)}
                       style={{
-                        fontSize: '0.75rem', fontWeight: 600,
-                        color: isEmpty ? 'var(--color-danger)' : '#111',
-                        background: isEmpty
-                          ? 'rgba(239,68,68,0.15)'
-                          : 'rgba(255,255,200,0.85)',
-                        padding: '2px 6px', borderRadius: '3px',
-                        cursor: 'pointer', whiteSpace: 'nowrap',
-                        overflow: 'hidden', textOverflow: 'ellipsis',
-                        border: `1px solid ${isEmpty ? 'rgba(239,68,68,0.3)' : 'rgba(200,180,0,0.3)'}`,
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                        transition: 'all 0.15s',
+                        position: 'absolute',
+                        left: `${mapping.x * 100}%`,
+                        top: `${mapping.y * 100}%`,
+                        transform: 'translate(0, -50%)',
+                        display: 'flex', flexDirection: 'column', gap: '2px',
+                        maxWidth: `${(mapping.width || 0.3) * 100}%`,
+                        cursor: dragState.current?.idx === idx && dragState.current?.active ? 'grabbing' : 'grab',
+                        zIndex: editingField === idx ? 50 : 10,
                       }}
                     >
+                      {/* Label */}
+                      <span style={{
+                        fontSize: '0.55rem', color: mapping.isCustomText ? 'rgba(16,185,129,1)' : 'var(--color-primary)',
+                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                        fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', gap: '2px'
+                      }}>
+                        <GripVertical size={8} style={{ opacity: 0.6 }} />
+                        {mapping.fieldLabel}
+                      </span>
+                      {/* Value */}
+                      <div
+                        style={{
+                          fontSize: '0.75rem', fontWeight: 600,
+                          color: isEmpty ? 'var(--color-danger)' : '#111',
+                          background: isEmpty
+                            ? 'rgba(239,68,68,0.15)'
+                            : mapping.isCustomText ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,200,0.85)',
+                          padding: '2px 6px', borderRadius: '3px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden', textOverflow: 'ellipsis',
+                          border: `1px solid ${isEmpty ? 'rgba(239,68,68,0.3)' : mapping.isCustomText ? 'rgba(16,185,129,0.4)' : 'rgba(200,180,0,0.3)'}`,
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          transition: 'all 0.15s',
+                        }}
+                      >
                       {editingField === idx ? (
                         <input
                           autoFocus
@@ -224,9 +312,6 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
                           }}
                         />
                       ) : (
-                        <>
-                          {isEmpty ? '(vacío)' : value}
-                          <Edit2 size={9} style={{ opacity: 0.5, flexShrink: 0 }} />
                         </>
                       )}
                     </div>
@@ -255,7 +340,8 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem' }}>
-            {mappings.map((mapping, idx) => {
+            {localMappings.map((mapping, idx) => {
+              if (mapping.isCustomText) return null; // No editables aquí, el layout los maneja aparte si se quiere
               const value = editableValues[mapping.fieldId] || '';
               const isEmpty = !value.trim();
               return (
@@ -296,7 +382,7 @@ export default function TemplatePreviewModal({ template, client, onClose }) {
               );
             })}
 
-            {mappings.length === 0 && (
+            {localMappings.length === 0 && (
               <div style={{
                 textAlign: 'center', padding: '2rem',
                 color: 'var(--color-text-muted)', fontSize: '0.85rem',

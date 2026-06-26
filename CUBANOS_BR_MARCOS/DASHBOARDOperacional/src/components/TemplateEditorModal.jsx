@@ -24,6 +24,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
   const [selectedField, setSelectedField] = useState(null); // idx del campo seleccionado para editar props
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const tagsRef = useRef({});
 
   // Cargar la imagen de la plantilla y los mappings existentes
   useEffect(() => {
@@ -36,7 +37,8 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
 
         // Renderizar PDF como imagen o usar URL directa si es imagen
         if (template.tipo_contenido === 'application/pdf') {
-          const imgUrl = await renderPdfPageAsImage(template.url_archivo, 1, 2);
+          // Usamos scale 1.5 para que la carga inicial sea mucho más rápida
+          const imgUrl = await renderPdfPageAsImage(template.url_archivo, 1, 1.5);
           setBgImage(imgUrl);
         } else {
           setBgImage(template.url_archivo);
@@ -52,7 +54,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
   }, [template]);
 
   // ── Drag Logic (mouse events on the container) ──
-  const dragState = useRef({ active: false, idx: null, offsetX: 0, offsetY: 0 });
+  const dragState = useRef({ active: false, idx: null, offsetX: 0, offsetY: 0, newX: 0, newY: 0 });
 
   const handleMouseDown = useCallback((e, idx) => {
     e.preventDefault();
@@ -70,6 +72,8 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
       idx,
       offsetX: e.clientX - rect.left - tagX,
       offsetY: e.clientY - rect.top - tagY,
+      newX: mapping.x,
+      newY: mapping.y,
     };
     setDragIndex(idx);
   }, [mappings]);
@@ -88,15 +92,32 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
     // Clamp to [0, 1]
     newX = Math.max(0, Math.min(1, newX));
     newY = Math.max(0, Math.min(1, newY));
+    
+    dragState.current.newX = newX;
+    dragState.current.newY = newY;
 
-    setMappings(prev => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], x: newX, y: newY };
-      return updated;
-    });
+    // Actualización directa al DOM para no re-renderizar todo el componente a 60fps
+    const tagEl = tagsRef.current[idx];
+    if (tagEl) {
+      tagEl.style.left = `${newX * 100}%`;
+      tagEl.style.top = `${newY * 100}%`;
+    }
   }, []);
 
   const handleMouseUp = useCallback(() => {
+    if (!dragState.current.active) return;
+    
+    const { idx, newX, newY } = dragState.current;
+    
+    // Aplicar el estado definitivo en React al soltar
+    setMappings(prev => {
+      const updated = [...prev];
+      if (updated[idx].x !== newX || updated[idx].y !== newY) {
+        updated[idx] = { ...updated[idx], x: newX, y: newY };
+      }
+      return updated;
+    });
+
     dragState.current.active = false;
     setDragIndex(null);
   }, []);
@@ -112,13 +133,15 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
 
   // ── Agregar campo ──
   const handleAddField = (fieldId) => {
-    const fieldDef = AVAILABLE_CLIENT_FIELDS.find(f => f.id === fieldId);
+    const isCustom = fieldId === 'custom_text';
+    const fieldDef = isCustom ? { id: `custom_${Date.now()}`, label: 'Escribe tu texto...' } : AVAILABLE_CLIENT_FIELDS.find(f => f.id === fieldId);
     if (!fieldDef) return;
 
     const newMapping = {
       _id: `m_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       fieldId: fieldDef.id,
       fieldLabel: fieldDef.label,
+      isCustomText: isCustom,
       x: 0.3,
       y: 0.5,
       width: 0.3,
@@ -210,7 +233,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
         }}>
           {availableFields.length === 0 ? (
             <div style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              Todos los campos ya están asignados
+              Todos los campos del cliente ya están asignados
             </div>
           ) : (
             availableFields.map(f => (
@@ -231,6 +254,21 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
               </button>
             ))
           )}
+          <div style={{ margin: '0.5rem 0', borderTop: '1px solid var(--color-border)' }}></div>
+          <button
+            onClick={() => handleAddField('custom_text')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', textAlign: 'left',
+              background: 'none', border: 'none', padding: '0.5rem 0.75rem',
+              fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 600,
+              cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-elevated)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <Plus size={14} /> Texto Libre (Personalizado)
+          </button>
         </div>
       )}
 
@@ -272,6 +310,7 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
             {mappings.map((mapping, idx) => (
               <div
                 key={mapping._id || idx}
+                ref={(el) => (tagsRef.current[idx] = el)}
                 onMouseDown={(e) => handleMouseDown(e, idx)}
                 onDoubleClick={() => setEditingLabel(idx)}
                 onClick={(e) => { e.stopPropagation(); setSelectedField(idx); }}
@@ -283,7 +322,9 @@ export default function TemplateEditorModal({ template, onClose, onSaved }) {
                   display: 'flex', alignItems: 'center', gap: '4px',
                   background: dragIndex === idx
                     ? 'rgba(59,130,246,0.95)'
-                    : 'rgba(59,130,246,0.85)',
+                    : mapping.isCustomText 
+                      ? 'rgba(16,185,129,0.85)' // Verde para texto libre
+                      : 'rgba(59,130,246,0.85)', // Azul normal
                   color: 'white',
                   padding: '3px 8px 3px 4px',
                   borderRadius: '6px',
