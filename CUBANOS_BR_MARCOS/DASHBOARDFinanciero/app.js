@@ -1,3 +1,4 @@
+// Importar la versión optimizada del archivo
 const cfg = window.SUPABASE_CONFIG || {};
 
 const dashboardFetch = (input, init = {}) => {
@@ -11,7 +12,7 @@ const dashboardFetch = (input, init = {}) => {
 const supabaseClient = window.supabase?.createClient && cfg.url && cfg.anonKey && !cfg.url.includes('__SUPABASE')
   ? window.supabase.createClient(cfg.url, cfg.anonKey, { global: { fetch: dashboardFetch } })
   : null;
-const { escapeHtml, safeText, setStatus: rawSetStatus, fmt, norm } = window.DashboardUtils || {};
+const { escapeHtml, safeText, setStatus: rawSetStatus, fmt, norm, cls } = window.DashboardUtils || {};
 const setStatus = (state, text) => rawSetStatus?.(state, text, 'dashboard');
 
 window.supabaseClient = supabaseClient;
@@ -24,6 +25,11 @@ let dashboardEntradas = [];
 let dashboardSalidas = [];
 let dashboardCatalogo = [];
 let dashboardCharts = {};
+
+// Variable para almacenar los datos ya cargados
+let cachedEntradas = null;
+let cachedSalidas = null;
+let cachedCatalogo = null;
 
 function getDashYear() {
   return Number(cfg.ano) || new Date().getFullYear();
@@ -173,17 +179,67 @@ function sanitizeFilterTerm(value) {
   return safeText(value).replace(/[%(),]/g, ' ').trim();
 }
 
+// Versión optimizada de fetchAllRows con paginación
+async function fetchAllRowsPaginated(source, {
+  select = '*',
+  orderBy = 'creado_en',
+  ascending = false,
+  page = 0,
+  pageSize = DASH_FETCH_SIZE,
+} = {}) {
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabaseClient
+    .from(source)
+    .select(select, { count: 'exact' })
+    .range(from, to);
+
+  if (orderBy) {
+    query = query.order(orderBy, { ascending, nullsFirst: false });
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  return {
+    data: data || [],
+    count: Number(count || 0),
+    page,
+    pageSize,
+    hasMore: (data || []).length === pageSize,
+  };
+}
+
+// Función para cargar datos con caché
+async function fetchWithCache(cacheKey, fetchDataFn) {
+  if (cacheKey === 'entradas' && cachedEntradas) return cachedEntradas;
+  if (cacheKey === 'salidas' && cachedSalidas) return cachedSalidas;
+  if (cacheKey === 'catalogo' && cachedCatalogo) return cachedCatalogo;
+
+  const data = await fetchDataFn();
+
+  // Almacenar en caché
+  if (cacheKey === 'entradas') cachedEntradas = data;
+  if (cacheKey === 'salidas') cachedSalidas = data;
+  if (cacheKey === 'catalogo') cachedCatalogo = data;
+
+  return data;
+}
+
+// Versión optimizada de fetchAllRows con límite configurable
 async function fetchAllRows(source, {
   select = '*',
   orderBy = 'creado_en',
   ascending = false,
+  limit = 10000, // Límite por defecto para evitar sobrecarga
 } = {}) {
   const rows = [];
-  let total = null;
   let from = 0;
   let guard = 0;
+  const maxIterations = Math.ceil(limit / DASH_FETCH_SIZE); // Limitar número de iteraciones
 
-  while (guard < 100) {
+  while (guard < maxIterations) {
     let query = supabaseClient
       .from(source)
       .select(select, { count: 'exact' })
@@ -194,13 +250,13 @@ async function fetchAllRows(source, {
     }
 
     const { data, error, count } = await query;
-    if (error) throw error;
 
-    if (total === null) total = Number(count || 0);
+    if (error) throw error;
     const batch = data || [];
     rows.push(...batch);
 
-    if (!batch.length || batch.length < DASH_FETCH_SIZE || rows.length >= total) {
+    // Si no hay más datos o alcanzamos el límite, salir
+    if (!batch.length || batch.length < DASH_FETCH_SIZE || rows.length >= limit) {
       break;
     }
 
@@ -213,15 +269,22 @@ async function fetchAllRows(source, {
 
 async function fetchCatalogRows() {
   try {
-    return await fetchAllRows('v_tramites_precios_vigentes', { orderBy: 'tramite_nombre', ascending: true });
-  } catch (error) {
-    console.warn('No se pudo cargar v_tramites_precios_vigentes:', error?.message || error);
-  }
+    return await fetchWithCache('catalogo', async () => {
+      try {
+        return await fetchAllRows('v_tramites_precios_vigentes', { orderBy: 'tramite_nombre', ascending: true });
+      } catch (error) {
+        console.warn('No se pudo cargar v_tramites_precios_vigentes:', error?.message || error);
+      }
 
-  try {
-    return await fetchAllRows('tramites_catalogo', { orderBy: 'nombre', ascending: true });
+      try {
+        return await fetchAllRows('tramites_catalogo', { orderBy: 'nombre', ascending: true });
+      } catch (error) {
+        console.warn('No se pudo cargar tramites_catalogo:', error?.message || error);
+        return [];
+      }
+    });
   } catch (error) {
-    console.warn('No se pudo cargar tramites_catalogo:', error?.message || error);
+    console.error('Error fetching catalog rows:', error);
     return [];
   }
 }
@@ -251,6 +314,35 @@ function buildCatalogIndex(rows) {
 
   return index;
 }
+
+// Función para limpiar la caché cuando sea necesario
+function clearCache() {
+  cachedEntradas = null;
+  cachedSalidas = null;
+  cachedCatalogo = null;
+}
+
+// Implementar debounce para funciones que se llaman frecuentemente
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// Exportar funciones para que estén disponibles globalmente si es necesario
+window.dashboardUtils = {
+  ...window.dashboardUtils,
+  fetchAllRowsPaginated,
+  fetchWithCache,
+  clearCache,
+  debounce
+};
 
 function getCostEstimate(row, catalogIndex) {
   const service = safeText(row?.servicio).trim();
@@ -636,17 +728,24 @@ function renderDashboardDetailModal(detail) {
   title.textContent = detail.title;
   subtitle.textContent = detail.subtitle;
 
-  summaryGrid.innerHTML = detail.summaries.map(item => `
-    <div class="detail-summary-card">
-      <div class="detail-summary-label">${escapeHtml(item.label)}</div>
-      <div class="detail-summary-value ${item.cls || ''}">${escapeHtml(item.value)}</div>
-      ${item.note ? `<div class="detail-summary-note">${escapeHtml(item.note)}</div>` : ''}
-    </div>
-  `).join('');
+  summaryGrid.innerHTML = detail.summaries.map(item => {
+    const noteHtml = item.note ? `<div class="detail-summary-note">${escapeHtml(item.note)}</div>` : '';
+    return `
+      <div class="detail-summary-card">
+        <div class="detail-summary-label">${escapeHtml(item.label)}</div>
+        <div class="detail-summary-value ${cls(item.cls)}">${escapeHtml(item.value)}</div>
+        ${noteHtml}
+      </div>
+    `;
+  }).join('');
 
-  actions.innerHTML = detail.actions.map(action => `
-    <button type="button" class="button ${action.primary ? 'primary' : 'secondary'}" data-dashboard-detail-action="${escapeHtml(action.type)}"${action.value ? ` data-dashboard-detail-value="${escapeHtml(action.value)}"` : ''}>${escapeHtml(action.label)}</button>
-  `).join('');
+  actions.innerHTML = detail.actions.map(action => {
+    const valAttr = action.value ? ` data-dashboard-detail-value="${escapeHtml(action.value)}"` : '';
+    const btnCls = action.primary ? 'primary' : 'secondary';
+    return `
+      <button type="button" class="button ${cls(btnCls)}" data-dashboard-detail-action="${escapeHtml(action.type)}"${valAttr}>${escapeHtml(action.label)}</button>
+    `;
+  }).join('');
 
   head.innerHTML = detail.columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('');
   body.innerHTML = detail.rows.length
@@ -711,7 +810,7 @@ function renderMetrics(model) {
   metricGrid.innerHTML = cards.map(card => `
     <button type="button" class="metric metric-button" data-dashboard-metric="${escapeHtml(card.key)}" aria-label="Ver detalle de ${escapeHtml(card.label)}">
       <div class="metric-label">${escapeHtml(card.label)}</div>
-      <div class="metric-value ${card.cls || ''}">${escapeHtml(card.value)}</div>
+      <div class="metric-value ${cls(card.cls)}">${escapeHtml(card.value)}</div>
       <div class="metric-sub">${escapeHtml(card.sub)}</div>
       <div class="metric-action">Ver detalle</div>
     </button>
@@ -792,12 +891,16 @@ function renderLegend(legendId, rows, getValue) {
   if (!legend) return;
 
   const total = sumValues(rows.map(getValue)) || 1;
-  legend.innerHTML = rows.map((row, index) => `
-    <span>
-      <span class="legend-dot" style="background:${DASH_PALETTE[index % DASH_PALETTE.length]}"></span>
-      ${escapeHtml(row.label)} ${pct(getValue(row) / total)}
-    </span>
-  `).join('');
+  legend.innerHTML = rows.map((row, index) => {
+    const color = DASH_PALETTE[index % DASH_PALETTE.length];
+    const sharePct = pct(getValue(row) / total);
+    return `
+      <span>
+        <span class="legend-dot" style="background:${color}"></span>
+        ${escapeHtml(row.label)} ${sharePct}
+      </span>
+    `;
+  }).join('');
 }
 
 function renderAtendente(model) {
@@ -807,12 +910,15 @@ function renderAtendente(model) {
 
   const chartRows = model.atendentes.slice(0, 8);
   const rows = chartRows.length ? chartRows : [{ label: 'Sin datos', revenue: 0, count: 0 }];
-  legend.innerHTML = rows.map((row, index) => `
-    <button type="button" class="legend-chip" data-dashboard-atendente="${escapeHtml(row.label)}" aria-label="Ver detalle de ${escapeHtml(row.label)}">
-      <span class="legend-dot" style="background:${DASH_PALETTE[index % DASH_PALETTE.length]}"></span>
-      <span>${escapeHtml(row.label)}</span>
-    </button>
-  `).join('');
+  legend.innerHTML = rows.map((row, index) => {
+    const color = DASH_PALETTE[index % DASH_PALETTE.length];
+    return `
+      <button type="button" class="legend-chip" data-dashboard-atendente="${escapeHtml(row.label)}" aria-label="Ver detalle de ${escapeHtml(row.label)}">
+        <span class="legend-dot" style="background:${color}"></span>
+        <span>${escapeHtml(row.label)}</span>
+      </button>
+    `;
+  }).join('');
 
   destroyChart('atendente');
   dashboardCharts.atendente = new Chart(canvas.getContext('2d'), {
@@ -951,16 +1057,20 @@ function renderHorizontalBarChart(key, canvasId, rows, valueKey, label) {
 function renderTables(model) {
   const serviceBody = document.getElementById('tablaServicios');
   if (serviceBody) {
-    serviceBody.innerHTML = model.services.slice(0, 12).map(service => `
-      <tr>
-        <td>${escapeHtml(service.label)}</td>
-        <td>${fmt(service.revenue)}</td>
-        <td>${fmt(service.expense)}</td>
-        <td style="color:${service.result >= 0 ? '#1D9E75' : '#D85A30'}; font-weight:600">${fmt(service.result)}</td>
-        <td><span class="badge ${service.margin >= 0.25 ? 'badge-green' : 'badge-amber'}">${pct(service.margin)}</span></td>
-        <td>${pct(service.roi)}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="6" style="text-align:center; padding:18px; color:#64748B;">Sin servicios para el filtro actual.</td></tr>';
+    serviceBody.innerHTML = model.services.slice(0, 12).map(service => {
+      const resColor = service.result >= 0 ? '#1D9E75' : '#D85A30';
+      const badgeCls = service.margin >= 0.25 ? 'badge-green' : 'badge-amber';
+      return `
+        <tr>
+          <td>${escapeHtml(service.label)}</td>
+          <td>${fmt(service.revenue)}</td>
+          <td>${fmt(service.expense)}</td>
+          <td style="color:${resColor}; font-weight:600">${fmt(service.result)}</td>
+          <td><span class="badge ${cls(badgeCls)}">${pct(service.margin)}</span></td>
+          <td>${pct(service.roi)}</td>
+        </tr>
+      `;
+    }).join('') || '<tr><td colspan="6" style="text-align:center; padding:18px; color:#64748B;">Sin servicios para el filtro actual.</td></tr>';
   }
 
   const categoryBody = document.getElementById('tablaCategorias');

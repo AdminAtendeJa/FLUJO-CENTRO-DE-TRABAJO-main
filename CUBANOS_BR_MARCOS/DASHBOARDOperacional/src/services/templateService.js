@@ -230,7 +230,7 @@ export async function generateFilledPDF(templateUrl, mappings, clientData) {
     const fontHelvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontTimes = await pdfDoc.embedFont(StandardFonts.TimesRoman);
     const fontCourier = await pdfDoc.embedFont(StandardFonts.Courier);
-    
+
     const pages = pdfDoc.getPages();
 
     if (pages.length === 0) throw new Error('El PDF no tiene páginas.');
@@ -254,7 +254,7 @@ export async function generateFilledPDF(templateUrl, mappings, clientData) {
 
       // Configuración de estilo
       const fontSize = mapping.fontSize || Math.min(11, (mapping.height || 0.025) * pageHeight * 0.7);
-      
+
       let selectedFont = fontHelvetica;
       if (mapping.fontFamily === 'TimesRoman') selectedFont = fontTimes;
       if (mapping.fontFamily === 'Courier') selectedFont = fontCourier;
@@ -328,14 +328,15 @@ function getClientFieldValue(clientData, fieldId) {
 // Helper: renderizar página de PDF como imagen
 // ──────────────────────────────────────────────
 export async function renderPdfPageAsImage(url, pageNum = 1, scale = 2) {
+  // Usar la instancia estática de pdfjs-dist ya configurada por pdfToImage.js
   const pdfjsLib = await import('pdfjs-dist');
-  
-  // Configurar worker
+
+  // El worker ya se configura en pdfToImage.js, pero aseguramos que esté
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
   }
 
-  const loadingTask = pdfjsLib.getDocument({ url });
+  const loadingTask = pdfjsLib.getDocument({ url, cMapUrl: undefined });
   const pdf = await loadingTask.promise;
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale });

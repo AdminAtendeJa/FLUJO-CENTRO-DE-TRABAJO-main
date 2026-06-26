@@ -39,15 +39,9 @@
     {
       "parameters": {
         "url": "=https://plataformacubanosbroficial.kommo.com/api/v4/leads/{{ $json.body['leads[status][0][id]'] }}?with=contacts,custom_fields_values",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImE5OWE4NWU3MGMxNGQ5Nzg5ZDY3MTc1OWRlZmU4M2QyZTc5ZDI2YTk2YzQ4ZjE5ZjIzNDExMzUwN2U3MzAyZThiZWIwNmYzMTllNjczY2I5In0.eyJhdWQiOiIyY2NjZmM4YS1lZTE4LTRkYTMtOWQ0My1hNzg0NzNiMzM5YzQiLCJqdGkiOiJhOTlhODVlNzBjMTRkOTc4OWQ2NzE3NTlkZWZlODNkMmU3OWQyNmE5NmM0OGYxOWYyMzQxMTM1MDdlNzMwMmU4YmViMDZmMzE5ZTY3M2NiOSIsImlhdCI6MTc4MDkzMjA1MywibmJmIjoxNzgwOTMyMDUzLCJleHAiOjE4MDE1MjY0MDAsInN1YiI6IjEzMzQ5Mjk1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0NzMzNzk1LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiN2M5ZGZmZmYtZTcyYS00ZDNjLWI2ZWYtYWQyZTk4MDUwNTJmIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.BeNVLTgiSs9SRNMbRSLBpb-4_Cm7pvQDP_2GeG0ctFSvx-8pknWiw8h3OCbmJDCDNmrPS2IMMGAnRDEpSbHp7AZ39I0qv7n45_loMGuZUeFQl66dNhttcR57W5jkLhH32giF2LZpLsCwsLDBKiTppv2h1OgnasLjw73yak4yjXsaoR8_cxXDYAFCrWBfugy7OVyZ6qkkdyHGv4sGVuUfH4eWHCLcbA458KaScj1HC7Ws5uRl5CN0ofdDtCF1AsEK4qROhVj5l_QgYD2nShYoxUz9JNF931S-yxxLtz0pz7guc5dhbC9JlY_G1lWnUCviDi9KwPK5Y33HhKexz-z3HA"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": false,
         "options": {}
       },
       "id": "65de189a-c4a1-442f-a929-84df2e968136",
@@ -75,15 +69,9 @@
     {
       "parameters": {
         "url": "=https://plataformacubanosbroficial.kommo.com/api/v4/contacts/{{ $json.contactoId }}?with=custom_fields_values",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImE5OWE4NWU3MGMxNGQ5Nzg5ZDY3MTc1OWRlZmU4M2QyZTc5ZDI2YTk2YzQ4ZjE5ZjIzNDExMzUwN2U3MzAyZThiZWIwNmYzMTllNjczY2I5In0.eyJhdWQiOiIyY2NjZmM4YS1lZTE4LTRkYTMtOWQ0My1hNzg0NzNiMzM5YzQiLCJqdGkiOiJhOTlhODVlNzBjMTRkOTc4OWQ2NzE3NTlkZWZlODNkMmU3OWQyNmE5NmM0OGYxOWYyMzQxMTM1MDdlNzMwMmU4YmViMDZmMzE5ZTY3M2NiOSIsImlhdCI6MTc4MDkzMjA1MywibmJmIjoxNzgwOTMyMDUzLCJleHAiOjE4MDE1MjY0MDAsInN1YiI6IjEzMzQ5Mjk1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0NzMzNzk1LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiN2M5ZGZmZmYtZTcyYS00ZDNjLWI2ZWYtYWQyZTk4MDUwNTJmIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.BeNVLTgiSs9SRNMbRSLBpb-4_Cm7pvQDP_2GeG0ctFSvx-8pknWiw8h3OCbmJDCDNmrPS2IMMGAnRDEpSbHp7AZ39I0qv7n45_loMGuZUeFQl66dNhttcR57W5jkLhH32giF2LZpLsCwsLDBKiTppv2h1OgnasLjw73yak4yjXsaoR8_cxXDYAFCrWBfugy7OVyZ6qkkdyHGv4sGVuUfH4eWHCLcbA458KaScj1HC7Ws5uRl5CN0ofdDtCF1AsEK4qROhVj5l_QgYD2nShYoxUz9JNF931S-yxxLtz0pz7guc5dhbC9JlY_G1lWnUCviDi9KwPK5Y33HhKexz-z3HA"
-            }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": false,
         "options": {}
       },
       "id": "ef38348d-f73a-4882-b90c-3cc96b581eea",
@@ -531,16 +519,14 @@
     {
       "parameters": {
         "url": "={{ 'https://plataformacubanosbroficial.kommo.com/api/v4/leads/' + JSON.parse($json.data)._embedded.leads[0].id + '/notes' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImE5OWE4NWU3MGMxNGQ5Nzg5ZDY3MTc1OWRlZmU4M2QyZTc5ZDI2YTk2YzQ4ZjE5ZjIzNDExMzUwN2U3MzAyZThiZWIwNmYzMTllNjczY2I5In0.eyJhdWQiOiIyY2NjZmM4YS1lZTE4LTRkYTMtOWQ0My1hNzg0NzNiMzM5YzQiLCJqdGkiOiJhOTlhODVlNzBjMTRkOTc4OWQ2NzE3NTlkZWZlODNkMmU3OWQyNmE5NmM0OGYxOWYyMzQxMTM1MDdlNzMwMmU4YmViMDZmMzE5ZTY3M2NiOSIsImlhdCI6MTc4MDkzMjA1MywibmJmIjoxNzgwOTMyMDUzLCJleHAiOjE4MDE1MjY0MDAsInN1YiI6IjEzMzQ5Mjk1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0NzMzNzk1LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiN2M5ZGZmZmYtZTcyYS00ZDNjLWI2ZWYtYWQyZTk4MDUwNTJmIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.BeNVLTgiSs9SRNMbRSLBpb-4_Cm7pvQDP_2GeG0ctFSvx-8pknWiw8h3OCbmJDCDNmrPS2IMMGAnRDEpSbHp7AZ39I0qv7n45_loMGuZUeFQl66dNhttcR57W5jkLhH32giF2LZpLsCwsLDBKiTppv2h1OgnasLjw73yak4yjXsaoR8_cxXDYAFCrWBfugy7OVyZ6qkkdyHGv4sGVuUfH4eWHCLcbA458KaScj1HC7Ws5uRl5CN0ofdDtCF1AsEK4qROhVj5l_QgYD2nShYoxUz9JNF931S-yxxLtz0pz7guc5dhbC9JlY_G1lWnUCviDi9KwPK5Y33HhKexz-z3HA"
             }
           ]
         },
@@ -595,16 +581,14 @@
     {
       "parameters": {
         "url": "=https://plataformacubanosbroficial.kommo.com/api/v4/contacts/{{ $json.body.id_crm }}?with=leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImE5OWE4NWU3MGMxNGQ5Nzg5ZDY3MTc1OWRlZmU4M2QyZTc5ZDI2YTk2YzQ4ZjE5ZjIzNDExMzUwN2U3MzAyZThiZWIwNmYzMTllNjczY2I5In0.eyJhdWQiOiIyY2NjZmM4YS1lZTE4LTRkYTMtOWQ0My1hNzg0NzNiMzM5YzQiLCJqdGkiOiJhOTlhODVlNzBjMTRkOTc4OWQ2NzE3NTlkZWZlODNkMmU3OWQyNmE5NmM0OGYxOWYyMzQxMTM1MDdlNzMwMmU4YmViMDZmMzE5ZTY3M2NiOSIsImlhdCI6MTc4MDkzMjA1MywibmJmIjoxNzgwOTMyMDUzLCJleHAiOjE4MDE1MjY0MDAsInN1YiI6IjEzMzQ5Mjk1IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjM0NzMzNzk1LCJiYXNlX2RvbWFpbiI6ImtvbW1vLmNvbSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiN2M5ZGZmZmYtZTcyYS00ZDNjLWI2ZWYtYWQyZTk4MDUwNTJmIiwiYXBpX2RvbWFpbiI6ImFwaS1jLmtvbW1vLmNvbSJ9.BeNVLTgiSs9SRNMbRSLBpb-4_Cm7pvQDP_2GeG0ctFSvx-8pknWiw8h3OCbmJDCDNmrPS2IMMGAnRDEpSbHp7AZ39I0qv7n45_loMGuZUeFQl66dNhttcR57W5jkLhH32giF2LZpLsCwsLDBKiTppv2h1OgnasLjw73yak4yjXsaoR8_cxXDYAFCrWBfugy7OVyZ6qkkdyHGv4sGVuUfH4eWHCLcbA458KaScj1HC7Ws5uRl5CN0ofdDtCF1AsEK4qROhVj5l_QgYD2nShYoxUz9JNF931S-yxxLtz0pz7guc5dhbC9JlY_G1lWnUCviDi9KwPK5Y33HhKexz-z3HA"
             }
           ]
         },

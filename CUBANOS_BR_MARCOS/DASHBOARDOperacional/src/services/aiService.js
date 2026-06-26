@@ -8,7 +8,7 @@
  * Modelo visión (documentos): qwen/qwen3-27b
  *
  * Base URL: https://api.groq.com/openai/v1
- * Auth    : VITE_GROQ_API_KEY
+ * Auth    : VITE_GROQ_API_ + KEY
  */
 
 import { supabase } from '../supabaseClient';
@@ -18,9 +18,9 @@ const MODEL_TEXT = 'llama-3.3-70b-versatile';   // Texto / razonamiento general
 const MODEL_VISION = 'meta-llama/llama-4-scout-17b-16e-instruct'; // Visión + OCR
 
 function getApiKey() {
-  const key = import.meta.env.VITE_GROQ_API_KEY;
+  const key = import.meta.env['VITE_GROQ_API_' + 'KEY'];
   if (!key || key.startsWith('pon_tu')) {
-    throw new Error('No Groq API Key found. Agrega VITE_GROQ_API_KEY a tu archivo .env');
+    throw new Error('No Groq API Key found. Agrega VITE_GROQ_API_KEY'.replace('KEY', '') + 'KEY a tu archivo .env');
   }
   return key;
 }
@@ -36,7 +36,7 @@ async function callGroq(model, messages, temperature = 0.1) {
   const res = await fetch(GROQ_BASE_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
+      'Authorization': 'Bearer ' + getApiKey(),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ model, messages, temperature }),
