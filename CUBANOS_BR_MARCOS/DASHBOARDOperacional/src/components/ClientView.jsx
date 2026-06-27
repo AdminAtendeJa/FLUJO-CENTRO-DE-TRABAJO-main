@@ -1659,37 +1659,34 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
           </section>
         </div>
-        );
-};
+      </div>
 
-        {/* Botón para abrir el modal de fusión si hay duplicados */}
-        {duplicateContacts.length > 1 && (
-          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                  Se detectaron {duplicateContacts.length} contactos duplicados con el mismo teléfono
-                </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                  {duplicateContacts.map(c => c.nombre || c.email || c.telefono).join(', ')}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedContacts(duplicateContacts);
-                  setShowMergeModal(true);
-                }}
-                className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
-              >
-                <Merge className="w-3 h-3" />
-                Fusionar
-              </button>
+      {/* Botón para abrir el modal de fusión si hay duplicados */}
+      {duplicateContacts.length > 1 && (
+        <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg" style={{ margin: '0 2.5rem 2rem 2.5rem' }}>
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                Se detectaron {duplicateContacts.length} contactos duplicados con el mismo teléfono
+              </p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                {duplicateContacts.map(c => c.nombre || c.email || c.telefono).join(', ')}
+              </p>
             </div>
+            <button
+              onClick={() => {
+                // setSelectedContacts(duplicateContacts); // Comentado temporalmente si falla
+                setShowMergeModal(true);
+              }}
+              className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+            >
+              {/* <Merge className="w-3 h-3" /> */}
+              Fusionar
+            </button>
           </div>
-        )}
-      </section>
-    </div>
+        </div>
+      )}
 
         {
     isAiChatOpen && (
