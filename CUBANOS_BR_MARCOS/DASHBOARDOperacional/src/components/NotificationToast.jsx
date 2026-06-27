@@ -1,68 +1,72 @@
-
 import React, { useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
+
+const TYPE_CONFIG = {
+    success: { icon: CheckCircle2, color: 'var(--color-success)', bg: 'var(--color-success-bg)', border: 'var(--color-success-border)' },
+    error: { icon: XCircle, color: 'var(--color-danger)', bg: 'var(--color-danger-bg)', border: 'var(--color-danger-border)' },
+    warning: { icon: AlertTriangle, color: 'var(--color-warning)', bg: 'var(--color-warning-bg)', border: 'var(--color-warning-border)' },
+    info: { icon: Info, color: 'var(--color-info)', bg: 'var(--color-info-bg)', border: 'var(--color-info-border)' },
+};
 
 const NotificationToast = ({ notification, onClose }) => {
     useEffect(() => {
-        if (notification) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, 5000); // Auto-close after 5 seconds
-
-            return () => clearTimeout(timer);
-        }
+        if (!notification) return undefined;
+        const timer = setTimeout(() => onClose?.(), 5000);
+        return () => clearTimeout(timer);
     }, [notification, onClose]);
 
     if (!notification) return null;
 
-    const getToastStyle = () => {
-        const baseStyle = {
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            padding: '1rem',
-            borderRadius: 'var(--radius-md)',
-            color: 'white',
-            zIndex: 1000,
-            minWidth: '300px',
-            maxWidth: '400px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem'
-        };
-
-        switch (notification.type) {
-            case 'success':
-                return { ...baseStyle, background: 'var(--color-success, #22c55e)' };
-            case 'error':
-                return { ...baseStyle, background: 'var(--color-error, #ef4444)' };
-            case 'warning':
-                return { ...baseStyle, background: 'var(--color-warning, #f59e0b)' };
-            case 'info':
-            default:
-                return { ...baseStyle, background: 'var(--color-primary, #3b82f6)' };
-        }
-    };
+    const cfg = TYPE_CONFIG[notification.type] || TYPE_CONFIG.info;
+    const Icon = cfg.icon;
 
     return (
-        <div style={getToastStyle()}>
-            <div>{notification.message}</div>
+        <div
+            role={notification.type === 'error' ? 'alert' : 'status'}
+            aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
+            style={{
+                position: 'fixed',
+                top: 'var(--section-gap, 16px)',
+                right: 'var(--section-gap, 16px)',
+                zIndex: 1000,
+                minWidth: 280,
+                maxWidth: 420,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--gap-md, 12px)',
+                padding: 'var(--card-padding, 14px 16px)',
+                borderRadius: 'var(--card-radius, 10px)',
+                border: `1px solid ${cfg.border}`,
+                background: cfg.bg,
+                color: 'var(--color-text-primary)',
+                boxShadow: 'var(--shadow-md)',
+                animation: 'fadeUp var(--transition-normal)'
+            }}
+        >
+            <Icon size={18} color={cfg.color} aria-hidden="true" />
+            <div style={{ flex: 1, font: 'var(--font-body)' }}>{notification.message}</div>
             <button
+                type="button"
                 onClick={onClose}
+                aria-label="Cerrar notificación"
                 style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'white',
-                    fontSize: '1.25rem',
+                    width: 32,
+                    height: 32,
+                    background: 'transparent',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--color-text-secondary)',
                     cursor: 'pointer',
-                    padding: '0.25rem',
-                    marginLeft: 'auto'
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                 }}
             >
-                ×
+                <X size={16} />
             </button>
         </div>
     );
 };
 
 export { NotificationToast };
+export default NotificationToast;

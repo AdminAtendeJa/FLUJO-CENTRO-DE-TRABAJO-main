@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '../supabaseClient'; // Solo para: búsqueda en modal y AI chat (sin hook)
+import React, { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../supabaseClient'; // Solo para: upload / delete de documentos y consultas directas
 import toast from 'react-hot-toast';
-import { analyzeDocumentImage, chatWithClientContext } from '../services/aiService';
-import { getChatHistoryFromN8n } from '../services/crmBridgeService';
+import { analyzeDocumentImage } from '../services/aiService';
+import useClientAiChat from '../hooks/useClientAiChat';
 import { uploadDocument, deleteDocument } from '../services/storageService';
 import {
   insertRelacion, updateRelacionTipo, deleteRelacion,
@@ -17,12 +17,23 @@ import ClientPersonalData from './ClientPersonalData';
 import ClientDocuments from './ClientDocuments';
 import ClientRelations from './ClientRelations';
 import PDFGenerator from './PDFGenerator';
+import ClientViewHeader from './ClientViewHeader';
+import ClientViewTramites from './ClientViewTramites';
+import ClientViewAiChat from './ClientViewAiChat';
+import ClientViewRelateModal from './ClientViewRelateModal';
+import ClientViewNewTramiteModal from './ClientViewNewTramiteModal';
+import ClientViewEditModal from './ClientViewEditModal';
+import ClientViewExtractionModal from './ClientViewExtractionModal';
 import { findDuplicateContacts } from '../utils/contactUtils';
 import MergeContactsModal from './MergeContactsModal';
 import useClientData from '../hooks/useClientData';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import useDebounce from '../hooks/useDebounce';
 import VirtualizedList from './VirtualizedList';
+import { Badge } from './ui/Badge';
+import { Avatar } from './ui/Avatar';
+import { EmptyState } from './ui/EmptyState';
+import { SkeletonCard } from './ui/SkeletonCard';
 
 // Helper for native date inputs (YYYY-MM-DD <-> DD/MM/YYYY)
 function toIsoDate(val) {
@@ -90,7 +101,7 @@ const TRAMITE_COLORS = {
 
 export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const queryClient = useQueryClient();
-  const { client, categories: categorias, fields: campos, clientData: clienteDatos, relations: relaciones, documents: documentos, entradas, duplicateContacts, isLoading } = useClientData(clientId);
+  const { client, categories: categorias, fields: campos, clientData: clienteDatos, relations: relaciones, documents: documentos, entradas, duplicateContacts, isLoading, isError } = useClientData(clientId);
   
   const { data: allClientes = [] } = useQuery({
     queryKey: ['allClientesBase'],
@@ -155,12 +166,17 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [extractedData, setExtractedData] = useState(null);
   const [isExtractionModalOpen, setIsExtractionModalOpen] = useState(false);
 
-  // AI Chat RAG State
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
-  const [aiChatMessages, setAiChatMessages] = useState([]);
-  const [aiChatInput, setAiChatInput] = useState('');
-  const [isAiChatLoading, setIsAiChatLoading] = useState(false);
-  const [crmContext, setCrmContext] = useState('');
+  const {
+    isAiChatOpen,
+    setIsAiChatOpen,
+    aiChatMessages,
+    aiChatInput,
+    setAiChatInput,
+    isAiChatLoading,
+    crmContext,
+    handleSendAiMessage,
+  } = useClientAiChat(client, clienteDatos, entradas);
+
   const [editingCategoryId, setEditingCategoryId] = useState(null);
 
   // New Tramite State
@@ -170,27 +186,39 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   // Document Viewer State (doble click)
   const [viewingDocument, setViewingDocument] = useState(null);
-
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(true);
   const [showMergeModal, setShowMergeModal] = useState(false);
+
+  useEffect(() => {
+    if (duplicateContacts.length > 1) {
+      setShowDuplicateWarning(true);
+    } else {
+      setShowDuplicateWarning(false);
+    }
+  }, [duplicateContacts]);
 
   const fetchClientData = async (fullReload = false) => {
     await queryClient.invalidateQueries();
   };
 
   const handleMergeComplete = async (mergedData, keepContactId) => {
-    // Aquí iría la lógica para fusionar los contactos en la base de datos
     console.log('Fusión completada:', mergedData, keepContactId);
     setShowMergeModal(false);
+    setShowDuplicateWarning(false);
     queryClient.invalidateQueries({ queryKey: ['duplicateContacts'] });
-    // Recargar los datos del cliente actualizado
+    queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+    queryClient.invalidateQueries({ queryKey: ['clientData', clientId] });
+    queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
+    queryClient.invalidateQueries({ queryKey: ['documents', clientId] });
     await fetchClientData(true);
   };
 
 
   const handleCopy = (text, id) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    setTimeout(() => setCopiedId(null), 1500);
   };
 
   const fixedFields = FIXED_FIELDS_CATALOG;
@@ -699,68 +727,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   }, [clientId, queryClient]);
 
 
-  // ================= AI CHAT LOGIC =================
-  useEffect(() => {
-    if (isAiChatOpen && client) {
-      const loadHistory = async () => {
-        try {
-          const { data } = await supabase.from('ai_chats').select('*').eq('cliente_id', client.id).order('creado_en', { ascending: true });
-          if (data && data.length > 0) {
-            setAiChatMessages(data.map(d => ({ role: d.role, content: d.content })));
-          } else {
-            setAiChatMessages([{ role: 'assistant', content: `¡Hola! Soy tu asistente IA. Tengo acceso a la base de datos y al CRM para ${client.nombre}. ¿En qué te ayudo?` }]);
-          }
-
-          // Cargar historial CRM de n8n
-          const n8nData = await getChatHistoryFromN8n(client.id_kommo || client.id_crm);
-          setCrmContext(n8nData);
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      loadHistory();
-    }
-  }, [isAiChatOpen, client]);
-
-  const handleSendAiMessage = async () => {
-    if (!aiChatInput.trim()) return;
-    const userMsg = aiChatInput.trim();
-    setAiChatInput('');
-    setIsAiChatLoading(true);
-
-    const newMessages = [...aiChatMessages, { role: 'user', content: userMsg }];
-    setAiChatMessages(newMessages);
-
-    // Guardar en la DB sin bloquear (fuego y olvido)
-    supabase.from('ai_chats').insert({ cliente_id: client.id, role: 'user', content: userMsg }).then();
-
-    try {
-      // Auto-refresh CRM context if the user asks for messages or history
-      let currentCrmContext = crmContext;
-      const lowerMsg = userMsg.toLowerCase();
-      if (lowerMsg.includes('mensaje') || lowerMsg.includes('historial') || lowerMsg.includes('kommo') || lowerMsg.includes('actualiza') || lowerMsg.includes('nuevo')) {
-        currentCrmContext = await getChatHistoryFromN8n(client.id_kommo || client.id_crm);
-        setCrmContext(currentCrmContext);
-      }
-
-      const supabaseCtx = {
-        cliente: client,
-        datos: clienteDatos,
-        tramites: entradas
-      };
-
-      const response = await chatWithClientContext(userMsg, aiChatMessages, supabaseCtx, currentCrmContext);
-
-      setAiChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
-      supabase.from('ai_chats').insert({ cliente_id: client.id, role: 'assistant', content: response }).then();
-    } catch (err) {
-      console.error(err);
-      setAiChatMessages(prev => [...prev, { role: 'assistant', content: 'Lo siento, ocurrió un error contactando a la IA.' }]);
-    } finally {
-      setIsAiChatLoading(false);
-    }
-  };
-
   const handleDeleteClient = useCallback(async () => {
     if (!window.confirm('Eliminar este cliente y TODOS sus datos? Esta acción no puede deshacerse.')) return;
     setIsDeleting(true);
@@ -785,6 +751,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     try {
       await updateEntradaEstado(entradaId, newState);
       queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
+      toast.success('Estado del trámite actualizado');
     } catch (err) {
       console.error('[ClientView] handleChangeTramiteState:', err);
       toast.error('Error al actualizar el estado del trámite.');
@@ -849,7 +816,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           </div>
         </div>
         {/* Content skeletons */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
           <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {[1,2,3,4,5,6].map(i => (
               <div key={i} style={{ height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-bg-elevated)', animation: `pulse 1.5s ease-in-out ${i * 0.1}s infinite` }} />
@@ -869,7 +836,27 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     );
   }
 
-  if (!client) return null;
+  if (isError) {
+    return (
+      <div style={{ padding: 'var(--section-gap, 16px)', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="glass-panel" style={{ maxWidth: '480px', padding: '1.5rem', textAlign: 'center' }}>
+          <h2 style={{ margin: '0 0 0.5rem', color: 'var(--color-text-primary)' }}>No se pudieron cargar los datos del cliente</h2>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>Intenta volver a cargar la vista o seleccionar otro cliente.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div style={{ padding: 'var(--section-gap, 16px)', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="glass-panel" style={{ maxWidth: '480px', padding: '1.5rem', textAlign: 'center' }}>
+          <h2 style={{ margin: '0 0 0.5rem', color: 'var(--color-text-primary)' }}>No hay datos disponibles</h2>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>Selecciona otro cliente para ver su información.</p>
+        </div>
+      </div>
+    );
+  }
 
   const normalizeEditSearchText = (value = '') =>
     String(value || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -907,69 +894,20 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
 
   return (
-    <div style={{ padding: '2.5rem', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} className="animate-fade-in">
-      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 600, color: 'white', position: 'relative' }}>
-            {client.nombre?.split(' ').map(n => n[0]).join('').substring(0, 2)}
-            {duplicateContacts.length > 1 && (
-              <button
-                onClick={() => setShowMergeModal(true)}
-                style={{
-                  position: 'absolute',
-                  top: '-5px',
-                  right: '-5px',
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '50%',
-                  background: '#3b82f6',
-                  border: '2px solid white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  animation: 'pulse 2s infinite',
-                  zIndex: 10
-                }}
-                title="¡Cliente duplicado! Haz clic para fusionar"
-              >
-                <AlertTriangle size={12} color="white" />
-              </button>
-            )}
-          </div>
-          <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>{client.nombre}</h1>
-            <div style={{ display: 'flex', gap: '1rem', color: 'var(--color-text-secondary)', fontSize: '0.875rem', flexWrap: 'wrap' }}>
-              <span><strong>CPF:</strong> {client.cpf || 'No registrado'}</span>
-              <span>•</span>
-              <span><strong>Email:</strong> {client.email || 'N/A'}</span>
-              <span>•</span>
-              <span><strong>Tel:</strong> {client.telefono || 'N/A'}</span>
-              <span>•</span>
-              <span><strong>Origen:</strong> {client.ciudad || 'N/A'}, {client.estado_federal || client.estado || 'N/A'}, {client.pais || 'N/A'}</span>
-              <span>•</span>
-              <span>Registrado: {new Date(client.creado_en).toLocaleDateString()}</span>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-ghost" onClick={handleDeleteClient} disabled={isDeleting} style={{ color: 'var(--color-danger)' }}>
-            {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-            <span style={{ marginLeft: '4px' }}>Eliminar</span>
-          </button>
-          <button className="btn btn-secondary" onClick={() => setIsAiChatOpen(!isAiChatOpen)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Sparkles size={16} />
-            {isAiChatOpen ? 'Cerrar Chat' : 'Asistente IA'}
-          </button>
-          <button className="btn btn-secondary" onClick={handleSendToExtension} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(23,198,113,0.1)', color: 'var(--color-success)', borderColor: 'rgba(23,198,113,0.2)' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
-            Enviar a Extensión
-          </button>
-          <button className="btn btn-secondary" onClick={() => openEditModal('ALL_PERSONAL')}><Edit2 size={16} /> Editar Datos</button>
-        </div>
-      </div>
+    <div style={{ padding: 'var(--section-gap, 16px)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} className="animate-fade-in">
+      <ClientViewHeader
+        client={client}
+        duplicateContacts={duplicateContacts}
+        setShowMergeModal={setShowMergeModal}
+        handleDeleteClient={handleDeleteClient}
+        isDeleting={isDeleting}
+        isAiChatOpen={isAiChatOpen}
+        setIsAiChatOpen={setIsAiChatOpen}
+        handleSendToExtension={handleSendToExtension}
+        openEditModal={openEditModal}
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
         {/* Columna Izquierda: Datos Personales y Trámites */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
           <ClientPersonalData
@@ -1023,563 +961,147 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             handleDeleteDocument={handleDeleteDocument}
           />
 
-          <section id="historial-tramites" className="glass-panel" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                <Clock size={18} color="var(--color-primary)" /> Historial de Trámites
-              </h2>
-              <button className="btn btn-primary btn-sm" onClick={() => setIsNewTramiteModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
-                <Plus size={14} /> Nuevo Trámite
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {entradas.map(entrada => (
-                <div key={entrada.id} className="glass-panel-elevated" style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>{entrada.servicio}</div>
-                    <select
-                      value={entrada.estado_tramite || 'pendiente'}
-                      onChange={(e) => handleChangeTramiteState(entrada.id, e.target.value)}
-                      style={{
-                        padding: '0.15rem 0.35rem', borderRadius: '4px', border: '1px solid var(--color-border)', fontSize: '0.65rem', fontWeight: 600, outline: 'none', cursor: 'pointer',
-                        background: entrada.estado_tramite === 'completada' ? 'rgba(29, 158, 117, 0.2)' : entrada.estado_tramite === 'procesando' ? 'rgba(55, 138, 221, 0.2)' : entrada.estado_tramite === 'cancelada' ? 'rgba(216, 90, 48, 0.2)' : 'rgba(186, 117, 23, 0.2)',
-                        color: entrada.estado_tramite === 'completada' ? '#1D9E75' : entrada.estado_tramite === 'procesando' ? '#378ADD' : entrada.estado_tramite === 'cancelada' ? '#D85A30' : '#BA7517'
-                      }}
-                    >
-                      <option value="pendiente">Pendiente</option>
-                      <option value="procesando">Procesando</option>
-                      <option value="completada">Completada</option>
-                      <option value="cancelada">Cancelada</option>
-                    </select>
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{new Date(entrada.creado_en).toLocaleDateString()} • {entrada.operario || 'Sin asignar'}</div>
-                </div>
-              ))}
-            </div>
-          </section>
+          <ClientViewTramites
+            entradas={entradas}
+            onCreateTramite={() => setIsNewTramiteModalOpen(true)}
+            onUpdateEstado={handleChangeTramiteState}
+          />
         </div>
       </div>
 
       {/* Botón para abrir el modal de fusión si hay duplicados */}
-      {duplicateContacts.length > 1 && (
+      {duplicateContacts.length > 1 && showDuplicateWarning && (
         <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg" style={{ margin: '0 2.5rem 2rem 2.5rem' }}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Se detectaron {duplicateContacts.length} contactos duplicados con el mismo teléfono
-              </p>
-              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                {duplicateContacts.map(c => c.nombre || c.email || c.telefono).join(', ')}
-              </p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    Se detectaron {duplicateContacts.length} contactos duplicados con el mismo teléfono
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                    {duplicateContacts.map(c => c.nombre || c.email || c.telefono).join(', ')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowDuplicateWarning(false)}
+                  className="p-1 rounded-full text-yellow-700 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-800 transition-colors"
+                  aria-label="Cerrar notificación de duplicados"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+          </div>
+          <div className="mt-3 flex justify-end">
             <button
-              onClick={() => {
-                // setSelectedContacts(duplicateContacts); // Comentado temporalmente si falla
-                setShowMergeModal(true);
-              }}
+              onClick={() => setShowMergeModal(true)}
               className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
             >
-              {/* <Merge className="w-3 h-3" /> */}
               Fusionar
             </button>
           </div>
         </div>
       )}
 
-        {
-    isAiChatOpen && (
-      <div
-        style={{
-          position: 'absolute',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: '400px',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--color-bg-base)',
-          borderLeft: '1px solid var(--color-border)',
-          boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.45)',
-          zIndex: 100,
-          overflow: 'hidden'
-        }}
-      >
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
-            <Sparkles size={20} />
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Asistente IA</h2>
-          </div>
-          <button className="btn btn-ghost" style={{ padding: '0.5rem' }} onClick={() => setIsAiChatOpen(false)}>
-            <X size={18} />
-          </button>
-        </div>
+      <ClientViewAiChat
+        isOpen={isAiChatOpen}
+        onClose={() => setIsAiChatOpen(false)}
+        messages={aiChatMessages}
+        input={aiChatInput}
+        onInputChange={setAiChatInput}
+        onSend={handleSendAiMessage}
+        isLoading={isAiChatLoading}
+        crmContext={crmContext}
+      />
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {aiChatMessages.map((msg, i) => (
-            <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
-                {msg.role === 'user' ? 'Tú' : 'IA'}
-              </div>
-              <div style={{
-                background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-elevated)',
-                color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
-                padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomRightRadius: msg.role === 'user' ? 0 : 'var(--radius-lg)', borderBottomLeftRadius: msg.role === 'assistant' ? 0 : 'var(--radius-lg)',
-                fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'pre-wrap'
-              }}>
-                {msg.content}
-              </div>
-            </div>
-          ))}
-          {isAiChatLoading && (
-            <div style={{ alignSelf: 'flex-start', background: 'var(--color-bg-elevated)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', borderBottomLeftRadius: 0, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <Loader2 size={16} className="animate-spin" color="var(--color-primary)" />
-              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Pensando...</span>
-            </div>
-          )}
-        </div>
+      <ClientViewRelateModal
+        isOpen={isRelateModalOpen}
+        onClose={() => setIsRelateModalOpen(false)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchResults={searchResults}
+        allClientes={allClientes}
+        selectedId={selectedRelateId}
+        onSelectId={setSelectedRelateId}
+        selectedType={selectedRelateType}
+        onSelectType={setSelectedRelateType}
+        onOpenNewClient={() => setIsNewRelateClientModalOpen(true)}
+        clientId={clientId}
+        onRelate={handleRelateClient}
+      />
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-base)' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <textarea
-              value={aiChatInput}
-              onChange={e => setAiChatInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendAiMessage(); } }}
-              placeholder="Pregunta algo sobre el cliente..."
-              style={{ flex: 1, resize: 'none', height: '42px', minHeight: '42px', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)' }}
-              disabled={isAiChatLoading}
-            />
-            <button className="btn btn-primary" onClick={handleSendAiMessage} disabled={isAiChatLoading || !aiChatInput.trim()} style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', flexShrink: 0 }}>
-              <Send size={18} />
-            </button>
-          </div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.5rem' }}>
-            La IA tiene contexto de la BD y CRM. {crmContext ? '✅ CRM Listo' : '⏳ Cargando CRM...'}
-          </div>
-        </div>
-      </div>
-    )
-  }
+      {isNewRelateClientModalOpen && (
+        <NewClientModal
+          onClose={() => setIsNewRelateClientModalOpen(false)}
+          onClientCreated={(newClient) => {
+            setAllClientes([...allClientes, newClient]);
+            setSelectedRelateId(newClient.id);
+            setIsNewRelateClientModalOpen(false);
+          }}
+        />
+      )}
 
-    { isRelateModalOpen && (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-        <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Vincular Familiar / Amigo</h2>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Buscar Cliente</label>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                <input
-                  type="text"
-                  placeholder="Escriba para filtrar clientes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', background: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}
-                />
-                <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', maxHeight: '150px', overflowY: 'auto', background: 'var(--color-bg-elevated)' }}>
-                  {(searchQuery.trim().length >= 2 ? searchResults : allClientes).filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 50).map(c => (
-                    <div
-                      key={c.id}
-                      style={{ padding: '0.5rem', cursor: 'pointer', background: selectedRelateId === c.id ? 'var(--color-primary)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', color: selectedRelateId === c.id ? 'white' : 'var(--color-text-primary)', transition: 'background 0.2s' }}
-                      onClick={() => setSelectedRelateId(c.id)}
-                    >
-                      {c.nombre} ({c.cpf || 'Sin CPF'})
-                    </div>
-                  ))}
-                  {(searchQuery.trim().length >= 2 ? searchResults : allClientes).filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                    <div style={{ padding: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>No hay resultados</div>
-                  )}
-                </div>
-              </div>
-              <button className="btn btn-secondary" style={{ padding: '0.5rem' }} onClick={() => setIsNewRelateClientModalOpen(true)} title="Crear Nuevo Cliente">
-                <UserPlus size={18} />
-              </button>
-            </div>
-          </div>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Tipo de Relación</label>
-            <select style={{ width: '100%', padding: '0.5rem', background: 'var(--color-bg-elevated)', color: 'white', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }} value={selectedRelateType} onChange={(e) => setSelectedRelateType(e.target.value)}>
-              <option value="conyuge">Cónyuge</option>
-              <option value="hijo/hija">Hijo / Hija</option>
-              <option value="padre/madre">Padre / Madre</option>
-              <option value="hermano/hermana">Hermano / Hermana</option>
-              <option value="familiar">Otro Familiar</option>
-              <option value="amigo">Amigo</option>
-              <option value="otro">Otro</option>
-            </select>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-            <button className="btn btn-ghost" onClick={() => setIsRelateModalOpen(false)}>Cancelar</button>
-            <button className="btn btn-primary" onClick={handleRelateClient}>Vincular</button>
-          </div>
-        </div>
-      </div>
-    )
-}
+      <ClientViewEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        categorias={categorias}
+        campos={campos}
+        clienteDatos={clienteDatos}
+        client={client}
+        editFormData={editFormData}
+        onEditFormDataChange={setEditFormData}
+        newFields={newFields}
+        onNewFieldsChange={setNewFields}
+        onSaveEdits={handleSaveEdits}
+        isSaving={isSaving}
+        searchQuery={editModalSearchQuery}
+        onSearchChange={setEditModalSearchQuery}
+        fixedFieldsCatalog={fixedFields}
+        handleCepSearch={handleCepSearch}
+        toIsoDate={toIsoDate}
+        toSlashDate={toSlashDate}
+      />
 
+      <ClientViewExtractionModal
+        isOpen={isExtractionModalOpen}
+        extractedData={extractedData}
+        onClose={() => setIsExtractionModalOpen(false)}
+        onExtractedDataChange={setExtractedData}
+        onSave={handleSaveExtractedData}
+        isSaving={isSaving}
+      />
 
-{
-  isEditModalOpen && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <ClientViewNewTramiteModal
+        isOpen={isNewTramiteModalOpen}
+        onClose={() => setIsNewTramiteModalOpen(false)}
+        servicio={newTramiteData.servicio}
+        onServicioChange={(val) => setNewTramiteData(prev => ({ ...prev, servicio: val }))}
+        operario={newTramiteData.operario}
+        onOperarioChange={(val) => setNewTramiteData(prev => ({ ...prev, operario: val }))}
+        onCreate={handleCreateTramite}
+        isCreating={isCreatingTramite}
+      />
 
-        <datalist id="existing-fields-list">
-          {categorias.flatMap(c => c.campos_datos_operacionales || []).map(f => (
-            <option key={f.id} value={f.nombre_campo} />
-          ))}
-        </datalist>
-
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Editar Datos del Cliente</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, maxWidth: '400px' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input
-                type="text"
-                placeholder="Filtrar campos (ej. Pasaporte, Madre)..."
-                className="form-input"
-                value={editModalSearchQuery}
-                onChange={e => setEditModalSearchQuery(e.target.value)}
-                style={{ paddingLeft: '2.2rem', width: '100%', fontSize: '0.875rem' }}
-              />
-            </div>
-            <button className="btn btn-ghost" style={{ padding: '0.5rem', flexShrink: 0 }} onClick={() => setIsEditModalOpen(false)}>✕</button>
-          </div>
-        </div>
-
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {!hasEditModalResults ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-              No se encontraron campos que coincidan con "{editModalSearchQuery}"
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
-                {filteredEditFormData.map((field, idx) => {
-                  const originalIdx = editFormData.findIndex(f => f.campo_id === field.campo_id && f.id === field.id);
-                  if (field.id === 'nombre') {
-                    return (
-                      <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Nombre(s) <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                          </label>
-                          <input className="form-input" type="text" value={field._nombres || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], _nombres: e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Apellidos <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                          </label>
-                          <input className="form-input" type="text" value={field._apellidos || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], _apellidos: e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (field.id === 'direccion') {
-                    return (
-                      <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
-                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                        </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>CEP</label>
-                            <input className="form-input" placeholder="00000-000" type="text" value={field._cep || ''} onChange={e => {
-                              let val = e.target.value.replace(/\D/g, '');
-                              if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
-                              const arr = [...editFormData];
-                              arr[originalIdx] = { ...arr[originalIdx], _cep: val };
-                              setEditFormData(arr);
-                            }} onBlur={e => handleCepSearch(e.target.value)} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Endereço</label>
-                            <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Número</label>
-                            <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Complemento</label>
-                            <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Bairro</label>
-                            <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Cidade</label>
-                            <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Estado</label>
-                            <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Ponto de Referência</label>
-                            <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  const isDate = field.nombre_campo?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
-                  return (
-                    <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          {field.nombre_campo}{field.es_fijo && <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>}
-                        </label>
-                        {field.id === 'estado_civil' ? (
-                          <select className="form-input" value={field.valor || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
-                            setEditFormData(arr);
-                          }}>
-                            <option value="">Selecione</option>
-                            {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : field.id === 'sexo' ? (
-                          <select className="form-input" value={field.valor || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
-                            setEditFormData(arr);
-                          }}>
-                            <option value="">Selecione</option>
-                            {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : (
-                          <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        )}
-                      </div>
-                      {field.es_fijo && field.id === 'nombre' ? null : (
-                        <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteFieldData(field.id, field.es_fijo)} title="Borrar dato">
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {newFields.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%', marginTop: '1rem' }}>
-                  {newFields.map((field, idx) => {
-                    const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
-                    let activeCategoriasNombres = [];
-                    let activeCategoriasIds = [];
-                    if (editingCategoryId === 'ALL_PERSONAL') {
-                      const cats = categorias.filter(c => ["Informaciones Personales", "Datos Familiares", "Documentos de Identidad"].includes(c.nombre));
-                      activeCategoriasNombres = cats.map(c => c.nombre);
-                      activeCategoriasIds = cats.map(c => c.id);
-                    } else {
-                      const editingCategory = categorias.find(c => c.id === editingCategoryId);
-                      if (editingCategory) {
-                        activeCategoriasNombres = [editingCategory.nombre];
-                        activeCategoriasIds = [editingCategory.id];
-                      }
-                    }
-                    const avFixed = FIXED_FIELDS_CATALOG.filter(f => activeCategoriasNombres.includes(f.category_name) && !client?.[f.id] && !usedIds.includes(f.id));
-                    const avDynamic = campos.filter(c => activeCategoriasIds.includes(c.categoria_id) && !usedIds.includes(c.id));
-                    return (
-                      <div key={field.id} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '0.875rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                          <div style={{ flex: '1 1 160px' }}>
-                            <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Campo</label>
-                            <select className="form-input" value={field.campo_id} onChange={(e) => {
-                              const arr = [...newFields];
-                              arr[idx] = { ...arr[idx], campo_id: e.target.value, customName: '' };
-                              setNewFields(arr);
-                            }}>
-                              <option value="">-- Seleccionar --</option>
-                              {avFixed.length > 0 && <optgroup label="Campos Base">{avFixed.map(f => <option key={f.id} value={f.id}>{f.nombre_campo}</option>)}</optgroup>}
-                              {avDynamic.length > 0 && <optgroup label="Campos Operacionales">{avDynamic.map(c => <option key={c.id} value={c.id}>{c.nombre_campo}</option>)}</optgroup>}
-                              <optgroup label="Nuevo"><option value="custom">+ Crear Campo Personalizado</option></optgroup>
-                            </select>
-                          </div>
-                          {field.campo_id === 'custom' && (
-                            <div style={{ flex: '1 1 140px' }}>
-                              <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Nombre del Campo</label>
-                              <input className="form-input" type="text" placeholder="Ej: Talla Camisa" value={field.customName || ''} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], customName: e.target.value }; setNewFields(arr); }} />
-                            </div>
-                          )}
-                          <div style={{ flex: '1 1 140px' }}>
-                            <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Valor</label>
-                            {(() => {
-                              const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
-                              const nombreParaCheck = field.campo_id === 'custom' ? field.customName : (campoRef?.nombre_campo || '');
-                              const isDate = nombreParaCheck?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
-                              if (field.campo_id === 'estado_civil') {
-                                return (
-                                  <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
-                                    <option value="">Selecione</option>
-                                    {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                );
-                              }
-                              if (field.campo_id === 'sexo') {
-                                return (
-                                  <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
-                                    <option value="">Selecione</option>
-                                    {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                );
-                              }
-                              return (
-                                <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} disabled={!field.campo_id} placeholder="Valor" onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value }; setNewFields(arr); }} />
-                              );
-                            })()}
-                          </div>
-                          <button className="btn btn-ghost" style={{ color: 'var(--color-danger)', padding: '0.4rem' }} onClick={() => setNewFields(newFields.filter((_, i) => i !== idx))}><X size={16} /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
-                <Plus size={16} /> Añadir Más Datos
-              </button>
-            </>
-          )}
-        </div>
-
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn btn-ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>
-          <button className="btn btn-primary" onClick={handleSaveEdits} disabled={isSaving}>
-            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-{
-  isNewRelateClientModalOpen && (
-    <NewClientModal
-      onClose={() => setIsNewRelateClientModalOpen(false)}
-      onClientCreated={(newClient) => {
-        setAllClientes([...allClientes, newClient]);
-        setSelectedRelateId(newClient.id);
-        setIsNewRelateClientModalOpen(false);
-      }}
-    />
-  )
-}
-
-
-
-{
-  isExtractionModalOpen && extractedData && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
-          <Sparkles size={18} /> IA Detectó Datos del Documento
-        </h2>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-          Se extrajeron los siguientes datos del documento. ¿Deseas guardarlos en la categoría actual?
-        </p>
-        {extractedData.ILEGIBLE && (
-          <div style={{ background: 'rgba(216,90,48,0.1)', color: '#D85A30', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontWeight: 600 }}>⚠️ Aviso:</span> La parte superior del documento estaba borrosa, por lo que la IA extrajo los datos del código inferior (MRZ). Verifica que sean correctos.
-          </div>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-          {Object.entries(extractedData).map(([k, v]) => (
-            v && k !== 'ILEGIBLE' && (
-              <div key={k} style={{ background: 'var(--color-bg-elevated)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>{k}</div>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={v || ''}
-                  onChange={(e) => setExtractedData({ ...extractedData, [k]: e.target.value })}
-                  style={{ fontSize: '0.875rem', fontWeight: 500, width: '100%' }}
-                />
-              </div>
-            )
-          ))}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn btn-ghost" onClick={() => setIsExtractionModalOpen(false)}>Descartar</button>
-          <button className="btn btn-primary" onClick={handleSaveExtractedData} disabled={isSaving}>
-            {isSaving ? 'Guardando...' : 'Guardar Datos'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-{
-  isNewTramiteModalOpen && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '420px', padding: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Plus size={20} color="var(--color-primary)" /> Nuevo Trámite
-        </h2>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
-            Servicio / Tipo de Trámite <span style={{ color: 'var(--color-danger)' }}>*</span>
-          </label>
-          <input
-            className="form-input"
-            type="text"
-            placeholder="Ej: Solicitud de Refugio, Renovación RNM, etc."
-            value={newTramiteData.servicio}
-            onChange={(e) => setNewTramiteData(prev => ({ ...prev, servicio: e.target.value }))}
-            style={{ width: '100%' }}
-            autoFocus
+      {
+        viewingDocument && (
+          <DocumentViewerModal
+            document={viewingDocument}
+            onClose={() => setViewingDocument(null)}
           />
-        </div>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
-            Operario / Responsable
-          </label>
-          <input
-            className="form-input"
-            type="text"
-            placeholder="Nombre del operario (opcional)"
-            value={newTramiteData.operario}
-            onChange={(e) => setNewTramiteData(prev => ({ ...prev, operario: e.target.value }))}
-            style={{ width: '100%' }}
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn btn-ghost" onClick={() => { setIsNewTramiteModalOpen(false); setNewTramiteData({ servicio: '', operario: '' }); }}>Cancelar</button>
-          <button className="btn btn-primary" onClick={handleCreateTramite} disabled={isCreatingTramite || !newTramiteData.servicio.trim()}>
-            {isCreatingTramite ? <><Loader2 size={16} className="animate-spin" style={{ marginRight: '4px' }} /> Creando...</> : 'Crear Trámite'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+        )
+      }
 
-{
-  viewingDocument && (
-    <DocumentViewerModal
-      document={viewingDocument}
-      onClose={() => setViewingDocument(null)}
-    />
-  )
-}
-    </div >
+      {showMergeModal && duplicateContacts.length > 1 && (
+        <MergeContactsModal
+          isOpen={showMergeModal}
+          onClose={() => setShowMergeModal(false)}
+          onMergeComplete={handleMergeComplete}
+          contact1={duplicateContacts[0]}
+          contact2={duplicateContacts[1]}
+        />
+      )}
+    </div>
   );
 }

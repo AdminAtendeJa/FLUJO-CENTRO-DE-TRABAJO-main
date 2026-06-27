@@ -1,8 +1,9 @@
-import React from 'react';
-import { FileText, UploadCloud, Loader2, X } from 'lucide-react';
+import React, { useRef } from 'react';
+import { FileText, Loader2, UploadCloud, X } from 'lucide-react';
+import EmptyState from './ui/EmptyState';
 
 const ClientDocuments = ({
-  documentos,
+  documentos = [],
   uploading,
   isDragging,
   draggedDocument,
@@ -15,117 +16,183 @@ const ClientDocuments = ({
   setViewingDocument,
   handleDeleteDocument
 }) => {
+  const inputRef = useRef(null);
+
+  const openFilePicker = () => inputRef.current?.click();
+
   return (
-    <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
-      <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-        <FileText size={18} color="var(--color-primary)" /> Documentos
+    <section id="documentos-subidos" className="glass-panel" style={{ padding: 'var(--section-gap, 16px)' }}>
+      <h2 style={{ font: 'var(--font-page-title)', display: 'flex', alignItems: 'center', gap: 'var(--gap-sm, 8px)', margin: '0 0 var(--section-gap, 16px)' }}>
+        <FileText size={18} color="var(--brand-primary)" /> Documentos
       </h2>
 
-      {/* Upload zone */}
       <label
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        style={{
-          display: 'block',
-          border: `2px dashed ${isDragging ? 'var(--color-primary)' : 'var(--color-border)'}`,
-          backgroundColor: isDragging ? 'rgba(99,102,241,0.05)' : 'transparent',
-          borderRadius: 'var(--radius-md)',
-          padding: '1.25rem',
-          textAlign: 'center',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          marginBottom: '1.25rem'
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openFilePicker();
+          }
         }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 'var(--gap-sm, 8px)',
+          minHeight: 118,
+          border: `2px dashed ${isDragging ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+          backgroundColor: isDragging ? 'var(--brand-primary-light)' : 'transparent',
+          borderRadius: 'var(--card-radius, 10px)',
+          padding: 'var(--section-gap, 16px)',
+          textAlign: 'center',
+          cursor: uploading ? 'wait' : 'pointer',
+          transition: 'border-color var(--transition-normal), background var(--transition-normal)',
+          marginBottom: 'var(--section-gap, 16px)',
+          color: isDragging ? 'var(--brand-primary)' : 'var(--color-text-secondary)'
+        }}
+        aria-label="Subir documento o arrastrar archivo aquí"
       >
-        <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
+        <input
+          ref={inputRef}
+          type="file"
+          style={{ display: 'none' }}
+          onChange={handleFileUpload}
+          disabled={uploading}
+        />
         {uploading ? (
-          <Loader2 className="animate-spin" size={20} color="var(--color-primary)" style={{ margin: '0 auto 0.25rem' }} />
+          <Loader2 className="animate-spin" size={24} color="var(--brand-primary)" />
         ) : (
-          <UploadCloud size={20} color={isDragging ? "var(--color-primary)" : "var(--color-text-muted)"} style={{ margin: '0 auto 0.25rem' }} />
+          <UploadCloud size={24} color={isDragging ? 'var(--brand-primary)' : 'var(--color-text-muted)'} />
         )}
-        <div style={{ fontSize: '0.75rem', fontWeight: 500, color: isDragging ? "var(--color-primary)" : "inherit" }}>
-          {uploading ? 'Subiendo...' : isDragging ? 'Suelta el documento aquí' : 'Subir Documento'}
+        <div style={{ font: 'var(--font-body)', fontWeight: 500 }}>
+          {uploading ? 'Subiendo documento...' : isDragging ? 'Suelta el documento aquí' : 'Subir documento'}
+        </div>
+        <div style={{ font: 'var(--font-body)', color: 'var(--color-text-muted)' }}>
+          Doble click en una miniatura para abrirla. Arrastra a relacionamientos para copiar.
         </div>
       </label>
 
-      {/* Miniaturas de todos los documentos */}
       {documentos.length > 0 ? (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
-          gap: '0.4rem'
+          gridTemplateColumns: 'repeat(auto-fill, minmax(86px, 1fr))',
+          gap: 'var(--gap-sm, 8px)'
         }}>
-          {documentos.map(doc => (
-            <div
-              key={doc.id}
-              draggable
-              onDragStart={(e) => {
-                setDraggedDocument(doc);
-                e.dataTransfer.setData('text/plain', doc.nombre_archivo);
-                const mimeType = doc.tipo_contenido || 'application/octet-stream';
-                const fileName = doc.nombre_archivo || 'documento';
-                e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
-                try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
-                e.dataTransfer.effectAllowed = 'copyLink';
-              }}
-              onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
-              onDoubleClick={() => setViewingDocument(doc)}
-              style={{
-                position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
-                aspectRatio: '1',
-                background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
-                border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
-                cursor: 'grab', transition: 'all 0.2s',
-                opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
-                outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
-              }}
-            >
-              {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
-                <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FileText size={18} color="var(--color-text-muted)" />
-                </div>
-              )}
-              <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0,
-                padding: '0.15rem 0.25rem',
-                background: 'rgba(10,20,35,0.85)',
-                fontSize: '0.45rem', color: 'white',
-                textAlign: 'center',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-              }}>
-                {doc.nombre_archivo}
-              </div>
-              {/* Status dot */}
-              <div style={{
-                position: 'absolute', top: '3px', right: '3px',
-                width: '6px', height: '6px', borderRadius: '50%',
-                background: doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-warning)',
-                border: '1px solid rgba(0,0,0,0.3)'
-              }} />
-              {/* Delete small button */}
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
-                style={{
-                  position: 'absolute', top: '3px', left: '3px',
-                  width: '14px', height: '14px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '3px',
-                  cursor: 'pointer', padding: 0, opacity: 0.7
+          {documentos.map(doc => {
+            const selected = draggedDocument?.id === doc.id;
+            const verified = doc.estado === 'verificado';
+            return (
+              <div
+                key={doc.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Documento ${doc.nombre_archivo || 'sin nombre'}`}
+                draggable
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') setViewingDocument(doc);
                 }}
-                title="Eliminar"
+                onDragStart={(event) => {
+                  setDraggedDocument(doc);
+                  event.dataTransfer.setData('text/plain', doc.nombre_archivo);
+                  const mimeType = doc.tipo_contenido || 'application/octet-stream';
+                  const fileName = doc.nombre_archivo || 'documento';
+                  event.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
+                  try { event.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
+                  event.dataTransfer.effectAllowed = 'copyLink';
+                }}
+                onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
+                onDoubleClick={() => setViewingDocument(doc)}
+                className="card-clickable"
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  borderRadius: 'var(--card-radius, 10px)',
+                  aspectRatio: '1',
+                  background: selected ? 'var(--brand-primary-light)' : 'var(--surface-raised)',
+                  border: `1px solid ${verified ? 'var(--color-success)' : 'var(--border-default)'}`,
+                  cursor: 'grab',
+                  transition: 'border-color var(--transition-normal), background var(--transition-normal), opacity var(--transition-normal)',
+                  opacity: selected ? 0.55 : 1,
+                  outline: selected ? '2px solid var(--brand-primary)' : 'none'
+                }}
               >
-                <X size={8} color="white" />
-              </button>
-            </div>
-          ))}
+                {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
+                  <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FileText size={24} color="var(--color-text-muted)" />
+                  </div>
+                )}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '4px 6px',
+                  background: 'rgba(10,20,35,0.86)',
+                  fontSize: 10,
+                  color: 'white',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {doc.nombre_archivo || 'Documento'}
+                </div>
+                <span
+                  aria-label={verified ? 'Documento verificado' : 'Documento pendiente'}
+                  title={verified ? 'Verificado' : 'Pendiente'}
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 9,
+                    height: 9,
+                    borderRadius: '50%',
+                    background: verified ? 'var(--color-success)' : 'var(--color-warning)',
+                    border: '1px solid rgba(0,0,0,0.35)'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); handleDeleteDocument(doc); }}
+                  aria-label={`Eliminar documento ${doc.nombre_archivo || ''}`}
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    left: 4,
+                    width: 28,
+                    height: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'var(--color-danger-bg)',
+                    color: 'var(--color-danger)',
+                    border: '1px solid var(--color-danger-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>
-          Sin documentos subidos.
-        </div>
+        <EmptyState
+          icon={<FileText size={32} />}
+          title="Sin documentos"
+          description="Aún no hay documentos subidos para este cliente."
+          actionLabel="Subir documento"
+          onAction={openFilePicker}
+          style={{ padding: 'var(--section-gap, 16px)' }}
+        />
       )}
     </section>
   );

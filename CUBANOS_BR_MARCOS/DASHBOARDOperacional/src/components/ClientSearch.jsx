@@ -1,33 +1,40 @@
 import React, { useMemo, useState } from 'react';
-import { Search, AlertTriangle } from 'lucide-react';
+import { Search, AlertTriangle, UserX } from 'lucide-react';
 import { findDuplicateContacts } from '../utils/contactUtils';
 import MergeContactsModal from './MergeContactsModal';
+import useDebounce from '../hooks/useDebounce';
+import Avatar from './ui/Avatar';
+import EmptyState from './ui/EmptyState';
 
-// Componente para búsqueda eficiente de clientes
+// Búsqueda eficiente de clientes con debounce y UI consistente con tokens.css.
 const ClientSearch = ({
     searchQuery,
     setSearchQuery,
-    clientes,
+    clientes = [],
     onClientSelect
 }) => {
     const [showMergeModal, setShowMergeModal] = useState(false);
     const [duplicateContacts, setDuplicateContacts] = useState([]);
+    const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-    // Usar useMemo para optimizar la búsqueda
     const filteredClientes = useMemo(() => {
-        if (!searchQuery) return clientes;
+        if (!debouncedSearchQuery) return [];
 
-        const q = searchQuery.toLowerCase().trim();
-        if (q.length < 2) return []; // Evitar búsquedas con menos de 2 caracteres
+        const q = debouncedSearchQuery.toLowerCase().trim();
+        if (q.length < 2) return [];
 
-        // Búsqueda solo en campos específicos para mejorar rendimiento
-        return clientes.filter(cliente =>
-            cliente.nombre?.toLowerCase().includes(q) ||
-            cliente.cpf?.includes(q) ||
-            cliente.email?.toLowerCase().includes(q) ||
-            cliente.telefono?.includes(q.replace(/\D/g, '')) // Buscar también por teléfono
-        ).slice(0, 50); // Limitar resultados para rendimiento
-    }, [searchQuery, clientes]);
+        const phoneQuery = q.replace(/\D/g, '');
+
+        return clientes.filter(cliente => {
+            const phone = cliente.telefono?.replace(/\D/g, '') || '';
+            return (
+                cliente.nombre?.toLowerCase().includes(q) ||
+                cliente.cpf?.includes(q) ||
+                cliente.email?.toLowerCase().includes(q) ||
+                (phoneQuery && phone.includes(phoneQuery))
+            );
+        }).slice(0, 50);
+    }, [debouncedSearchQuery, clientes]);
 
     const handleShowDuplicates = async (cliente) => {
         if (cliente.telefono) {
@@ -39,73 +46,158 @@ const ClientSearch = ({
         }
     };
 
+    const handleSelectCliente = (cliente, hasDuplicates) => {
+        if (hasDuplicates) {
+            handleShowDuplicates(cliente);
+            return;
+        }
+        onClientSelect(cliente);
+        setSearchQuery('');
+    };
+
     const handleMergeComplete = async (mergedData, keepContactId) => {
-        // Aquí iría la lógica para fusionar los contactos en la base de datos
         console.log('Fusión completada:', mergedData, keepContactId);
         setShowMergeModal(false);
         setDuplicateContacts([]);
     };
 
+    const showResults = debouncedSearchQuery?.trim().length >= 2;
+
     return (
-        <div className="relative">
-            <div className="relative">
+        <div style={{ position: 'relative', width: '100%' }}>
+            <label
+                htmlFor="client-search"
+                style={{
+                    display: 'block',
+                    marginBottom: 'var(--gap-xs, 4px)',
+                    font: 'var(--font-section)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    color: 'var(--color-text-secondary)'
+                }}
+            >
+                Buscar cliente
+            </label>
+            <div style={{ position: 'relative' }}>
+                <Search
+                    size={18}
+                    aria-hidden="true"
+                    style={{
+                        position: 'absolute',
+                        left: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: 'var(--color-text-muted)',
+                        pointerEvents: 'none'
+                    }}
+                />
                 <input
-                    type="text"
+                    id="client-search"
+                    type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar clientes por nombre, CPF, email o teléfono..."
-                    className="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Nombre, CPF, email o teléfono..."
+                    autoComplete="off"
+                    aria-label="Buscar clientes por nombre, CPF, email o teléfono"
+                    aria-expanded={showResults}
+                    aria-controls="client-search-results"
+                    style={{
+                        width: '100%',
+                        minHeight: 44,
+                        padding: '8px 12px 8px 40px',
+                        borderRadius: 'var(--radius-md, 10px)',
+                        border: '1px solid var(--border-default)',
+                        background: 'var(--surface-elevated)',
+                        color: 'var(--color-text-primary)',
+                        font: 'var(--font-body)',
+                        transition: 'border-color var(--transition-normal), background var(--transition-normal)'
+                    }}
                 />
-                <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
             </div>
 
-            {searchQuery && filteredClientes.length > 0 && (
-                <div className="absolute z-10 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            {showResults && filteredClientes.length > 0 && (
+                <div
+                    id="client-search-results"
+                    role="listbox"
+                    style={{
+                        position: 'absolute',
+                        zIndex: 10,
+                        marginTop: 'var(--gap-sm, 8px)',
+                        width: '100%',
+                        maxHeight: 320,
+                        overflowY: 'auto',
+                        borderRadius: 'var(--radius-md, 10px)',
+                        border: '1px solid var(--border-default)',
+                        background: 'var(--surface-raised)',
+                        boxShadow: 'var(--shadow-md)',
+                        animation: 'fadeIn var(--transition-normal)'
+                    }}
+                >
                     {filteredClientes.map(cliente => {
                         const hasDuplicates = cliente.telefono && clientes.filter(c =>
                             c.telefono && c.telefono.replace(/\D/g, '') === cliente.telefono.replace(/\D/g, '') && c.id !== cliente.id
                         ).length > 0;
 
                         return (
-                            <div
+                            <button
                                 key={cliente.id}
-                                onClick={() => {
-                                    if (hasDuplicates) {
-                                        handleShowDuplicates(cliente);
-                                    } else {
-                                        onClientSelect(cliente);
-                                        setSearchQuery(''); // Limpiar búsqueda después de seleccionar
-                                    }
+                                type="button"
+                                role="option"
+                                onClick={() => handleSelectCliente(cliente, hasDuplicates)}
+                                style={{
+                                    width: '100%',
+                                    minHeight: 56,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 'var(--gap-md, 12px)',
+                                    padding: 'var(--card-padding, 14px 16px)',
+                                    border: 0,
+                                    borderBottom: '1px solid var(--border-subtle)',
+                                    background: hasDuplicates ? 'var(--color-warning-bg)' : 'transparent',
+                                    color: 'var(--color-text-primary)',
+                                    textAlign: 'left',
+                                    cursor: 'pointer'
                                 }}
-                                className={`p-3 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${hasDuplicates
-                                        ? 'hover:bg-yellow-50 dark:hover:bg-yellow-900/30 bg-yellow-50/50 dark:bg-yellow-900/20'
-                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
                             >
-                                <div className="flex justify-between items-start">
-                                    <div className="flex-1">
-                                        <div className="font-medium text-gray-900 dark:text-white truncate">
-                                            {cliente.nombre}
-                                        </div>
-                                        <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                            {cliente.cpf} • {cliente.email} {cliente.telefono && `• ${cliente.telefono}`}
-                                        </div>
-                                    </div>
-                                    {hasDuplicates && (
-                                        <div className="ml-2 flex items-center">
-                                            <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                <Avatar name={cliente.nombre} size={36} />
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                    <span style={{ display: 'block', font: 'var(--font-body)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {cliente.nombre || 'Cliente sin nombre'}
+                                    </span>
+                                    <span style={{ display: 'block', marginTop: 2, font: 'var(--font-body)', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {cliente.cpf || 'Sin CPF'} • {cliente.email || 'Sin email'} {cliente.telefono && `• ${cliente.telefono}`}
+                                    </span>
+                                </span>
+                                {hasDuplicates && (
+                                    <AlertTriangle size={16} color="var(--color-warning)" aria-label="Posible duplicado" />
+                                )}
+                            </button>
                         );
                     })}
                 </div>
             )}
 
-            {searchQuery && filteredClientes.length === 0 && searchQuery.length >= 2 && (
-                <div className="absolute z-10 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4">
-                    <p className="text-gray-500 dark:text-gray-400 text-center">No se encontraron clientes</p>
+            {showResults && filteredClientes.length === 0 && (
+                <div
+                    id="client-search-results"
+                    style={{
+                        position: 'absolute',
+                        zIndex: 10,
+                        marginTop: 'var(--gap-sm, 8px)',
+                        width: '100%',
+                        borderRadius: 'var(--radius-md, 10px)',
+                        border: '1px solid var(--border-default)',
+                        background: 'var(--surface-raised)',
+                        boxShadow: 'var(--shadow-md)',
+                        animation: 'fadeIn var(--transition-normal)'
+                    }}
+                >
+                    <EmptyState
+                        icon={<UserX size={28} />}
+                        title="Sin resultados"
+                        description="No se encontraron clientes con ese criterio."
+                        style={{ padding: 'var(--section-gap, 16px)' }}
+                    />
                 </div>
             )}
 
