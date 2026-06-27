@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
+import { findDuplicateContacts } from '../utils/contactUtils';
 
 // Hook personalizado para gestionar la obtención de datos del cliente con caché
 const useClientData = (clientId) => {
@@ -72,6 +73,23 @@ const useClientData = (clientId) => {
         cacheTime: 5 * 60 * 1000, // 5 minutos
     });
 
+    // Query para obtener entradas (trámites)
+    const entradasQuery = useQuery({
+        queryKey: ['entradas', clientId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('entradas')
+                .select('*')
+                .eq('id_cliente', clientId)
+                .order('creado_en', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        enabled: !!clientId,
+        staleTime: 2 * 60 * 1000,
+        cacheTime: 5 * 60 * 1000,
+    });
+
     // Query para obtener relaciones
     const relationsQuery = useQuery({
         queryKey: ['relations', clientId],
@@ -87,6 +105,18 @@ const useClientData = (clientId) => {
         enabled: !!clientId,
         staleTime: 3 * 60 * 1000, // 3 minutos
         cacheTime: 5 * 60 * 1000, // 5 minutos
+    });
+
+    // Query para obtener contactos duplicados
+    const duplicateContactsQuery = useQuery({
+        queryKey: ['duplicateContacts', clientQuery.data?.telefono],
+        queryFn: async () => {
+            if (!clientQuery.data?.telefono) return [];
+            return await findDuplicateContacts(clientQuery.data.telefono);
+        },
+        enabled: !!clientQuery.data?.telefono,
+        staleTime: 5 * 60 * 1000,
+        cacheTime: 10 * 60 * 1000,
     });
 
     // Query para obtener documentos
@@ -134,12 +164,14 @@ const useClientData = (clientId) => {
         clientData: clientDataQuery.data,
         relations: relationsQuery.data,
         documents: documentsQuery.data,
+        entradas: entradasQuery.data,
+        duplicateContacts: duplicateContactsQuery.data,
         isLoading: clientQuery.isLoading || categoriesQuery.isLoading || fieldsQuery.isLoading ||
-            clientDataQuery.isLoading || relationsQuery.isLoading || documentsQuery.isLoading,
+            clientDataQuery.isLoading || relationsQuery.isLoading || documentsQuery.isLoading || entradasQuery.isLoading || duplicateContactsQuery.isLoading,
         isError: clientQuery.isError || categoriesQuery.isError || fieldsQuery.isError ||
-            clientDataQuery.isError || relationsQuery.isError || documentsQuery.isError,
+            clientDataQuery.isError || relationsQuery.isError || documentsQuery.isError || entradasQuery.isError || duplicateContactsQuery.isError,
         error: clientQuery.error || categoriesQuery.error || fieldsQuery.error ||
-            clientDataQuery.error || relationsQuery.error || documentsQuery.error,
+            clientDataQuery.error || relationsQuery.error || documentsQuery.error || entradasQuery.error || duplicateContactsQuery.error,
         updateClient: updateClientMutation.mutate,
         isUpdating: updateClientMutation.isPending,
     };

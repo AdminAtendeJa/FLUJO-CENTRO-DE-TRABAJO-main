@@ -1,115 +1,134 @@
-import React, { memo } from 'react';
-import { UploadCloud, FileText, Download, Trash2, Eye, Clock } from 'lucide-react';
+import React from 'react';
+import { FileText, UploadCloud, Loader2, X } from 'lucide-react';
 
-// Componente para mostrar los documentos del cliente
 const ClientDocuments = ({
-    documentos,
-    uploading,
-    onFileUpload,
-    onViewDocument,
-    onDeleteDocument,
-    formatDate
+  documentos,
+  uploading,
+  isDragging,
+  draggedDocument,
+  handleDragOver,
+  handleDragLeave,
+  handleDrop,
+  handleFileUpload,
+  setDraggedDocument,
+  setDragOverRelId,
+  setViewingDocument,
+  handleDeleteDocument
 }) => {
-    // Agrupar documentos por categoría
-    const documentosPorCategoria = documentos.reduce((acc, doc) => {
-        const categoria = doc.tipo_documento || 'Otros';
-        if (!acc[categoria]) {
-            acc[categoria] = [];
-        }
-        acc[categoria].push(doc);
-        return acc;
-    }, {});
+  return (
+    <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
+      <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+        <FileText size={18} color="var(--color-primary)" /> Documentos
+      </h2>
 
-    return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <FileText className="w-5 h-5" />
-                        Documentos
-                    </h3>
-                    <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg cursor-pointer transition-colors">
-                            <UploadCloud className="w-4 h-4" />
-                            Subir
-                            <input
-                                type="file"
-                                onChange={onFileUpload}
-                                disabled={uploading}
-                                className="hidden"
-                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                            />
-                        </label>
-                    </div>
-                </div>
-                {uploading && (
-                    <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                        <Clock className="w-4 h-4 animate-spin" />
-                        Subiendo documento...
-                    </div>
-                )}
-            </div>
-
-            <div className="p-6">
-                {Object.entries(documentosPorCategoria).map(([categoria, docs]) => (
-                    <div key={categoria} className="mb-6 last:mb-0">
-                        <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">{categoria}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {docs.map((documento) => (
-                                <div
-                                    key={documento.id}
-                                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                                {documento.nombre_archivo}
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {formatDate(documento.creado_en)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => onViewDocument(documento)}
-                                            className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                            title="Ver documento"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                        </button>
-                                        <a
-                                            href={documento.url_publica || documento.url}
-                                            download
-                                            className="p-1.5 text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                            title="Descargar"
-                                        >
-                                            <Download className="w-4 h-4" />
-                                        </a>
-                                        <button
-                                            onClick={() => onDeleteDocument(documento.id)}
-                                            className="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-
-                {documentos.length === 0 && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No hay documentos subidos aún</p>
-                    </div>
-                )}
-            </div>
+      {/* Upload zone */}
+      <label
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          display: 'block',
+          border: `2px dashed ${isDragging ? 'var(--color-primary)' : 'var(--color-border)'}`,
+          backgroundColor: isDragging ? 'rgba(99,102,241,0.05)' : 'transparent',
+          borderRadius: 'var(--radius-md)',
+          padding: '1.25rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          marginBottom: '1.25rem'
+        }}
+      >
+        <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
+        {uploading ? (
+          <Loader2 className="animate-spin" size={20} color="var(--color-primary)" style={{ margin: '0 auto 0.25rem' }} />
+        ) : (
+          <UploadCloud size={20} color={isDragging ? "var(--color-primary)" : "var(--color-text-muted)"} style={{ margin: '0 auto 0.25rem' }} />
+        )}
+        <div style={{ fontSize: '0.75rem', fontWeight: 500, color: isDragging ? "var(--color-primary)" : "inherit" }}>
+          {uploading ? 'Subiendo...' : isDragging ? 'Suelta el documento aquí' : 'Subir Documento'}
         </div>
-    );
+      </label>
+
+      {/* Miniaturas de todos los documentos */}
+      {documentos.length > 0 ? (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+          gap: '0.4rem'
+        }}>
+          {documentos.map(doc => (
+            <div
+              key={doc.id}
+              draggable
+              onDragStart={(e) => {
+                setDraggedDocument(doc);
+                e.dataTransfer.setData('text/plain', doc.nombre_archivo);
+                const mimeType = doc.tipo_contenido || 'application/octet-stream';
+                const fileName = doc.nombre_archivo || 'documento';
+                e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
+                try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
+                e.dataTransfer.effectAllowed = 'copyLink';
+              }}
+              onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
+              onDoubleClick={() => setViewingDocument(doc)}
+              style={{
+                position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
+                aspectRatio: '1',
+                background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
+                border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
+                cursor: 'grab', transition: 'all 0.2s',
+                opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
+                outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
+              }}
+            >
+              {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
+                <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileText size={18} color="var(--color-text-muted)" />
+                </div>
+              )}
+              <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0,
+                padding: '0.15rem 0.25rem',
+                background: 'rgba(10,20,35,0.85)',
+                fontSize: '0.45rem', color: 'white',
+                textAlign: 'center',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+              }}>
+                {doc.nombre_archivo}
+              </div>
+              {/* Status dot */}
+              <div style={{
+                position: 'absolute', top: '3px', right: '3px',
+                width: '6px', height: '6px', borderRadius: '50%',
+                background: doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-warning)',
+                border: '1px solid rgba(0,0,0,0.3)'
+              }} />
+              {/* Delete small button */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
+                style={{
+                  position: 'absolute', top: '3px', left: '3px',
+                  width: '14px', height: '14px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '3px',
+                  cursor: 'pointer', padding: 0, opacity: 0.7
+                }}
+                title="Eliminar"
+              >
+                <X size={8} color="white" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>
+          Sin documentos subidos.
+        </div>
+      )}
+    </section>
+  );
 };
 
-export default memo(ClientDocuments);
+export default ClientDocuments;

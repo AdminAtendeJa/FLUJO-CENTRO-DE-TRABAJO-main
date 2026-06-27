@@ -14,6 +14,7 @@ import PDFGenerator from './PDFGenerator';
 import { findDuplicateContacts } from '../utils/contactUtils';
 import MergeContactsModal from './MergeContactsModal';
 import useClientData from '../hooks/useClientData';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import useDebounce from '../hooks/useDebounce';
 
 // Importar componentes adicionales para la optimización
@@ -85,15 +86,16 @@ const TRAMITE_COLORS = {
 };
 
 export default function ClientView({ clientId, onBack, onNavigateToClient }) {
-  const [client, setClient] = useState(null);
-  const [categorias, setCategorias] = useState([]);
-  const [campos, setCampos] = useState([]);
-  const [clienteDatos, setClienteDatos] = useState([]);
-  const [relaciones, setRelaciones] = useState([]);
-  const [documentos, setDocumentos] = useState([]);
-  const [entradas, setEntradas] = useState([]);
-  const [allClientes, setAllClientes] = useState([]); // For the relate modal dropdown
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { client, categories: categorias, fields: campos, clientData: clienteDatos, relations: relaciones, documents: documentos, entradas, duplicateContacts, isLoading } = useClientData(clientId);
+  
+  const { data: allClientes = [] } = useQuery({
+    queryKey: ['allClientesBase'],
+    queryFn: async () => {
+      const { data } = await supabase.from('clientes').select('id, nombre, cpf');
+      return data || [];
+    }
+  });
 
   const [activeTab, setActiveTab] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
@@ -174,70 +176,21 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   // Document Viewer State (doble click)
   const [viewingDocument, setViewingDocument] = useState(null);
 
-  const [duplicateContacts, setDuplicateContacts] = useState([]);
   const [showMergeModal, setShowMergeModal] = useState(false);
 
-  const fetchClientData = useCallback(async (fullReload = false) => {
-    if (fullReload) setLoading(true);
-    try {
-      // 1. Cliente
-      const { data: clientData, error: clientErr } = await supabase.from('clientes').select('*').eq('id', clientId).single();
-      if (clientErr) throw clientErr;
-      setClient(clientData);
-
-      // 2. Buscar contactos duplicados
-      if (clientData?.telefono) {
-        const duplicates = await findDuplicateContacts(clientData.telefono);
-        setDuplicateContacts(duplicates);
-      } else {
-        setDuplicateContacts([]);
-      }
-
-      // 2. Categorias y campos — solo en carga inicial para no resetear el tab activo
-      if (fullReload) {
-        const [{ data: catsData }, { data: fieldsData }, { data: allC }] = await Promise.all([
-          supabase.from('categorias_datos_operacionales').select('*').order('orden'),
-          supabase.from('campos_datos_operacionales').select('*').order('orden'),
-          supabase.from('clientes').select('id, nombre, cpf'),
-        ]);
-        setCategorias(catsData || []);
-        setCampos(fieldsData || []);
-        setAllClientes(allC || []);
-        // Solo fija el tab si aun no tiene ninguno
-        if (catsData && catsData.length > 0) setActiveTab(prev => prev ?? catsData[0].id);
-      }
-
-      // 3. Datos en paralelo
-      const [{ data: cDatos }, { data: rels }, { data: docs }, { data: entrs }] = await Promise.all([
-        supabase.from('cliente_datos_operacionales').select('*').eq('id_cliente', clientId),
-        supabase.from('relaciones_clientes')
-          .select('*, cliente_principal:cliente_id(id,nombre,cpf), cliente_secundario:cliente_relacionado_id(id,nombre,cpf)')
-          .or(`cliente_id.eq.${clientId},cliente_relacionado_id.eq.${clientId}`),
-        supabase.from('documentos_operacionales').select('*').eq('id_cliente', clientId).order('creado_en', { ascending: false }),
-        supabase.from('entradas').select('*').eq('id_cliente', clientId).order('creado_en', { ascending: false }),
-      ]);
-      setClienteDatos(cDatos || []);
-      setRelaciones(rels || []);
-      setDocumentos(docs || []);
-      setEntradas(entrs || []);
-
-    } catch (err) {
-      console.error('Error fetching client data:', err);
-    } finally {
-      if (fullReload) setLoading(false);
-    }
-  }, [clientId]);
+  const fetchClientData = async (fullReload = false) => {
+    await queryClient.invalidateQueries();
+  };
 
   const handleMergeComplete = async (mergedData, keepContactId) => {
     // Aquí iría la lógica para fusionar los contactos en la base de datos
     console.log('Fusión completada:', mergedData, keepContactId);
     setShowMergeModal(false);
-    setDuplicateContacts([]);
+    queryClient.invalidateQueries({ queryKey: ['duplicateContacts'] });
     // Recargar los datos del cliente actualizado
     await fetchClientData(true);
   };
 
-  useEffect(() => { fetchClientData(true); }, [clientId]);
 
   const handleCopy = (text, id) => {
     navigator.clipboard.writeText(text);
@@ -719,7 +672,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         .update({ tipo_relacion: newType })
         .eq('id', relId);
       if (error) throw error;
-      setRelaciones(prev => prev.map(r => r.id === relId ? { ...r, tipo_relacion: newType } : r));
+      queryClient.invalidateQueries({ queryKey: ['relations', clientId] });
       setEditingRelId(null);
     } catch (err) {
       console.error("Error updating relation:", err);
@@ -743,7 +696,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     const newEstado = doc.estado === 'verificado' ? 'pendiente' : 'verificado';
     try {
       await supabase.from('documentos_operacionales').update({ estado: newEstado }).eq('id', doc.id);
-      setDocumentos(prev => prev.map(d => d.id === doc.id ? { ...d, estado: newEstado } : d));
+      queryClient.invalidateQueries({ queryKey: ['documents', clientId] });
     } catch (err) {
       console.error(err);
       alert('Error actualizando estado del documento.');
@@ -835,7 +788,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     try {
       const { error } = await supabase.from('entradas').update({ estado_tramite: newState }).eq('id', entradaId);
       if (error) throw error;
-      setEntradas(prev => prev.map(e => e.id === entradaId ? { ...e, estado_tramite: newState } : e));
+      queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
     } catch (err) {
       console.error('Error updating status:', err);
       alert('Error al actualizar el estado del tramite.');
@@ -889,7 +842,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     alert('Datos de ' + client.nombre + ' enviados a la extensión. ¡Abre SISMIGRA y verás el botón de autocompletar!');
   };
 
-  if (loading) {
+  if (isLoading) {
     return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Cargando datos del cliente...</div>;
   }
 
@@ -928,380 +881,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   const hasEditModalResults = filteredEditFormData.length > 0 || filteredNewFields.length > 0;
 
-  const renderUnifiedPersonalData = () => {
-    const targetNames = ['Informaciones Personales', 'Datos Familiares'];
-    const targetCats = categorias.filter(c => targetNames.includes(c.nombre));
-    if (targetCats.length === 0) return null;
-
-    return (
-      <section id="personal-data" className="glass-panel" style={{ padding: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <User size={20} color="var(--color-primary)" /> Datos del Cliente
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'flex-end' }}>
-            <div style={{ position: 'relative', maxWidth: '300px', width: '100%' }}>
-              <Search size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input
-                type="text"
-                placeholder="Buscar dato (ej. Madre, Pasaporte)..."
-                className="form-input"
-                value={localSearchQuery}
-                onChange={e => setLocalSearchQuery(e.target.value)}
-                style={{ paddingLeft: '2.2rem', width: '100%', fontSize: '0.875rem' }}
-              />
-            </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => openEditModal('ALL_PERSONAL')} style={{ flexShrink: 0 }}>
-              <Edit2 size={14} style={{ marginRight: '4px' }} /> Editar Datos
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          {targetNames.map(catName => {
-            const cat = categorias.find(c => c.nombre === catName);
-            if (!cat) return null;
-            const catFixedFields = fixedFields.filter(f => f.category_name === catName);
-            const catDynamicFields = campos.filter(c => c.categoria_id === cat.id);
-            const sectionFields = [...catFixedFields, ...catDynamicFields];
-
-            // Extract data
-            const sectionData = [];
-            sectionFields.forEach(campo => {
-              if (campo.es_fijo) {
-                if (client[campo.id]) sectionData.push({ campo_id: campo.id, valor: client[campo.id] });
-              } else {
-                const cd = clienteDatos.find(d => d.campo_id === campo.id);
-                if (cd && cd.valor) sectionData.push(cd);
-              }
-            });
-
-            const query = localSearchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-            // If it's Informaciones Personales, we might want to exclude "direccion" since we render it as its own section later
-            const visibleFields = sectionData.filter(d => {
-              if (d.campo_id === 'direccion') return false;
-              if (!d.valor) return false;
-
-              if (query) {
-                const campoDef = sectionFields.find(c => c.id === d.campo_id);
-                if (!campoDef) return false;
-                const fieldName = campoDef.nombre_campo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                const fieldVal = String(d.valor).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                if (!fieldName.includes(query) && !fieldVal.includes(query)) return false;
-              }
-              return true;
-            });
-
-            if (visibleFields.length === 0) return null;
-
-            const titleMap = {
-              'Informaciones Personales': 'Datos Personales',
-              'Datos Familiares': 'Padres y Familiares',
-              'Documentos de Identidad': 'Documentos'
-            };
-
-            return (
-              <React.Fragment key={catName}>
-                <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: '0.5rem' }}>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                    {titleMap[catName] || catName}
-                  </h3>
-                </div>
-                {visibleFields.map(dato => {
-                  const campo = sectionFields.find(c => c.id === dato.campo_id);
-
-                  if (campo.id === 'nombre') {
-                    const fullName = (dato.valor || '').trim().toUpperCase();
-                    const parts = fullName.split(' ');
-
-                    const padreName = (client.nombre_padre || '').trim().toUpperCase().split(' ');
-                    const madreName = (client.nombre_madre || '').trim().toUpperCase().split(' ');
-
-                    let splitIndex = 1;
-
-                    if (parts.length > 2) {
-                      splitIndex = parts.length - 2;
-                      const padreApe1 = padreName.length > 1 ? padreName[padreName.length - 2] : null;
-                      const madreApe1 = madreName.length > 1 ? madreName[madreName.length - 2] : null;
-
-                      if (padreApe1 && madreApe1) {
-                        const childApe1 = parts[parts.length - 2];
-                        const childApe2 = parts[parts.length - 1];
-
-                        if (childApe1 === padreApe1 && childApe2 === madreApe1) {
-                          splitIndex = parts.length - 2;
-                        } else {
-                          const padreIdx = parts.indexOf(padreApe1);
-                          if (padreIdx > 0) splitIndex = padreIdx;
-                        }
-                      }
-                    }
-
-                    const n_nombres = parts.slice(0, splitIndex).join(' ') || '';
-                    const n_apellidos = parts.slice(splitIndex).join(' ') || '';
-
-                    return (
-                      <React.Fragment key={campo.id}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', marginBottom: '1rem' }}>
-                          <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>Nombres</label>
-                            <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{n_nombres}</div>
-                          </div>
-                          <button onClick={() => handleCopy(n_nombres || '', 'nombres')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                            {copiedId === 'nombres' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                          </button>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                          <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>Apellidos</label>
-                            <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{n_apellidos}</div>
-                          </div>
-                          <button onClick={() => handleCopy(n_apellidos || '', 'apellidos')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                            {copiedId === 'apellidos' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                          </button>
-                        </div>
-                      </React.Fragment>
-                    );
-                  }
-
-                  return (
-                    <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                      <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                          {campo.nombre_campo}
-                        </label>
-                        <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
-                          {dato.valor}
-                        </div>
-                      </div>
-                      <button onClick={() => handleCopy(dato.valor, campo.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                        {copiedId === campo.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                      </button>
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            );
-          })}
-
-
-          {/* Documentos Asociados (Datos) */}
-          {(() => {
-            const docGroups = [
-              {
-                id: 'cpf',
-                label: 'CPF',
-                icon: '🆔',
-                fields: [
-                  { id: 'cpf', label: 'Nº CPF' }
-                ],
-                fieldValue: (fieldId) => client?.[fieldId],
-                color: '#378ADD'
-              },
-              {
-                id: 'pasaporte',
-                label: 'Pasaporte',
-                icon: '🛂',
-                fields: [
-                  { id: 'numero_pasaporte', label: 'Nº Pasaporte' },
-                  { id: 'fecha_emision_pasaporte', label: 'Emisión' },
-                  { id: 'fecha_vencimiento_pasaporte', label: 'Vencimiento' }
-                ],
-                fieldValue: (fieldId) => client?.[fieldId],
-                color: '#1D9E75'
-              },
-              {
-                id: 'rnm',
-                label: 'RNM / Identidad',
-                icon: '🪪',
-                fields: [
-                  { id: 'rnm', label: 'Nº RNM' },
-                  { id: 'carnet_identidad', label: 'Carnet Identidad' }
-                ],
-                fieldValue: (fieldId) => client?.[fieldId],
-                color: '#BA7517'
-              },
-              {
-                id: 'refugio',
-                label: 'Refugio',
-                icon: '🛡️',
-                fields: [
-                  { id: 'numero_refugio', label: 'Protocolo Refugio' },
-                  { id: 'fecha_vencimiento_refugio', label: 'Vencimiento' }
-                ],
-                fieldValue: (fieldId) => client?.[fieldId],
-                color: '#D85A30'
-              }
-            ];
-
-            const hasAnyData = docGroups.some(g => g.fields.some(f => g.fieldValue(f.id)));
-            if (!hasAnyData) return null;
-
-            return (
-              <React.Fragment>
-                <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: '0.5rem' }}>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                    Documentos Asociados
-                  </h3>
-                </div>
-                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem' }}>
-                  {docGroups.map(group => {
-                    const hasData = group.fields.some(f => group.fieldValue(f.id));
-                    if (!hasData) return null;
-
-                    return (
-                      <div
-                        key={group.id}
-                        style={{
-                          border: `1px solid ${group.color}33`,
-                          borderRadius: 'var(--radius-md)',
-                          overflow: 'hidden',
-                          background: `${group.color}08`
-                        }}
-                      >
-                        {/* Header del grupo */}
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          padding: '0.5rem 0.75rem',
-                          background: `${group.color}15`,
-                          borderBottom: `1px solid ${group.color}22`,
-                          fontSize: '0.78rem', fontWeight: 600,
-                          color: group.color
-                        }}>
-                          <span>{group.icon}</span>
-                          <span>{group.label}</span>
-                        </div>
-
-                        <div style={{ padding: '0.65rem' }}>
-                          {group.fields.map(field => {
-                            const val = group.fieldValue(field.id);
-                            if (!val) return null;
-                            return (
-                              <div key={field.id} style={{
-                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                padding: '0.35rem 0', gap: '0.5rem'
-                              }}>
-                                <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0 }}>
-                                  {field.label}
-                                </span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', textAlign: 'right', wordBreak: 'break-word' }}>
-                                    {field.id.includes('fecha') ? new Date(val).toLocaleDateString() : val}
-                                  </span>
-                                  <button onClick={() => handleCopy(val, `${group.id}-${field.id}`)} className="btn btn-ghost" style={{ padding: '0.15rem', borderRadius: '4px', flexShrink: 0 }}>
-                                    {copiedId === `${group.id}-${field.id}` ? <Check size={11} color="var(--color-success)" /> : <Copy size={11} />}
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </React.Fragment>
-            );
-          })()}
-
-
-          {/* Dirección Section */}
-          {(() => {
-            const dirDato = client['direccion'] || clienteDatos.find(cd => cd.campo_id === 'direccion')?.valor;
-            if (!dirDato) return null;
-
-            let dirObj = {};
-            try {
-              if (typeof dirDato === 'string' && dirDato.startsWith('{')) dirObj = JSON.parse(dirDato);
-              else if (typeof dirDato === 'object' && dirDato !== null) dirObj = dirDato;
-              else dirObj.endereco = dirDato;
-            } catch (e) {
-              dirObj.endereco = dirDato;
-            }
-
-            const subFields = [
-              { id: 'cep', label: 'CEP', val: dirObj.cep },
-              { id: 'endereco', label: 'Endereço', val: dirObj.endereco },
-              { id: 'numero', label: 'Número', val: dirObj.numero },
-              { id: 'complemento', label: 'Complemento', val: dirObj.complemento },
-              { id: 'bairro', label: 'Bairro', val: dirObj.bairro },
-              { id: 'cidade', label: 'Cidade (Residência)', val: dirObj.cidade },
-              { id: 'estado', label: 'Estado (Residência)', val: dirObj.estado },
-              { id: 'ponto_referencia', label: 'Ponto de Referência', val: dirObj.ponto_referencia }
-            ].filter(sf => {
-              if (!sf.val) return false;
-              const query = localSearchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-              if (query) {
-                const fieldName = sf.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                const fieldVal = String(sf.val).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                if (!fieldName.includes(query) && !fieldVal.includes(query)) return false;
-              }
-              return true;
-            });
-
-            if (subFields.length === 0) return null;
-
-            const rua = dirObj.endereco;
-            const num = dirObj.numero;
-            const comp = dirObj.complemento;
-            const bairro = dirObj.bairro;
-            const cid = dirObj.cidade;
-            const uf = dirObj.estado;
-            const cep = dirObj.cep;
-            const ref = dirObj.ponto_referencia;
-
-            let line1 = [rua, num].filter(Boolean).join(', ');
-            if (comp) line1 += ` - ${comp}`;
-            let line2 = [bairro, cid, uf].filter(Boolean).join(' - ');
-            let addressFull = [line1, line2, cep ? `CEP: ${cep}` : '', ref ? `Ref: ${ref}` : ''].filter(Boolean).join(' | ');
-
-            return (
-              <React.Fragment>
-                <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: '0.5rem' }}>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                    Dirección Completa
-                  </h3>
-                </div>
-                {subFields.map(sf => (
-                  <div key={`dir-${sf.id}`} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                        {sf.label}
-                      </label>
-                      <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
-                        {sf.val}
-                      </div>
-                    </div>
-                    <button onClick={() => handleCopy(sf.val, sf.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                      {copiedId === sf.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                    </button>
-                  </div>
-                ))}
-
-                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                      Dirección Concatenada
-                    </label>
-                    <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word', lineHeight: '1.5' }}>
-                      {line1 && <div>{line1}</div>}
-                      {line2 && <div>{line2}</div>}
-                      {(cep || ref) && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>{cep ? `CEP: ${cep}` : ''} {ref ? `(Ref: ${ref})` : ''}</div>}
-                      {(!line1 && !line2 && !cep && !ref && dirObj.endereco) && <div>{dirObj.endereco}</div>}
-                    </div>
-                  </div>
-                  <button onClick={() => handleCopy(addressFull || dirObj.endereco, 'direccion')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar dirección completa">
-                    {copiedId === 'direccion' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
-                  </button>
-                </div>
-              </React.Fragment>
-            );
-          })()}
-        </div>
-      </section >
-    );
-  };
 
 
   return (
@@ -1370,7 +949,18 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
         {/* Columna Izquierda: Datos Personales y Trámites */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
-          {renderUnifiedPersonalData()}
+          <ClientPersonalData
+            client={client}
+            categorias={categorias}
+            campos={campos}
+            clienteDatos={clienteDatos}
+            fixedFields={FIXED_FIELDS_CATALOG}
+            localSearchQuery={localSearchQuery}
+            setLocalSearchQuery={setLocalSearchQuery}
+            openEditModal={openEditModal}
+            handleCopy={handleCopy}
+            copiedId={copiedId}
+          />
 
           <TemplateManager client={client} clienteDatos={clienteDatos} />
         </div>
@@ -1378,250 +968,37 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         {/* Columna Derecha: Sidebar (Relaciones, Docs, Historial) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
           {/* Moviendo la sección de Relacionamientos arriba en el sidebar */}
-          <section id="relacionamientos-clientes" className="glass-panel" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                <Users size={18} color="var(--color-primary)" /> Relacionamientos
-              </h2>
-              <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => { setSearchQuery(''); setSelectedRelateId(''); setIsRelateModalOpen(true); }}><Plus size={18} /></button>
-            </div>
+          <ClientRelations
+            relaciones={relaciones}
+            clientId={clientId}
+            draggedDocument={draggedDocument}
+            dragOverRelId={dragOverRelId}
+            setDragOverRelId={setDragOverRelId}
+            handleCopyDocumentToClient={handleCopyDocumentToClient}
+            onNavigateToClient={onNavigateToClient}
+            editingRelId={editingRelId}
+            setEditingRelId={setEditingRelId}
+            handleUpdateRelationType={handleUpdateRelationType}
+            handleDeleteRelation={handleDeleteRelation}
+            setSearchQuery={setSearchQuery}
+            setSelectedRelateId={setSelectedRelateId}
+            setIsRelateModalOpen={setIsRelateModalOpen}
+          />
 
-            {/* Indicación de arrastrar documentos a relacionamientos */}
-            <div style={{
-              marginBottom: '0.75rem', padding: '0.5rem 0.75rem',
-              background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--radius-md)',
-              border: '1px dashed rgba(99,102,241,0.3)',
-              fontSize: '0.7rem', color: 'var(--color-text-secondary)',
-              display: 'flex', alignItems: 'center', gap: '0.4rem'
-            }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="5 9 2 12 5 15"></polyline>
-                <polyline points="9 5 12 2 15 5"></polyline>
-                <path d="M2 12h20"></path>
-                <path d="M12 2v20"></path>
-              </svg>
-              Arrastra documentos aquí para copiarlos al cliente relacionado
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {relaciones.map(rel => {
-                const isPrincipal = rel.cliente_id === clientId;
-                const related = isPrincipal ? rel.cliente_secundario : rel.cliente_principal;
-                if (!related) return null;
-                const relKey = `rel-${rel.id}`;
-                const isDragOver = dragOverRelId === relKey;
-                return (
-                  <div
-                    key={rel.id}
-                    onDragOver={(e) => {
-                      if (draggedDocument) {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = 'copy';
-                        setDragOverRelId(relKey);
-                      }
-                    }}
-                    onDragLeave={(e) => {
-                      setDragOverRelId(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDragOverRelId(null);
-                      if (draggedDocument) {
-                        handleCopyDocumentToClient(draggedDocument, related.id);
-                      }
-                    }}
-                    style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '0.65rem 0.75rem',
-                      background: isDragOver ? 'rgba(99,102,241,0.12)' : 'var(--color-bg-secondary)',
-                      borderRadius: 'var(--radius-md)',
-                      border: isDragOver ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                      transition: 'all 0.2s',
-                      cursor: draggedDocument ? 'copy' : 'default',
-                      position: 'relative'
-                    }}
-                  >
-                    {isDragOver && (
-                      <div style={{
-                        position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)',
-                        border: '2px dashed var(--color-primary)',
-                        pointerEvents: 'none',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'rgba(99,102,241,0.05)'
-                      }}>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-primary)' }}>
-                          SOLTAR PARA COPIAR DOCUMENTO
-                        </span>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => onNavigateToClient?.(related.id)}
-                      style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-                        background: 'none', border: 'none', cursor: onNavigateToClient ? 'pointer' : 'default',
-                        padding: 0, flex: 1, textAlign: 'left',
-                        opacity: isDragOver ? 0.2 : 1
-                      }}
-                      title={onNavigateToClient ? `Ver perfil de ${related.nombre}` : ''}
-                    >
-                      <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        {related.nombre}
-                        {onNavigateToClient && <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', opacity: 0.8 }}>→</span>}
-                      </div>
-
-                      {editingRelId === rel.id ? (
-                        <select
-                          autoFocus
-                          onBlur={() => setEditingRelId(null)}
-                          onChange={(e) => handleUpdateRelationType(rel.id, e.target.value)}
-                          defaultValue={rel.tipo_relacion}
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ fontSize: '0.68rem', color: 'var(--color-text-primary)', background: 'var(--color-bg-elevated)', border: '1px solid var(--color-primary)', borderRadius: '4px', marginTop: '4px', padding: '2px', cursor: 'pointer' }}
-                        >
-                          <option value="conyuge">Cónyuge</option>
-                          <option value="hijo/hija">Hijo / Hija</option>
-                          <option value="padre/madre">Padre / Madre</option>
-                          <option value="hermano/hermana">Hermano / Hermana</option>
-                          <option value="familiar">Otro Familiar</option>
-                          <option value="amigo">Amigo</option>
-                          <option value="otro">Otro</option>
-                        </select>
-                      ) : (
-                        <div
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingRelId(rel.id); }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
-                          style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px', cursor: 'pointer', transition: 'color 0.2s', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', display: 'inline-block' }}
-                          title="Clic para cambiar relación"
-                        >
-                          {rel.tipo_relacion}
-                        </div>
-                      )}
-
-                    </button>
-                    <button className="btn btn-ghost" onClick={() => handleDeleteRelation(rel.id)} style={{ color: 'var(--color-danger)', padding: '0.3rem', flexShrink: 0 }} title="Eliminar vinculo">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                );
-              })}
-              {relaciones.length === 0 && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay familiares o amigos vinculados.</div>}
-            </div>
-          </section>
-
-          <section id="documentos-subidos" className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <FileText size={18} color="var(--color-primary)" /> Documentos
-            </h2>
-
-            {/* Upload zone */}
-            <label
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              style={{
-                display: 'block',
-                border: `2px dashed ${isDragging ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                backgroundColor: isDragging ? 'rgba(99,102,241,0.05)' : 'transparent',
-                borderRadius: 'var(--radius-md)',
-                padding: '1.25rem',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                marginBottom: '1.25rem'
-              }}
-            >
-              <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
-              {uploading ? (
-                <Loader2 className="animate-spin" size={20} color="var(--color-primary)" style={{ margin: '0 auto 0.25rem' }} />
-              ) : (
-                <UploadCloud size={20} color={isDragging ? "var(--color-primary)" : "var(--color-text-muted)"} style={{ margin: '0 auto 0.25rem' }} />
-              )}
-              <div style={{ fontSize: '0.75rem', fontWeight: 500, color: isDragging ? "var(--color-primary)" : "inherit" }}>
-                {uploading ? 'Subiendo...' : isDragging ? 'Suelta el documento aquí' : 'Subir Documento'}
-              </div>
-            </label>
-
-            {/* Miniaturas de todos los documentos */}
-            {documentos.length > 0 ? (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
-                gap: '0.4rem'
-              }}>
-                {documentos.map(doc => (
-                  <div
-                    key={doc.id}
-                    draggable
-                    onDragStart={(e) => {
-                      setDraggedDocument(doc);
-                      e.dataTransfer.setData('text/plain', doc.nombre_archivo);
-                      const mimeType = doc.tipo_contenido || 'application/octet-stream';
-                      const fileName = doc.nombre_archivo || 'documento';
-                      e.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
-                      try { e.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
-                      e.dataTransfer.effectAllowed = 'copyLink';
-                    }}
-                    onDragEnd={() => { setDraggedDocument(null); setDragOverRelId(null); }}
-                    onDoubleClick={() => setViewingDocument(doc)}
-                    style={{
-                      position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-md)',
-                      aspectRatio: '1',
-                      background: draggedDocument?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--color-bg-secondary)',
-                      border: `1px solid ${doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-border)'}`,
-                      cursor: 'grab', transition: 'all 0.2s',
-                      opacity: draggedDocument?.id === doc.id ? 0.5 : 1,
-                      outline: draggedDocument?.id === doc.id ? '2px solid var(--color-primary)' : 'none'
-                    }}
-                  >
-                    {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
-                      <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FileText size={18} color="var(--color-text-muted)" />
-                      </div>
-                    )}
-                    <div style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0,
-                      padding: '0.15rem 0.25rem',
-                      background: 'rgba(10,20,35,0.85)',
-                      fontSize: '0.45rem', color: 'white',
-                      textAlign: 'center',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                    }}>
-                      {doc.nombre_archivo}
-                    </div>
-                    {/* Status dot */}
-                    <div style={{
-                      position: 'absolute', top: '3px', right: '3px',
-                      width: '6px', height: '6px', borderRadius: '50%',
-                      background: doc.estado === 'verificado' ? 'var(--color-success)' : 'var(--color-warning)',
-                      border: '1px solid rgba(0,0,0,0.3)'
-                    }} />
-                    {/* Delete small button */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc); }}
-                      style={{
-                        position: 'absolute', top: '3px', left: '3px',
-                        width: '14px', height: '14px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'rgba(216,90,48,0.8)', border: 'none', borderRadius: '3px',
-                        cursor: 'pointer', padding: 0, opacity: 0.7
-                      }}
-                      title="Eliminar"
-                    >
-                      <X size={8} color="white" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>
-                Sin documentos subidos.
-              </div>
-            )}
-          </section>
+          <ClientDocuments
+            documentos={documentos}
+            uploading={uploading}
+            isDragging={isDragging}
+            draggedDocument={draggedDocument}
+            handleDragOver={handleDragOver}
+            handleDragLeave={handleDragLeave}
+            handleDrop={handleDrop}
+            handleFileUpload={handleFileUpload}
+            setDraggedDocument={setDraggedDocument}
+            setDragOverRelId={setDragOverRelId}
+            setViewingDocument={setViewingDocument}
+            handleDeleteDocument={handleDeleteDocument}
+          />
 
           <section id="historial-tramites" className="glass-panel" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>

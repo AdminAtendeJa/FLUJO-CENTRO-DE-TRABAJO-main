@@ -1,333 +1,155 @@
-import React, { memo } from 'react';
-import { Users, User, Search, Plus, X, Check, Edit2, Trash2 } from 'lucide-react';
+import React from 'react';
+import { Users, Plus, Trash2 } from 'lucide-react';
 
-// Componente para mostrar las relaciones del cliente
 const ClientRelations = ({
-    relaciones,
-    allClientes,
-    selectedRelateId,
-    selectedRelateType,
-    searchQuery,
-    searchResults,
-    isRelateModalOpen,
-    isNewRelateClientModalOpen,
-    editingRelId,
-    onRelateModalToggle,
-    onNewRelateClientModalToggle,
-    onSelectRelateId,
-    onSelectRelateType,
-    onSearchChange,
-    onRelateSubmit,
-    onRelationDelete,
-    onRelationEdit,
-    onEditRelation,
-    formatDate
+  relaciones,
+  clientId,
+  draggedDocument,
+  dragOverRelId,
+  setDragOverRelId,
+  handleCopyDocumentToClient,
+  onNavigateToClient,
+  editingRelId,
+  setEditingRelId,
+  handleUpdateRelationType,
+  handleDeleteRelation,
+  setSearchQuery,
+  setSelectedRelateId,
+  setIsRelateModalOpen
 }) => {
-    // Filtrar relaciones para este cliente como principal
-    const relacionesComoPrincipal = relaciones.filter(rel => rel.cliente_id === rel.cliente_principal.id);
-    // Filtrar relaciones donde este cliente es secundario
-    const relacionesComoSecundario = relaciones.filter(rel => rel.cliente_relacionado_id === rel.cliente_secundario.id);
+  return (
+    <section id="relacionamientos-clientes" className="glass-panel" style={{ padding: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+          <Users size={18} color="var(--color-primary)" /> Relacionamientos
+        </h2>
+        <button className="btn btn-ghost" style={{ padding: '0.25rem' }} onClick={() => { setSearchQuery(''); setSelectedRelateId(''); setIsRelateModalOpen(true); }}><Plus size={18} /></button>
+      </div>
 
-    return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Users className="w-5 h-5" />
-                        Relaciones
-                    </h3>
-                    <button
-                        onClick={onRelateModalToggle}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Relacionar
-                    </button>
+      {/* Indicación de arrastrar documentos a relacionamientos */}
+      <div style={{
+        marginBottom: '0.75rem', padding: '0.5rem 0.75rem',
+        background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--radius-md)',
+        border: '1px dashed rgba(99,102,241,0.3)',
+        fontSize: '0.7rem', color: 'var(--color-text-secondary)',
+        display: 'flex', alignItems: 'center', gap: '0.4rem'
+      }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="5 9 2 12 5 15"></polyline>
+          <polyline points="9 5 12 2 15 5"></polyline>
+          <path d="M2 12h20"></path>
+          <path d="M12 2v20"></path>
+        </svg>
+        Arrastra documentos aquí para copiarlos al cliente relacionado
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {relaciones.map(rel => {
+          const isPrincipal = rel.cliente_id === clientId;
+          const related = isPrincipal ? rel.cliente_secundario : rel.cliente_principal;
+          if (!related) return null;
+          const relKey = `rel-${rel.id}`;
+          const isDragOver = dragOverRelId === relKey;
+          return (
+            <div
+              key={rel.id}
+              onDragOver={(e) => {
+                if (draggedDocument) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                  setDragOverRelId(relKey);
+                }
+              }}
+              onDragLeave={(e) => {
+                setDragOverRelId(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOverRelId(null);
+                if (draggedDocument) {
+                  handleCopyDocumentToClient(draggedDocument, related.id);
+                }
+              }}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.65rem 0.75rem',
+                background: isDragOver ? 'rgba(99,102,241,0.12)' : 'var(--color-bg-secondary)',
+                borderRadius: 'var(--radius-md)',
+                border: isDragOver ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                transition: 'all 0.2s',
+                cursor: draggedDocument ? 'copy' : 'default',
+                position: 'relative'
+              }}
+            >
+              {isDragOver && (
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)',
+                  border: '2px dashed var(--color-primary)',
+                  pointerEvents: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(99,102,241,0.05)'
+                }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-primary)' }}>
+                    SOLTAR PARA COPIAR DOCUMENTO
+                  </span>
                 </div>
+              )}
+              <button
+                onClick={() => onNavigateToClient?.(related.id)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                  background: 'none', border: 'none', cursor: onNavigateToClient ? 'pointer' : 'default',
+                  padding: 0, flex: 1, textAlign: 'left',
+                  opacity: isDragOver ? 0.2 : 1
+                }}
+                title={onNavigateToClient ? `Ver perfil de ${related.nombre}` : ''}
+              >
+                <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {related.nombre}
+                  {onNavigateToClient && <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', opacity: 0.8 }}>→</span>}
+                </div>
+
+                {editingRelId === rel.id ? (
+                  <select
+                    autoFocus
+                    onBlur={() => setEditingRelId(null)}
+                    onChange={(e) => handleUpdateRelationType(rel.id, e.target.value)}
+                    defaultValue={rel.tipo_relacion}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ fontSize: '0.68rem', color: 'var(--color-text-primary)', background: 'var(--color-bg-elevated)', border: '1px solid var(--color-primary)', borderRadius: '4px', marginTop: '4px', padding: '2px', cursor: 'pointer' }}
+                  >
+                    <option value="conyuge">Cónyuge</option>
+                    <option value="hijo/hija">Hijo / Hija</option>
+                    <option value="padre/madre">Padre / Madre</option>
+                    <option value="hermano/hermana">Hermano / Hermana</option>
+                    <option value="familiar">Otro Familiar</option>
+                    <option value="amigo">Amigo</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                ) : (
+                  <div
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingRelId(rel.id); }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
+                    style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px', cursor: 'pointer', transition: 'color 0.2s', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', display: 'inline-block' }}
+                    title="Clic para cambiar relación"
+                  >
+                    {rel.tipo_relacion}
+                  </div>
+                )}
+
+              </button>
+              <button className="btn btn-ghost" onClick={() => handleDeleteRelation(rel.id)} style={{ color: 'var(--color-danger)', padding: '0.3rem', flexShrink: 0 }} title="Eliminar vinculo">
+                <Trash2 size={14} />
+              </button>
             </div>
-
-            <div className="p-6">
-                <div className="space-y-6">
-                    {/* Relaciones donde este cliente es el principal */}
-                    {relacionesComoPrincipal.length > 0 && (
-                        <div>
-                            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">Relaciones como Principal</h4>
-                            <div className="space-y-3">
-                                {relacionesComoPrincipal.map((relacion) => (
-                                    <div
-                                        key={relacion.id}
-                                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <User className="w-8 h-8 text-blue-500 bg-blue-100 dark:bg-blue-900/50 rounded-full p-1.5" />
-                                            <div>
-                                                <p className="font-medium text-gray-900 dark:text-white">
-                                                    {relacion.cliente_secundario.nombre}
-                                                </p>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                    {relacion.tipo_relacion} • {formatDate(relacion.creado_en)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {editingRelId === relacion.id ? (
-                                                <>
-                                                    <select
-                                                        value={relacion.tipo_relacion}
-                                                        onChange={(e) => onEditRelation(relacion.id, e.target.value)}
-                                                        className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    >
-                                                        <option value="familiar">Familiar</option>
-                                                        <option value="pareja">Pareja</option>
-                                                        <option value="amigo">Amigo</option>
-                                                        <option value="colega">Colega</option>
-                                                        <option value="otro">Otro</option>
-                                                    </select>
-                                                    <button
-                                                        onClick={() => onRelationEdit(relacion.id, false)}
-                                                        className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded"
-                                                    >
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        onClick={() => onRelationEdit(relacion.id, true)}
-                                                        className="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onRelationDelete(relacion.id)}
-                                                        className="p-1 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Relaciones donde este cliente es secundario */}
-                    {relacionesComoSecundario.length > 0 && (
-                        <div>
-                            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">Relaciones como Secundario</h4>
-                            <div className="space-y-3">
-                                {relacionesComoSecundario.map((relacion) => (
-                                    <div
-                                        key={relacion.id}
-                                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <User className="w-8 h-8 text-green-500 bg-green-100 dark:bg-green-900/50 rounded-full p-1.5" />
-                                            <div>
-                                                <p className="font-medium text-gray-900 dark:text-white">
-                                                    {relacion.cliente_principal.nombre}
-                                                </p>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                    {relacion.tipo_relacion} • {formatDate(relacion.creado_en)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {editingRelId === relacion.id ? (
-                                                <>
-                                                    <select
-                                                        value={relacion.tipo_relacion}
-                                                        onChange={(e) => onEditRelation(relacion.id, e.target.value)}
-                                                        className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    >
-                                                        <option value="familiar">Familiar</option>
-                                                        <option value="pareja">Pareja</option>
-                                                        <option value="amigo">Amigo</option>
-                                                        <option value="colega">Colega</option>
-                                                        <option value="otro">Otro</option>
-                                                    </select>
-                                                    <button
-                                                        onClick={() => onRelationEdit(relacion.id, false)}
-                                                        className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded"
-                                                    >
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        onClick={() => onRelationEdit(relacion.id, true)}
-                                                        className="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onRelationDelete(relacion.id)}
-                                                        className="p-1 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Mensaje si no hay relaciones */}
-                    {relaciones.length === 0 && (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                            <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                            <p>No hay relaciones registradas aún</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Modal para relacionar cliente */}
-            {isRelateModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md max-h-[80vh] overflow-y-auto">
-                        <div className="p-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Relacionar Cliente</h3>
-                                <button
-                                    onClick={onRelateModalToggle}
-                                    className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Relación</label>
-                                    <select
-                                        value={selectedRelateType}
-                                        onChange={onSelectRelateType}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    >
-                                        <option value="familiar">Familiar</option>
-                                        <option value="pareja">Pareja</option>
-                                        <option value="amigo">Amigo</option>
-                                        <option value="colega">Colega</option>
-                                        <option value="otro">Otro</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Cliente</label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => onSearchChange(e.target.value)}
-                                            placeholder="Buscar por nombre..."
-                                            className="w-full px-3 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        />
-                                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                    </div>
-
-                                    {searchResults.length > 0 && (
-                                        <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-lg max-h-40 overflow-y-auto">
-                                            {searchResults.map((cliente) => (
-                                                <div
-                                                    key={cliente.id}
-                                                    onClick={() => onSelectRelateId(cliente.id)}
-                                                    className={`p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedRelateId === cliente.id ? 'bg-blue-100 dark:bg-blue-900/50' : ''
-                                                        }`}
-                                                >
-                                                    <p className="font-medium text-gray-900 dark:text-white">{cliente.nombre}</p>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400">{cliente.cpf}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex gap-3 pt-4">
-                                    <button
-                                        onClick={onNewRelateClientModalToggle}
-                                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        Nuevo Cliente
-                                    </button>
-                                    <button
-                                        onClick={onRelateSubmit}
-                                        disabled={!selectedRelateId}
-                                        className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        Relacionar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal para nuevo cliente en relación */}
-            {isNewRelateClientModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md">
-                        <div className="p-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Crear Nuevo Cliente</h3>
-                                <button
-                                    onClick={onNewRelateClientModalToggle}
-                                    className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Nombre completo"
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CPF</label>
-                                    <input
-                                        type="text"
-                                        placeholder="CPF"
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    />
-                                </div>
-
-                                <div className="flex gap-3 pt-4">
-                                    <button
-                                        onClick={onNewRelateClientModalToggle}
-                                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            // Aquí iría la lógica para crear un nuevo cliente
-                                            onNewRelateClientModalToggle();
-                                        }}
-                                        className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                                    >
-                                        Crear y Relacionar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+          );
+        })}
+        {relaciones.length === 0 && <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay familiares o amigos vinculados.</div>}
+      </div>
+    </section>
+  );
 };
 
-export default memo(ClientRelations);
+export default ClientRelations;
