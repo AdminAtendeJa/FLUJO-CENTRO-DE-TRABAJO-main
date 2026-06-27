@@ -325,8 +325,8 @@ function App() {
                 >
                   {theme === 'dark' ? <Sun size={20} color="var(--color-text-secondary)" /> : <Moon size={20} color="var(--color-text-secondary)" />}
                 </button>
-                <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Bell size={20} color="var(--color-text-secondary)" /></button>
-                <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Settings size={20} color="var(--color-text-secondary)" /></button>
+                <button className="btn btn-ghost" style={{ padding: '0.5rem' }} aria-label="Notificaciones"><Bell size={20} color="var(--color-text-secondary)" /></button>
+                <button className="btn btn-ghost" style={{ padding: '0.5rem' }} aria-label="Configuración"><Settings size={20} color="var(--color-text-secondary)" /></button>
               </div>
             </header>
 

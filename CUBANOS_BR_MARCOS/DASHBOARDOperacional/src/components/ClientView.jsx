@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient'; // Solo para: búsqueda en modal y AI chat (sin hook)
+import toast from 'react-hot-toast';
 import { analyzeDocumentImage, chatWithClientContext } from '../services/aiService';
 import { getChatHistoryFromN8n } from '../services/crmBridgeService';
 import { uploadDocument, deleteDocument } from '../services/storageService';
+import {
+  insertRelacion, updateRelacionTipo, deleteRelacion,
+  updateCliente, searchClientes
+} from '../services/clientesService';
+import { createEntrada, updateEntradaEstado } from '../services/tramitesService';
 import { ArrowLeft, Copy, Check, Edit2, Plus, UploadCloud, Users, User, Search, Image as ImageIcon, FileText, Loader2, UserPlus, Trash2, Clock, Sparkles, X, Download, ShieldCheck, MessageSquare, Send, AlertTriangle } from 'lucide-react';
 import NewClientModal from './NewClientModal';
 import TemplateManager from './TemplateManager';
@@ -16,10 +22,7 @@ import MergeContactsModal from './MergeContactsModal';
 import useClientData from '../hooks/useClientData';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import useDebounce from '../hooks/useDebounce';
-
-// Importar componentes adicionales para la optimización
 import VirtualizedList from './VirtualizedList';
-// import PaginatedTable from '../../DASHBOARDFinanciero/src/components/PaginatedTable'; // Comentado temporalmente para evitar error de importación
 
 // Helper for native date inputs (YYYY-MM-DD <-> DD/MM/YYYY)
 function toIsoDate(val) {
@@ -125,32 +128,24 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const [editingRelId, setEditingRelId] = useState(null);
 
 
-
   // Search state para relacionar cliente existente
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
-  // Efecto para buscar clientes dinámicamente en la DB cuando excede el límite inicial
+  // Agente 2: Uso de searchClientes del service en vez de supabase directamente
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
-      const searchDb = async () => {
+      const timer = setTimeout(async () => {
         try {
-          const { data } = await supabase
-            .from('clientes')
-            .select('id, nombre, cpf')
-            .ilike('nombre', `%${searchQuery.trim()}%`)
-            .limit(50);
-          if (data) {
-            setSearchResults(data);
-          }
+          const data = await searchClientes(searchQuery);
+          setSearchResults(data);
         } catch (err) {
-          console.error(err);
+          console.error('[ClientView] search error:', err);
         }
-      };
-      const timeoutId = setTimeout(searchDb, 300);
-      return () => clearTimeout(timeoutId);
+      }, 300);
+      return () => clearTimeout(timer);
     } else {
       setSearchResults([]);
     }
@@ -647,51 +642,51 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     }
   };
 
-  const handleRelateClient = async () => {
+  const handleRelateClient = useCallback(async () => {
     if (!selectedRelateId || !selectedRelateType) return;
+    const toastId = toast.loading('Vinculando cliente...');
     try {
-      await supabase.from('relaciones_clientes').insert({
+      await insertRelacion({
         cliente_id: clientId,
         cliente_relacionado_id: Number(selectedRelateId),
         tipo_relacion: selectedRelateType,
       });
-      await fetchClientData(false);
+      queryClient.invalidateQueries({ queryKey: ['relations', clientId] });
       setIsRelateModalOpen(false);
       setSelectedRelateId('');
       setSelectedRelateType('familiar');
+      toast.success('Cliente vinculado correctamente', { id: toastId });
     } catch (err) {
-      console.error('Error relating client:', err);
-      alert('Error al vincular cliente.');
+      console.error('[ClientView] handleRelateClient:', err);
+      toast.error('Error al vincular cliente', { id: toastId });
     }
-  };
+  }, [clientId, selectedRelateId, selectedRelateType, queryClient]);
 
-  const handleUpdateRelationType = async (relId, newType) => {
+  const handleUpdateRelationType = useCallback(async (relId, newType) => {
     try {
-      const { error } = await supabase
-        .from('relaciones_clientes')
-        .update({ tipo_relacion: newType })
-        .eq('id', relId);
-      if (error) throw error;
+      await updateRelacionTipo(relId, newType);
       queryClient.invalidateQueries({ queryKey: ['relations', clientId] });
       setEditingRelId(null);
     } catch (err) {
-      console.error("Error updating relation:", err);
-      alert("Error al actualizar la relación");
+      console.error('[ClientView] handleUpdateRelationType:', err);
+      toast.error('Error al actualizar la relación');
     }
-  };
+  }, [clientId, queryClient]);
 
-  const handleDeleteRelation = async (relationId) => {
-    if (!window.confirm('Eliminar este vinculo familiar?')) return;
+  const handleDeleteRelation = useCallback(async (relationId) => {
+    if (!window.confirm('Eliminar este vínculo familiar?')) return;
+    const toastId = toast.loading('Eliminando vínculo...');
     try {
-      await supabase.from('relaciones_clientes').delete().eq('id', relationId);
-      await fetchClientData(false);
+      await deleteRelacion(relationId);
+      queryClient.invalidateQueries({ queryKey: ['relations', clientId] });
+      toast.success('Vínculo eliminado', { id: toastId });
     } catch (err) {
-      console.error(err);
-      alert('Error eliminando la relacion');
+      console.error('[ClientView] handleDeleteRelation:', err);
+      toast.error('Error eliminando la relación', { id: toastId });
     }
-  };
+  }, [clientId, queryClient]);
 
-  // Cambiar estado del documento: pendiente <-> verificado (sin recargar todo)
+  // Agente 3: useCallback para evitar re-renders en ClientDocuments
   const handleToggleDocumentStatus = useCallback(async (doc) => {
     const newEstado = doc.estado === 'verificado' ? 'pendiente' : 'verificado';
     try {
@@ -699,9 +694,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       queryClient.invalidateQueries({ queryKey: ['documents', clientId] });
     } catch (err) {
       console.error(err);
-      alert('Error actualizando estado del documento.');
+      toast.error('Error actualizando estado del documento.');
     }
-  }, []);
+  }, [clientId, queryClient]);
 
 
   // ================= AI CHAT LOGIC =================
@@ -766,59 +761,60 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     }
   };
 
-  const handleDeleteClient = async () => {
-    if (!window.confirm('Eliminar este cliente y TODOS sus datos? Esta accion no puede deshacerse.')) return;
+  const handleDeleteClient = useCallback(async () => {
+    if (!window.confirm('Eliminar este cliente y TODOS sus datos? Esta acción no puede deshacerse.')) return;
     setIsDeleting(true);
+    const toastId = toast.loading('Eliminando cliente...');
     try {
       await supabase.from('relaciones_clientes').delete().or(`cliente_id.eq.${clientId},cliente_relacionado_id.eq.${clientId}`);
       await supabase.from('documentos_operacionales').delete().eq('id_cliente', clientId);
       await supabase.from('cliente_datos_operacionales').delete().eq('id_cliente', clientId);
       const { error } = await supabase.from('clientes').delete().eq('id', clientId);
       if (error) throw error;
+      toast.success('Cliente eliminado', { id: toastId });
       onBack();
     } catch (err) {
-      console.error('Error deleting client:', err);
-      alert('Error al eliminar el cliente. Puede tener tramites vinculados.');
+      console.error('[ClientView] deleteClient:', err);
+      toast.error('Error al eliminar. Puede tener trámites vinculados.', { id: toastId });
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [clientId, onBack]);
 
-  const handleChangeTramiteState = async (entradaId, newState) => {
+  const handleChangeTramiteState = useCallback(async (entradaId, newState) => {
     try {
-      const { error } = await supabase.from('entradas').update({ estado_tramite: newState }).eq('id', entradaId);
-      if (error) throw error;
+      await updateEntradaEstado(entradaId, newState);
       queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
     } catch (err) {
-      console.error('Error updating status:', err);
-      alert('Error al actualizar el estado del tramite.');
+      console.error('[ClientView] handleChangeTramiteState:', err);
+      toast.error('Error al actualizar el estado del trámite.');
     }
-  };
+  }, [clientId, queryClient]);
 
-  const handleCreateTramite = async () => {
+  const handleCreateTramite = useCallback(async () => {
     if (!newTramiteData.servicio.trim()) {
-      alert('Por favor ingresa el nombre del servicio/tramite.');
+      toast.error('Por favor ingresa el nombre del servicio/trámite.');
       return;
     }
     setIsCreatingTramite(true);
+    const toastId = toast.loading('Creando trámite...');
     try {
-      const { error } = await supabase.from('entradas').insert({
+      await createEntrada({
         id_cliente: clientId,
-        servicio: newTramiteData.servicio.trim().toUpperCase(),
-        operario: newTramiteData.operario.trim().toUpperCase() || null,
-        estado_tramite: 'pendiente',
+        servicio: newTramiteData.servicio,
+        operario: newTramiteData.operario,
       });
-      if (error) throw error;
-      await fetchClientData(false);
+      queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
       setIsNewTramiteModalOpen(false);
       setNewTramiteData({ servicio: '', operario: '' });
+      toast.success('Trámite creado', { id: toastId });
     } catch (err) {
-      console.error('Error creating tramite:', err);
-      alert('Error al crear el tramite.');
+      console.error('[ClientView] handleCreateTramite:', err);
+      toast.error('Error al crear el trámite.', { id: toastId });
     } finally {
       setIsCreatingTramite(false);
     }
-  };
+  }, [clientId, newTramiteData, queryClient]);
 
   const handleSendToExtension = () => {
     const fullData = { ...client };
@@ -837,13 +833,40 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     }
 
     window.postMessage({ type: 'CUBANOS_BR_SYNC', clientData: fullData }, '*');
-
-    // Optional: show a small alert or toast
-    alert('Datos de ' + client.nombre + ' enviados a la extensión. ¡Abre SISMIGRA y verás el botón de autocompletar!');
+    toast.success(`Datos de ${client.nombre} enviados a la extensión.`);
   };
 
+  // Agente 4: Skeleton de carga en vez de texto plano
   if (isLoading) {
-    return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Cargando datos del cliente...</div>;
+    return (
+      <div style={{ padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Header skeleton */}
+        <div className="glass-panel" style={{ padding: '2rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-bg-elevated)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ height: 24, width: '40%', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-elevated)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ height: 16, width: '60%', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-elevated)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          </div>
+        </div>
+        {/* Content skeletons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem' }}>
+          <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} style={{ height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-bg-elevated)', animation: `pulse 1.5s ease-in-out ${i * 0.1}s infinite` }} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {[1,2].map(i => (
+              <div key={i} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {[1,2,3].map(j => (
+                  <div key={j} style={{ height: 44, borderRadius: 'var(--radius-md)', background: 'var(--color-bg-elevated)', animation: `pulse 1.5s ease-in-out ${j * 0.1}s infinite` }} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!client) return null;
