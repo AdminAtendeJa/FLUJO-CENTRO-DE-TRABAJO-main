@@ -77,9 +77,105 @@ export default function ClientViewEditModal({
               No se encontraron campos que coincidan con "{searchQuery}"
             </div>
           ) : (
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-              Contenido del modal de edición (simplificado). Aquí van todos los campos de edición.
-            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+              {filteredEditFormData.map(field => {
+                const isDate = field.id && field.id.includes('fecha');
+                const isEstadoCivil = field.id === 'estado_civil';
+                const isSexo = field.id === 'sexo';
+                const isNombre = field.id === 'nombre';
+                const isDireccion = field.id === 'direccion';
+
+                const updateField = (updates) => {
+                  const newArray = editFormData.map(f => (f.id === field.id && f.campo_id === field.campo_id) ? { ...f, ...updates } : f);
+                  onEditFormDataChange(newArray);
+                };
+
+                if (isNombre) {
+                  return (
+                    <div key={field.id || field.campo_id} style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>Nombres</label>
+                        <input type="text" className="form-input" value={field._nombres || ''} onChange={e => updateField({ _nombres: e.target.value })} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>Apellidos</label>
+                        <input type="text" className="form-input" value={field._apellidos || ''} onChange={e => updateField({ _apellidos: e.target.value })} />
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (isDireccion) {
+                  return (
+                    <div key={field.id || field.campo_id} style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem', borderRadius: '0.5rem', border: '1px solid var(--color-border)' }}>
+                      <label style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>{field.nombre_campo}</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>CEP</label>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input type="text" className="form-input" placeholder="00000-000" value={field._cep || ''} onChange={e => updateField({ _cep: e.target.value })} />
+                            {handleCepSearch && (
+                              <button className="btn btn-secondary" onClick={() => handleCepSearch(field._cep, (data) => updateField({ _endereco: data.logradouro, _bairro: data.bairro, _cidade: data.localidade, _estado: data.uf }))}>
+                                <Search size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Calle/Avenida</label>
+                          <input type="text" className="form-input" value={field._endereco || ''} onChange={e => updateField({ _endereco: e.target.value })} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Número</label>
+                          <input type="text" className="form-input" value={field._numero || ''} onChange={e => updateField({ _numero: e.target.value })} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Bairro</label>
+                          <input type="text" className="form-input" value={field._bairro || ''} onChange={e => updateField({ _bairro: e.target.value })} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Ciudad</label>
+                          <input type="text" className="form-input" value={field._cidade || ''} onChange={e => updateField({ _cidade: e.target.value })} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Estado (UF)</label>
+                          <input type="text" className="form-input" value={field._estado || ''} onChange={e => updateField({ _estado: e.target.value })} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Complemento / Referencia</label>
+                        <input type="text" className="form-input" value={field._complemento || ''} onChange={e => updateField({ _complemento: e.target.value })} />
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={field.id || field.campo_id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>{field.nombre_campo}</label>
+                    {isDate ? (
+                      <input type="date" className="form-input" value={toIsoDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={e => updateField({ valor: toSlashDate ? toSlashDate(e.target.value) : e.target.value })} />
+                    ) : isEstadoCivil ? (
+                      <select className="form-input" value={field.valor || ''} onChange={e => updateField({ valor: e.target.value })}>
+                        <option value="">Seleccione...</option>
+                        {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                    ) : isSexo ? (
+                      <select className="form-input" value={field.valor || ''} onChange={e => updateField({ valor: e.target.value })}>
+                        <option value="">Seleccione...</option>
+                        {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                    ) : (
+                      <input type="text" className="form-input" value={field.valor || ''} onChange={e => updateField({ valor: e.target.value })} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 
