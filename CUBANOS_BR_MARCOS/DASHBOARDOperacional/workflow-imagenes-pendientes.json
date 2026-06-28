@@ -1,0 +1,139 @@
+{
+  "name": "Kommo a Supabase - Documentos Pendientes",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kommo-webhook-docs",
+        "options": {}
+      },
+      "id": "e44c208c-9a4d-4b95-a14a-7bc92e621db7",
+      "name": "Webhook (Recibe de Kommo)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 220, 260 ],
+      "webhookId": "generado-automaticamente"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.body.message.attachment.link }}",
+        "authentication": "none",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "c76a165b-d3fc-46cd-a249-14a52c3eb93d",
+      "name": "Descargar Imagen Kommo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [ 440, 260 ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://TU_SUPABASE_URL.supabase.co/storage/v1/object/documentos_operacionales/kommo_{{ $json.body.message.id }}.jpg",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/jpeg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $binary.data }}",
+        "options": {}
+      },
+      "id": "b3f3b97b-99d9-43c2-a7d5-d5ab05c4864c",
+      "name": "Subir a Supabase Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [ 660, 260 ]
+    },
+    {
+      "parameters": {
+        "table": "documentos_pendientes",
+        "dataMode": "define",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "url_archivo",
+              "value": "https://TU_SUPABASE_URL.supabase.co/storage/v1/object/public/documentos_operacionales/kommo_{{ $json.body.message.id }}.jpg"
+            },
+            {
+              "column": "origen",
+              "value": "kommo"
+            },
+            {
+              "column": "cliente_id",
+              "value": "={{ $json.body.message.custom_cliente_id }}"
+            },
+            {
+              "column": "nombre_archivo",
+              "value": "Imagen recibida por Kommo"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "18f5d0f5-fc91-4c7b-b353-840901e1dc55",
+      "name": "Insertar en documentos_pendientes",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [ 880, 260 ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook (Recibe de Kommo)": {
+      "main": [
+        [
+          {
+            "node": "Descargar Imagen Kommo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Imagen Kommo": {
+      "main": [
+        [
+          {
+            "node": "Subir a Supabase Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir a Supabase Storage": {
+      "main": [
+        [
+          {
+            "node": "Insertar en documentos_pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bb25b6a3-23a8-48b4-93c3-35d2524316a7",
+  "id": "N8N_KOMMO_TO_SUPABASE",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
