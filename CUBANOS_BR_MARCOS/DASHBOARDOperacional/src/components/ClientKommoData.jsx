@@ -86,21 +86,24 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
     }
   };
 
+  const chatMessages = notes.filter(n => n.remitente !== 'nota_interna');
+  const internalNotes = notes.filter(n => n.remitente === 'nota_interna');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
-      {/* Sección de Notas del Lead */}
+      {/* Sección de Historial de Chat */}
       <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
-          <MessageSquare size={18} /> Notas del Lead (Kommo)
+          <MessageSquare size={18} /> Historial de WhatsApp (Kommo)
         </h3>
         <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.875rem', color: 'var(--color-text-secondary)', minHeight: '100px', maxHeight: '300px', overflowY: 'auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {loading ? (
               <div style={{ textAlign: 'center', opacity: 0.5 }}>Cargando historial...</div>
-            ) : notes.length === 0 ? (
+            ) : chatMessages.length === 0 ? (
               <p style={{ margin: 0 }}><em>No hay historial de chat sincronizado para este cliente.</em></p>
             ) : (
-              notes.map(nota => {
+              chatMessages.map(nota => {
                 const isIncoming = !nota.remitente || nota.remitente === 'incoming';
                 return (
                   <div key={nota.id} style={{ 
@@ -117,13 +120,38 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
                     <p style={{ margin: '0 0 0.25rem 0', fontWeight: 500, fontSize: '0.75rem', opacity: 0.8 }}>
                       {isIncoming ? '👤 Cliente' : '🤵 Nosotros'}
                     </p>
-                    <p style={{ margin: '0 0 0.25rem 0' }}>{nota.texto}</p>
+                    <p style={{ margin: '0 0 0.25rem 0', whiteSpace: 'pre-wrap' }}>{nota.texto}</p>
                     <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>
                       {new Date(nota.fecha_recepcion).toLocaleString()}
                     </span>
                   </div>
                 );
               })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Sección de Notas Internas (Lead Notes) */}
+      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
+          <FileText size={18} /> Notas Internas del Lead
+        </h3>
+        <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.875rem', color: 'var(--color-text-secondary)', minHeight: '80px', maxHeight: '200px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {loading ? (
+              <div style={{ textAlign: 'center', opacity: 0.5 }}>Cargando notas...</div>
+            ) : internalNotes.length === 0 ? (
+              <p style={{ margin: 0 }}><em>No hay notas internas registradas en Kommo.</em></p>
+            ) : (
+              internalNotes.map(nota => (
+                <div key={nota.id} style={{ background: 'var(--color-bg-canvas)', padding: '0.75rem', borderRadius: '6px', borderLeft: '3px solid #f59e0b' }}>
+                  <p style={{ margin: '0 0 0.25rem 0', color: 'var(--color-text-primary)', whiteSpace: 'pre-wrap' }}>{nota.texto}</p>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                    {new Date(nota.fecha_recepcion).toLocaleString()}
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </div>

@@ -1000,7 +1000,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         <NewClientModal
           onClose={() => setIsNewRelateClientModalOpen(false)}
           onClientCreated={(newClient) => {
-            setAllClientes([...allClientes, newClient]);
+            queryClient.setQueryData(['allClientesBase'], [...allClientes, newClient]);
             setSelectedRelateId(newClient.id);
             setIsNewRelateClientModalOpen(false);
           }}
