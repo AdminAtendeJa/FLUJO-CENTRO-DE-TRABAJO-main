@@ -9,6 +9,7 @@ import Avatar from './ui/Avatar';
 const initialFormData = {
   nombres: '',
   apellidos: '',
+  id_kommo: '',
   cpf: '',
   carnet_identidad: '',
   telefono: '',
@@ -107,6 +108,7 @@ export default function NewClientModal({ onClose, onClientCreated }) {
       const { data, error } = await supabase
         .from('clientes')
         .insert([{
+          id_kommo: formData.id_kommo || null,
           nombre: fullName,
           cpf: formData.cpf,
           carnet_identidad: formData.carnet_identidad,
@@ -212,9 +214,44 @@ export default function NewClientModal({ onClose, onClientCreated }) {
                 <UserPlus size={18} />
                 <h3 style={{ margin: 0, font: 'var(--font-page-title)' }}>Datos principales</h3>
               </div>
-              <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--card-gap, 12px)' }}>
-                <Field label="Nombres" name="nombres" required value={formData.nombres} onChange={updateField} error={visibleError('nombres')} />
-                <Field label="Apellidos" name="apellidos" required value={formData.apellidos} onChange={updateField} error={visibleError('apellidos')} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>Nombres *</label>
+                <input
+                  type="text"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
+                  value={formData.nombres}
+                  onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
+                  placeholder="Ej. Juan Carlos"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>Apellidos *</label>
+                <input
+                  type="text"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
+                  value={formData.apellidos}
+                  onChange={(e) => setFormData({ ...formData, apellidos: e.target.value })}
+                  placeholder="Ej. Pérez Gómez"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.25rem', color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>ID Kommo (Opcional)</label>
+              <input
+                type="text"
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
+                value={formData.id_kommo || ''}
+                onChange={(e) => setFormData({ ...formData, id_kommo: e.target.value })}
+                placeholder="Ej. 23314228"
+              />
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Si se rellena, sincronizará automáticamente los mensajes de este Lead.</p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <Field label="CPF" name="cpf" value={formData.cpf} onChange={updateField} error={visibleError('cpf')} placeholder="000.000.000-00" />
                 <Field label="Carnet / Identidad" name="carnet_identidad" value={formData.carnet_identidad} onChange={updateField} error={visibleError('carnet_identidad')} />
                 <Field label="Teléfono" name="telefono" value={formData.telefono} onChange={updateField} error={visibleError('telefono')} placeholder="+55 ..." />

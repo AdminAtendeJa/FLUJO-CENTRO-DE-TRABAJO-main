@@ -69,6 +69,7 @@ const SEXO_OPTIONS = [
 
 // Campos fijos de la tabla clientes — fuera del componente para no recrearlos en cada render
 const FIXED_FIELDS_CATALOG = [
+  { id: 'id_kommo', nombre_campo: 'ID Kommo (Opcional)', requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'nombre', nombre_campo: 'Nombre', requerido: true, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'cpf', nombre_campo: 'CPF', requerido: true, es_fijo: true, category_name: 'Informaciones Personales' },
   { id: 'email', nombre_campo: 'Email', requerido: false, es_fijo: true, category_name: 'Informaciones Personales' },
@@ -203,7 +204,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   const fixedFields = FIXED_FIELDS_CATALOG;
 
-  const handleCepSearch = async (cepValue) => {
+  const handleCepSearch = async (cepValue, callback) => {
     if (!cepValue) return;
     const cleanCep = cepValue.replace(/\D/g, '');
     if (cleanCep.length === 8) {
@@ -211,18 +212,22 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
         const data = await res.json();
         if (!data.erro) {
-          setEditFormData(prev => prev.map(f => {
-            if (f.id === 'direccion') {
-              return {
-                ...f,
-                _endereco: f._endereco || data.logradouro,
-                _bairro: f._bairro || data.bairro,
-                _cidade: f._cidade || data.localidade,
-                _estado: f._estado || data.uf
-              };
-            }
-            return f;
-          }));
+          if (callback) {
+            callback(data);
+          } else {
+            setEditFormData(prev => prev.map(f => {
+              if (f.id === 'direccion') {
+                return {
+                  ...f,
+                  _endereco: data.logradouro || f._endereco,
+                  _bairro: data.bairro || f._bairro,
+                  _cidade: data.localidade || f._cidade,
+                  _estado: data.uf || f._estado
+                };
+              }
+              return f;
+            }));
+          }
         }
       } catch (err) {
         console.error('Error fetching CEP:', err);
