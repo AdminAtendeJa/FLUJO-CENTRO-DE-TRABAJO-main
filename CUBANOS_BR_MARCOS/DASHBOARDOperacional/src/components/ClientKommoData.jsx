@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { FileText, CheckCircle, Clock, AlertCircle, MessageSquare } from 'lucide-react';
+import { FileText, CheckCircle, Clock, AlertCircle, MessageSquare, Trash2 } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
 
 export default function ClientKommoData({ clientId, onDocumentVerified }) {
@@ -83,6 +83,22 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
       alert('Error al verificar el documento.');
     } finally {
       setVerifyingId(null);
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!window.confirm('¿Seguro que deseas descartar esta imagen?')) return;
+    try {
+      const { error } = await supabase
+        .from('documentos_pendientes')
+        .delete()
+        .eq('id', docId);
+
+      if (error) throw error;
+      setPendingDocs(prev => prev.filter(d => d.id !== docId));
+    } catch (err) {
+      console.error('Error deleting document:', err);
+      alert('Error al eliminar la imagen.');
     }
   };
 
@@ -184,7 +200,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
             />
           ) : (
             pendingDocs.map(doc => (
-              <div key={doc.id} style={{ background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div key={doc.id} style={{ flexShrink: 0, background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ height: '150px', background: 'var(--color-bg-canvas)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {doc.url_archivo?.match(/\.(jpeg|jpg|gif|png)$/i) || !doc.url_archivo?.match(/\./) ? (
                     <img src={doc.url_archivo} alt="Documento Kommo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -196,20 +212,30 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                     <AlertCircle size={14} /> Sin verificar
                   </div>
-                  <button 
-                    className="btn btn-primary" 
-                    style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}
-                    onClick={() => handleVerify(doc)}
-                    disabled={verifyingId === doc.id}
-                  >
-                    {verifyingId === doc.id ? (
-                      <span className="animate-pulse">Verificando...</span>
-                    ) : (
-                      <>
-                        <CheckCircle size={16} /> Verificar y Procesar
-                      </>
-                    )}
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '0.5rem' }}
+                      onClick={() => handleVerify(doc)}
+                      disabled={verifyingId === doc.id}
+                    >
+                      {verifyingId === doc.id ? (
+                        <span className="animate-pulse">Verificando...</span>
+                      ) : (
+                        <>
+                          <CheckCircle size={16} /> Procesar
+                        </>
+                      )}
+                    </button>
+                    <button
+                      className="btn"
+                      style={{ padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                      onClick={() => handleDeleteDocument(doc.id)}
+                      title="Descartar imagen"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

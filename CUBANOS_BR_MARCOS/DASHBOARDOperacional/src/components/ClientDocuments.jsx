@@ -97,10 +97,16 @@ const ClientDocuments = ({
                 }}
                 onDragStart={(event) => {
                   setDraggedDocument(doc);
-                  event.dataTransfer.setData('text/plain', doc.nombre_archivo);
-                  const mimeType = doc.tipo_contenido || 'application/octet-stream';
-                  const fileName = doc.nombre_archivo || 'documento';
-                  event.dataTransfer.setData('DownloadURL', `${mimeType}:${fileName}:${doc.url_archivo}`);
+                  event.dataTransfer.setData('text/plain', doc.nombre_archivo || 'documento');
+                  
+                  const isPdf = doc.url_archivo?.toLowerCase().endsWith('.pdf') || doc.tipo_contenido === 'application/pdf';
+                  const mimeType = doc.tipo_contenido || (isPdf ? 'application/pdf' : 'application/octet-stream');
+                  let fileName = doc.nombre_archivo || 'documento';
+                  if (!fileName.includes('.')) fileName += isPdf ? '.pdf' : '';
+                  // Eliminar espacios para evitar problemas en algunos navegadores con DownloadURL
+                  const safeFileName = fileName.replace(/\s+/g, '_');
+                  
+                  event.dataTransfer.setData('DownloadURL', `${mimeType}:${safeFileName}:${doc.url_archivo}`);
                   try { event.dataTransfer.setData('text/uri-list', doc.url_archivo); } catch (err) { }
                   event.dataTransfer.effectAllowed = 'copyLink';
                 }}
@@ -120,13 +126,24 @@ const ClientDocuments = ({
                   outline: selected ? '2px solid var(--brand-primary)' : 'none'
                 }}
               >
-                {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
-                  <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Drag overlay to enable native HTML5 file drag in Chrome */}
+                <a 
+                  href={doc.url_archivo} 
+                  download={doc.nombre_archivo || 'documento'} 
+                  draggable 
+                  onClick={(e) => e.preventDefault()}
+                  style={{ position: 'absolute', inset: 0, zIndex: 1, color: 'transparent' }}
+                  aria-hidden="true"
+                >_</a>
+
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
+                    <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
                     <FileText size={24} color="var(--color-text-muted)" />
-                  </div>
-                )}
+                  )}
+                </div>
+                
                 <div style={{
                   position: 'absolute',
                   bottom: 0,
@@ -139,7 +156,9 @@ const ClientDocuments = ({
                   textAlign: 'center',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis'
+                  textOverflow: 'ellipsis',
+                  zIndex: 2,
+                  pointerEvents: 'none'
                 }}>
                   {doc.nombre_archivo || 'Documento'}
                 </div>
@@ -154,7 +173,8 @@ const ClientDocuments = ({
                     height: 9,
                     borderRadius: '50%',
                     background: verified ? 'var(--color-success)' : 'var(--color-warning)',
-                    border: '1px solid rgba(0,0,0,0.35)'
+                    border: '1px solid rgba(0,0,0,0.35)',
+                    zIndex: 2
                   }}
                 />
                 <button
@@ -165,8 +185,8 @@ const ClientDocuments = ({
                     position: 'absolute',
                     top: 4,
                     left: 4,
-                    width: 28,
-                    height: 28,
+                    width: 24,
+                    height: 24,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -175,10 +195,11 @@ const ClientDocuments = ({
                     border: '1px solid var(--color-danger-border)',
                     borderRadius: 'var(--radius-sm)',
                     cursor: 'pointer',
-                    padding: 0
+                    padding: 0,
+                    zIndex: 10
                   }}
                 >
-                  <X size={14} />
+                  <X size={12} />
                 </button>
               </div>
             );
