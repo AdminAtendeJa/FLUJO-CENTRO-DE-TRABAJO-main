@@ -5,6 +5,7 @@ import { EmptyState } from './ui/EmptyState';
 
 export default function ClientKommoData({ clientId, onDocumentVerified }) {
   const [pendingDocs, setPendingDocs] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [verifyingId, setVerifyingId] = useState(null);
 
@@ -15,19 +16,32 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
   const fetchPendingDocs = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('documentos_pendientes')
-        .select('*')
-        .eq('cliente_id', clientId)
-        .eq('verificado', false)
-        .order('fecha_recepcion', { ascending: false });
+      const [docsResponse, notesResponse] = await Promise.all([
+        supabase
+          .from('documentos_pendientes')
+          .select('*')
+          .eq('cliente_id', clientId)
+          .eq('verificado', false)
+          .order('fecha_recepcion', { ascending: false }),
+        
+        supabase
+          .from('notas_kommo')
+          .select('*')
+          .eq('cliente_id', clientId)
+          .order('fecha_recepcion', { ascending: false })
+      ]);
 
-      if (error && error.code !== '42P01') {
-         throw error;
+      if (docsResponse.error && docsResponse.error.code !== '42P01') {
+         throw docsResponse.error;
       }
-      setPendingDocs(data || []);
+      if (notesResponse.error && notesResponse.error.code !== '42P01') {
+         console.error('Error fetching notes:', notesResponse.error);
+      }
+      
+      setPendingDocs(docsResponse.data || []);
+      setNotes(notesResponse.data || []);
     } catch (err) {
-      console.error('Error fetching pending docs:', err);
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
@@ -79,9 +93,22 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
         <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
           <MessageSquare size={18} /> Notas del Lead (Kommo)
         </h3>
-        <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.875rem', color: 'var(--color-text-secondary)', minHeight: '100px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <p><em>Las notas sincronizadas desde el lead de Kommo aparecerán aquí automáticamente.</em></p>
+        <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.875rem', color: 'var(--color-text-secondary)', minHeight: '100px', maxHeight: '200px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {loading ? (
+              <div style={{ textAlign: 'center', opacity: 0.5 }}>Cargando notas...</div>
+            ) : notes.length === 0 ? (
+              <p style={{ margin: 0 }}><em>No hay mensajes de texto sincronizados para este cliente.</em></p>
+            ) : (
+              notes.map(nota => (
+                <div key={nota.id} style={{ background: 'var(--color-bg-canvas)', padding: '0.75rem', borderRadius: '6px', borderLeft: '3px solid var(--color-primary)' }}>
+                  <p style={{ margin: '0 0 0.25rem 0', color: 'var(--color-text-primary)' }}>{nota.texto}</p>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                    {new Date(nota.fecha_recepcion).toLocaleString()}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
