@@ -1,148 +1,156 @@
+/**
+ * useClientData.js
+ * Hook central de datos — Agente 2 + 3 (Arquitecto + Performance)
+ * - Consume exclusivamente la capa de services (sin llamadas directas a supabase)
+ * - Aprovecha react-query para caché, revalidación y estado de carga unificado
+ */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../supabaseClient';
+import {
+  getCliente,
+  getCategorias,
+  getCampos,
+  getClienteDatos,
+  getRelaciones,
+  updateCliente,
+} from '../services/clientesService';
+import { getEntradas } from '../services/tramitesService';
+import { getDocuments } from '../services/storageService';
+import { findDuplicateContacts } from '../utils/contactUtils';
 
-// Hook personalizado para gestionar la obtención de datos del cliente con caché
+const STALE_STATIC  = 10 * 60 * 1000; // 10 min — datos que cambian poco (categorías, campos)
+const STALE_DYNAMIC = 2  * 60 * 1000; // 2 min  — datos que cambian frecuente (documentos, entradas)
+const STALE_CLIENT  = 5  * 60 * 1000; // 5 min  — datos del cliente
+
 const useClientData = (clientId) => {
-    const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-    // Query para obtener datos del cliente
-    const clientQuery = useQuery({
-        queryKey: ['client', clientId],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('clientes')
-                .select('*')
-                .eq('id', clientId)
-                .single();
+  // ── Datos del cliente ──────────────────────────────────────────────────────
+  const clientQuery = useQuery({
+    queryKey: ['client', clientId],
+    queryFn: () => getCliente(clientId),
+    enabled: !!clientId,
+    staleTime: STALE_CLIENT,
+    gcTime: STALE_CLIENT * 2,
+  });
 
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        enabled: !!clientId, // Solo ejecutar si clientId está definido
-        staleTime: 5 * 60 * 1000, // 5 minutos antes de considerar los datos como obsoletos
-        cacheTime: 10 * 60 * 1000, // 10 minutos antes de eliminar de la caché
-    });
+  // ── Categorías y campos (casi estáticos) ───────────────────────────────────
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategorias,
+    staleTime: STALE_STATIC,
+    gcTime: STALE_STATIC * 2,
+  });
 
-    // Query para obtener categorías
-    const categoriesQuery = useQuery({
-        queryKey: ['categories'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('categorias_datos_operacionales')
-                .select('*')
-                .order('orden');
+  const fieldsQuery = useQuery({
+    queryKey: ['fields'],
+    queryFn: getCampos,
+    staleTime: STALE_STATIC,
+    gcTime: STALE_STATIC * 2,
+  });
 
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        staleTime: 10 * 60 * 1000, // 10 minutos
-        cacheTime: 15 * 60 * 1000, // 15 minutos
-    });
+  // ── Datos operacionales del cliente ────────────────────────────────────────
+  const clientDataQuery = useQuery({
+    queryKey: ['clientData', clientId],
+    queryFn: () => getClienteDatos(clientId),
+    enabled: !!clientId,
+    staleTime: STALE_DYNAMIC,
+    gcTime: STALE_DYNAMIC * 2,
+  });
 
-    // Query para obtener campos
-    const fieldsQuery = useQuery({
-        queryKey: ['fields'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('campos_datos_operacionales')
-                .select('*')
-                .order('orden');
+  // ── Relaciones ─────────────────────────────────────────────────────────────
+  const relationsQuery = useQuery({
+    queryKey: ['relations', clientId],
+    queryFn: () => getRelaciones(clientId),
+    enabled: !!clientId,
+    staleTime: STALE_DYNAMIC,
+    gcTime: STALE_DYNAMIC * 2,
+  });
 
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        staleTime: 10 * 60 * 1000, // 10 minutos
-        cacheTime: 15 * 60 * 1000, // 15 minutos
-    });
+  // ── Documentos ─────────────────────────────────────────────────────────────
+  const documentsQuery = useQuery({
+    queryKey: ['documents', clientId],
+    queryFn: () => getDocuments(clientId),
+    enabled: !!clientId,
+    staleTime: STALE_DYNAMIC,
+    gcTime: STALE_DYNAMIC * 2,
+  });
 
-    // Query para obtener datos operacionales del cliente
-    const clientDataQuery = useQuery({
-        queryKey: ['clientData', clientId],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('cliente_datos_operacionales')
-                .select('*')
-                .eq('id_cliente', clientId);
+  // ── Trámites / Entradas ────────────────────────────────────────────────────
+  const entradasQuery = useQuery({
+    queryKey: ['entradas', clientId],
+    queryFn: () => getEntradas(clientId),
+    enabled: !!clientId,
+    staleTime: STALE_DYNAMIC,
+    gcTime: STALE_DYNAMIC * 2,
+  });
 
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        enabled: !!clientId,
-        staleTime: 2 * 60 * 1000, // 2 minutos
-        cacheTime: 5 * 60 * 1000, // 5 minutos
-    });
+  // ── Contactos duplicados (depende de que el cliente esté cargado) ──────────
+  const duplicateContactsQuery = useQuery({
+    queryKey: ['duplicateContacts', clientQuery.data?.telefono],
+    queryFn: () => findDuplicateContacts(clientQuery.data.telefono),
+    enabled: !!clientQuery.data?.telefono,
+    staleTime: STALE_CLIENT,
+    gcTime: STALE_CLIENT * 2,
+  });
 
-    // Query para obtener relaciones
-    const relationsQuery = useQuery({
-        queryKey: ['relations', clientId],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('relaciones_clientes')
-                .select('*, cliente_principal:cliente_id(id,nombre,cpf), cliente_secundario:cliente_relacionado_id(id,nombre,cpf)')
-                .or(`cliente_id.eq.${clientId},cliente_relacionado_id.eq.${clientId}`);
+  // ── Mutation: actualizar cliente ───────────────────────────────────────────
+  const updateClientMutation = useMutation({
+    mutationFn: (updateData) => updateCliente(clientId, updateData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clientData', clientId] });
+    },
+  });
 
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        enabled: !!clientId,
-        staleTime: 3 * 60 * 1000, // 3 minutos
-        cacheTime: 5 * 60 * 1000, // 5 minutos
-    });
+  // ── Estado agregado de carga y errores ─────────────────────────────────────
+  const isLoading =
+    clientQuery.isLoading ||
+    categoriesQuery.isLoading ||
+    fieldsQuery.isLoading ||
+    clientDataQuery.isLoading ||
+    relationsQuery.isLoading ||
+    documentsQuery.isLoading ||
+    entradasQuery.isLoading;
 
-    // Query para obtener documentos
-    const documentsQuery = useQuery({
-        queryKey: ['documents', clientId],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('documentos_operacionales')
-                .select('*')
-                .eq('id_cliente', clientId)
-                .order('creado_en', { ascending: false });
+  const isError =
+    clientQuery.isError ||
+    categoriesQuery.isError ||
+    fieldsQuery.isError ||
+    clientDataQuery.isError ||
+    relationsQuery.isError ||
+    documentsQuery.isError ||
+    entradasQuery.isError;
 
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        enabled: !!clientId,
-        staleTime: 2 * 60 * 1000, // 2 minutos
-        cacheTime: 5 * 60 * 1000, // 5 minutos
-    });
+  const error =
+    clientQuery.error ||
+    categoriesQuery.error ||
+    fieldsQuery.error ||
+    clientDataQuery.error ||
+    relationsQuery.error ||
+    documentsQuery.error ||
+    entradasQuery.error ||
+    duplicateContactsQuery.error;
 
-    // Mutation para actualizar datos del cliente
-    const updateClientMutation = useMutation({
-        mutationFn: async (updateData) => {
-            const { data, error } = await supabase
-                .from('clientes')
-                .update(updateData)
-                .eq('id', clientId)
-                .select()
-                .single();
+  return {
+    // Datos
+    client: clientQuery.data,
+    categories: categoriesQuery.data ?? [],
+    fields: fieldsQuery.data ?? [],
+    clientData: clientDataQuery.data ?? [],
+    relations: relationsQuery.data ?? [],
+    documents: documentsQuery.data ?? [],
+    entradas: entradasQuery.data ?? [],
+    duplicateContacts: duplicateContactsQuery.data ?? [],
 
-            if (error) throw new Error(error.message);
-            return data;
-        },
-        onSuccess: () => {
-            // Invalidar queries relacionadas para refrescar datos
-            queryClient.invalidateQueries({ queryKey: ['client', clientId] });
-            queryClient.invalidateQueries({ queryKey: ['clientData', clientId] });
-        },
-    });
+    // Estado
+    isLoading,
+    isError,
+    error,
 
-    return {
-        client: clientQuery.data,
-        categories: categoriesQuery.data,
-        fields: fieldsQuery.data,
-        clientData: clientDataQuery.data,
-        relations: relationsQuery.data,
-        documents: documentsQuery.data,
-        isLoading: clientQuery.isLoading || categoriesQuery.isLoading || fieldsQuery.isLoading ||
-            clientDataQuery.isLoading || relationsQuery.isLoading || documentsQuery.isLoading,
-        isError: clientQuery.isError || categoriesQuery.isError || fieldsQuery.isError ||
-            clientDataQuery.isError || relationsQuery.isError || documentsQuery.isError,
-        error: clientQuery.error || categoriesQuery.error || fieldsQuery.error ||
-            clientDataQuery.error || relationsQuery.error || documentsQuery.error,
-        updateClient: updateClientMutation.mutate,
-        isUpdating: updateClientMutation.isPending,
-    };
+    // Mutaciones
+    updateClient: updateClientMutation.mutate,
+    isUpdating: updateClientMutation.isPending,
+  };
 };
 
 export default useClientData;

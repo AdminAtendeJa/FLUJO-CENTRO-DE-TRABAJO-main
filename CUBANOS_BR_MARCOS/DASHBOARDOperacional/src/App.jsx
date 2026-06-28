@@ -105,6 +105,30 @@ function App() {
     };
   }, []);
 
+  // Debug: global click listener in capture phase to detect overlays blocking clicks
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const path = (e.composedPath && e.composedPath()) || (e.path || []);
+        const top = path && path[0];
+        console.log('[GLOBAL CLICK] target:', e.target, 'topPath0:', top, 'composedPathLen:', path.length);
+        // log first few ancestors with computed z-index and position
+        const info = [];
+        for (let i = 0; i < Math.min(6, path.length); i++) {
+          const el = path[i];
+          if (!el || !el.tagName) continue;
+          const cs = window.getComputedStyle(el);
+          info.push({ tag: el.tagName, id: el.id || null, cls: el.className || null, z: cs.zIndex, pos: cs.position });
+        }
+        console.log('[GLOBAL CLICK] path snapshot:', info);
+      } catch (err) {
+        console.error('[GLOBAL CLICK] error reading path', err);
+      }
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, []);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -152,6 +176,7 @@ function App() {
   };
 
   const navigateToClient = (clientId) => {
+    console.log('[navigateToClient] requested:', clientId);
     setSelectedClientId(clientId);
     setCurrentView('client');
   };
@@ -161,9 +186,10 @@ function App() {
     setCurrentView('dashboard');
   };
 
-  const navigateToClientsList = () => {
+  const navigateToClientsList = (query = '') => {
     setSelectedClientId(null);
     setCurrentView('clients');
+    if (query) setGlobalSearch(query);
   };
 
   const handleSearchChange = (e) => {
@@ -325,13 +351,13 @@ function App() {
                 >
                   {theme === 'dark' ? <Sun size={20} color="var(--color-text-secondary)" /> : <Moon size={20} color="var(--color-text-secondary)" />}
                 </button>
-                <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Bell size={20} color="var(--color-text-secondary)" /></button>
-                <button className="btn btn-ghost" style={{ padding: '0.5rem' }}><Settings size={20} color="var(--color-text-secondary)" /></button>
+                <button className="btn btn-ghost" style={{ padding: '0.5rem' }} aria-label="Notificaciones"><Bell size={20} color="var(--color-text-secondary)" /></button>
+                <button className="btn btn-ghost" style={{ padding: '0.5rem' }} aria-label="Configuración"><Settings size={20} color="var(--color-text-secondary)" /></button>
               </div>
             </header>
 
             <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: currentView === 'client' ? 'hidden' : 'auto' }}>
-              {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} />}
+              {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} onNavigateToClientsList={navigateToClientsList} />}
               {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
               {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}
             </main>

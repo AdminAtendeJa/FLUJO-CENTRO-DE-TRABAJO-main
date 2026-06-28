@@ -1,27 +1,113 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserPlus, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, MapPin, UserPlus } from 'lucide-react';
+import Button from './ui/Button';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
+import Avatar from './ui/Avatar';
+
+const initialFormData = {
+  nombres: '',
+  apellidos: '',
+  cpf: '',
+  carnet_identidad: '',
+  telefono: '',
+  email: '',
+  cep: '',
+  endereco: '',
+  numero: '',
+  complemento: '',
+  bairro: '',
+  cidade: '',
+  estado: '',
+  ponto_referencia: ''
+};
+
+const requiredFields = ['nombres', 'apellidos'];
+const progressFields = ['nombres', 'apellidos', 'cpf', 'telefono', 'email', 'cep', 'endereco', 'cidade', 'estado'];
+
+const validateField = (name, value) => {
+  const clean = String(value || '').trim();
+  if (requiredFields.includes(name) && !clean) return 'Campo obligatorio';
+  if (name === 'email' && clean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return 'Email inválido';
+  if (name === 'cpf' && clean && clean.replace(/\D/g, '').length < 11) return 'CPF incompleto';
+  if (name === 'cep' && clean && clean.replace(/\D/g, '').length !== 8) return 'CEP debe tener 8 dígitos';
+  return '';
+};
+
+const Field = ({ label, name, value, onChange, error, required, children, ...props }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-xs, 4px)' }}>
+    <label
+      htmlFor={`new-client-${name}`}
+      style={{
+        font: 'var(--font-section)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        color: 'var(--color-text-secondary)'
+      }}
+    >
+      {label}{required ? ' *' : ''}
+    </label>
+    {children || (
+      <Input
+        id={`new-client-${name}`}
+        value={value}
+        onChange={(event) => onChange(name, event.target.value)}
+        error={Boolean(error)}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `new-client-${name}-error` : undefined}
+        {...props}
+      />
+    )}
+    {error && (
+      <span id={`new-client-${name}-error`} style={{ fontSize: 12, color: 'var(--color-danger)' }}>
+        {error}
+      </span>
+    )}
+  </div>
+);
 
 export default function NewClientModal({ onClose, onClientCreated }) {
-  const [formData, setFormData] = useState({ 
-    nombres: '', apellidos: '', cpf: '', carnet_identidad: '', telefono: '', email: '',
-    cep: '', endereco: '', numero: '', complemento: '', 
-    bairro: '', cidade: '', estado: '', ponto_referencia: ''
-  });
+  const [formData, setFormData] = useState(initialFormData);
+  const [touched, setTouched] = useState({});
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.nombres || !formData.apellidos) return alert('Nombre(s) y Apellidos son obligatorios');
-    
+  const errors = useMemo(() => {
+    return Object.keys(formData).reduce((acc, key) => {
+      const error = validateField(key, formData[key]);
+      if (error) acc[key] = error;
+      return acc;
+    }, {});
+  }, [formData]);
+
+  const completedCount = progressFields.filter((field) => String(formData[field] || '').trim()).length;
+  const progress = Math.round((completedCount / progressFields.length) * 100);
+  const fullName = `${formData.nombres.trim()} ${formData.apellidos.trim()}`.trim().toUpperCase();
+  const canSubmit = requiredFields.every((field) => !errors[field]) && !errors.email && !errors.cpf && !errors.cep;
+
+  const updateField = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    setErrorMessage('');
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const allTouched = Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {});
+    setTouched(allTouched);
+    if (!canSubmit) {
+      setErrorMessage('Revisa los campos marcados antes de guardar.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const nombreCompleto = `${formData.nombres.trim()} ${formData.apellidos.trim()}`.toUpperCase();
       const { data, error } = await supabase
         .from('clientes')
         .insert([{
-          nombre: nombreCompleto,
+          nombre: fullName,
           cpf: formData.cpf,
           carnet_identidad: formData.carnet_identidad,
           telefono: formData.telefono,
@@ -40,12 +126,12 @@ export default function NewClientModal({ onClose, onClientCreated }) {
         }])
         .select()
         .single();
-        
+
       if (error) throw error;
       onClientCreated(data);
     } catch (err) {
       console.error('Error creating client:', err);
-      alert('Error al crear el cliente.');
+      setErrorMessage('No se pudo crear el cliente. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -53,131 +139,157 @@ export default function NewClientModal({ onClose, onClientCreated }) {
 
   const handleCepSearch = async (cepValue) => {
     const cleanCep = cepValue.replace(/\D/g, '');
-    if (cleanCep.length === 8) {
-      setCepLoading(true);
-      try {
-        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const data = await res.json();
-        if (!data.erro) {
-          setFormData(prev => ({
-            ...prev,
-            endereco: data.logradouro || prev.endereco,
-            bairro: data.bairro || prev.bairro,
-            cidade: data.localidade || prev.cidade,
-            estado: data.uf || prev.estado
-          }));
-        }
-      } catch (err) {
-        console.error('Error fetching CEP:', err);
-      } finally {
-        setCepLoading(false);
+    if (cleanCep.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          endereco: data.logradouro || prev.endereco,
+          bairro: data.bairro || prev.bairro,
+          cidade: data.localidade || prev.cidade,
+          estado: data.uf || prev.estado
+        }));
       }
+    } catch (err) {
+      console.error('Error fetching CEP:', err);
+      setErrorMessage('No se pudo consultar el CEP. Puedes completar la dirección manualmente.');
+    } finally {
+      setCepLoading(false);
     }
   };
 
-  const handleCepChange = (e) => {
-    let val = e.target.value.replace(/\D/g, '');
-    if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
-    setFormData({ ...formData, cep: val });
+  const handleCepChange = (value) => {
+    let val = value.replace(/\D/g, '');
+    if (val.length > 5) val = `${val.substring(0, 5)}-${val.substring(5, 8)}`;
+    updateField('cep', val);
   };
 
+  const visibleError = (field) => touched[field] ? errors[field] : '';
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
-      <form onSubmit={handleSubmit} className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <UserPlus size={20} color="var(--color-primary)" /> Nuevo Cliente
-        </h2>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', flex: 1 }}>
-          <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Datos Personales</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Nombre(s) *</label>
-              <input required type="text" value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value})} style={{width: '100%'}} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Apellidos *</label>
-              <input required type="text" value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value})} style={{width: '100%'}} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>CPF</label>
-              <input type="text" value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} style={{width: '100%'}} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Carnet Identidad (CI)</label>
-              <input type="text" value={formData.carnet_identidad} onChange={e => setFormData({...formData, carnet_identidad: e.target.value})} style={{width: '100%'}} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Teléfono</label>
-              <input type="text" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} style={{width: '100%'}} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Email</label>
-              <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{width: '100%'}} />
-            </div>
+    <Modal
+      isOpen
+      onClose={loading ? undefined : onClose}
+      title="Nuevo cliente"
+      ariaLabel="Formulario para crear nuevo cliente"
+      maxWidth={820}
+      footer={(
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={loading || !canSubmit} form="new-client-form">
+            {loading ? <><Loader2 className="animate-spin" size={16} /> Guardando...</> : 'Crear cliente'}
+          </Button>
+        </>
+      )}
+    >
+      <form id="new-client-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--section-gap, 16px)' }}>
+        {errorMessage && (
+          <div
+            role="alert"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--gap-sm, 8px)',
+              padding: '10px 12px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-danger-border)',
+              background: 'var(--color-danger-bg)',
+              color: 'var(--color-danger)',
+              font: 'var(--font-body)'
+            }}
+          >
+            <AlertTriangle size={16} /> {errorMessage}
           </div>
+        )}
 
-          <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1rem' }}>Endereço</h3>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-              <div style={{ flex: 1, maxWidth: '200px' }}>
-                <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>CEP</label>
-                <input 
-                  type="text" 
-                  value={formData.cep} 
-                  onChange={handleCepChange} 
-                  onBlur={(e) => handleCepSearch(e.target.value)}
-                  placeholder="00000-000"
-                  style={{width: '100%'}} 
-                />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(260px, 0.6fr)', gap: 'var(--section-gap, 16px)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--section-gap, 16px)' }}>
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--card-gap, 12px)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--gap-sm, 8px)', color: 'var(--brand-primary)' }}>
+                <UserPlus size={18} />
+                <h3 style={{ margin: 0, font: 'var(--font-page-title)' }}>Datos principales</h3>
               </div>
-              {cepLoading && <Loader2 className="animate-spin" size={20} color="var(--color-text-secondary)" style={{ marginBottom: '0.5rem' }} />}
-              <a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.875rem', color: 'var(--color-primary)', textDecoration: 'none', marginBottom: '0.5rem', marginLeft: 'auto' }}>No sé mi CEP</a>
-            </div>
+              <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--card-gap, 12px)' }}>
+                <Field label="Nombres" name="nombres" required value={formData.nombres} onChange={updateField} error={visibleError('nombres')} />
+                <Field label="Apellidos" name="apellidos" required value={formData.apellidos} onChange={updateField} error={visibleError('apellidos')} />
+                <Field label="CPF" name="cpf" value={formData.cpf} onChange={updateField} error={visibleError('cpf')} placeholder="000.000.000-00" />
+                <Field label="Carnet / Identidad" name="carnet_identidad" value={formData.carnet_identidad} onChange={updateField} error={visibleError('carnet_identidad')} />
+                <Field label="Teléfono" name="telefono" value={formData.telefono} onChange={updateField} error={visibleError('telefono')} placeholder="+55 ..." />
+                <Field label="Email" name="email" type="email" value={formData.email} onChange={updateField} error={visibleError('email')} placeholder="cliente@email.com" />
+              </div>
+            </section>
 
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Endereço (Calle)</label>
-              <input type="text" value={formData.endereco} onChange={e => setFormData({...formData, endereco: e.target.value})} style={{width: '100%'}} />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Número</label>
-              <input type="text" value={formData.numero} onChange={e => setFormData({...formData, numero: e.target.value})} style={{width: '100%'}} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Complemento</label>
-              <input type="text" value={formData.complemento} onChange={e => setFormData({...formData, complemento: e.target.value})} style={{width: '100%'}} />
-            </div>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Bairro</label>
-              <input type="text" value={formData.bairro} onChange={e => setFormData({...formData, bairro: e.target.value})} style={{width: '100%'}} />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Cidade</label>
-              <input type="text" value={formData.cidade} onChange={e => setFormData({...formData, cidade: e.target.value})} style={{width: '100%'}} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Estado</label>
-              <input type="text" value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value})} style={{width: '100%'}} />
-            </div>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Ponto de Referência</label>
-              <input type="text" value={formData.ponto_referencia} onChange={e => setFormData({...formData, ponto_referencia: e.target.value})} style={{width: '100%'}} />
-            </div>
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--card-gap, 12px)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--gap-sm, 8px)', color: 'var(--brand-primary)' }}>
+                <MapPin size={18} />
+                <h3 style={{ margin: 0, font: 'var(--font-page-title)' }}>Dirección</h3>
+              </div>
+              <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--card-gap, 12px)' }}>
+                <Field label="CEP" name="cep" value={formData.cep} onChange={(_, value) => handleCepChange(value)} error={visibleError('cep')} placeholder="00000-000">
+                  <div style={{ display: 'flex', gap: 'var(--gap-sm, 8px)', alignItems: 'center' }}>
+                    <Input
+                      id="new-client-cep"
+                      value={formData.cep}
+                      onChange={(event) => handleCepChange(event.target.value)}
+                      onBlur={(event) => handleCepSearch(event.target.value)}
+                      error={Boolean(visibleError('cep'))}
+                      placeholder="00000-000"
+                    />
+                    {cepLoading && <Loader2 className="animate-spin" size={18} color="var(--brand-primary)" />}
+                  </div>
+                </Field>
+                <Field label="Estado" name="estado" value={formData.estado} onChange={updateField} error={visibleError('estado')} />
+                <Field label="Ciudad" name="cidade" value={formData.cidade} onChange={updateField} error={visibleError('cidade')} />
+                <Field label="Bairro" name="bairro" value={formData.bairro} onChange={updateField} error={visibleError('bairro')} />
+                <Field label="Endereço / Calle" name="endereco" value={formData.endereco} onChange={updateField} error={visibleError('endereco')} />
+                <Field label="Número" name="numero" value={formData.numero} onChange={updateField} error={visibleError('numero')} />
+                <Field label="Complemento" name="complemento" value={formData.complemento} onChange={updateField} error={visibleError('complemento')} />
+                <Field label="Punto referencia" name="ponto_referencia" value={formData.ponto_referencia} onChange={updateField} error={visibleError('ponto_referencia')} />
+              </div>
+            </section>
           </div>
-        </div>
-        
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? <Loader2 className="animate-spin" size={16} /> : 'Crear Cliente'}
-          </button>
+
+          <aside style={{ display: 'flex', flexDirection: 'column', gap: 'var(--card-gap, 12px)' }}>
+            <div style={{ padding: 'var(--card-padding)', borderRadius: 'var(--card-radius)', border: '1px solid var(--border-default)', background: 'var(--surface-elevated)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--gap-md, 12px)', marginBottom: 'var(--gap-md, 12px)' }}>
+                <Avatar name={fullName || 'Nuevo Cliente'} size={48} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ font: 'var(--font-body)', fontWeight: 500, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {fullName || 'NOMBRE DEL CLIENTE'}
+                  </div>
+                  <div style={{ font: 'var(--font-body)', color: 'var(--color-text-secondary)' }}>
+                    Preview antes de guardar
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-sm, 8px)', font: 'var(--font-body)' }}>
+                <span><strong>CPF:</strong> <code style={{ font: 'var(--font-data)' }}>{formData.cpf || '—'}</code></span>
+                <span><strong>Teléfono:</strong> {formData.telefono || '—'}</span>
+                <span><strong>Email:</strong> {formData.email || '—'}</span>
+                <span><strong>Ciudad:</strong> {[formData.cidade, formData.estado].filter(Boolean).join(' / ') || '—'}</span>
+              </div>
+            </div>
+
+            <div style={{ padding: 'var(--card-padding)', borderRadius: 'var(--card-radius)', border: '1px solid var(--border-default)', background: 'var(--surface-raised)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--gap-sm, 8px)', font: 'var(--font-body)' }}>
+                <span>Progreso</span>
+                <strong>{completedCount}/{progressFields.length}</strong>
+              </div>
+              <div style={{ height: 8, borderRadius: 'var(--radius-full)', background: 'var(--surface-elevated)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${progress}%`, background: 'var(--brand-primary)', transition: 'width var(--transition-normal)' }} />
+              </div>
+              {canSubmit && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--gap-xs, 4px)', marginTop: 'var(--gap-sm, 8px)', color: 'var(--color-success)', font: 'var(--font-body)' }}>
+                  <CheckCircle2 size={14} /> Listo para guardar
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

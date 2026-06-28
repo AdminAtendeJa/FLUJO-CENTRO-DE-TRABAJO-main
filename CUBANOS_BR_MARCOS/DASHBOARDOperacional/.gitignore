@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Agente 5 — Variables de entorno (NUNCA commitear credenciales)
+.env
+.env.*
+!.env.example
+
+# Caché de Vite
+.vite/
+vite.config.ts.timestamp-*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +31,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Scripts de refactorización temporales
+*.cjs
+refactor*.js
+patch_*.js

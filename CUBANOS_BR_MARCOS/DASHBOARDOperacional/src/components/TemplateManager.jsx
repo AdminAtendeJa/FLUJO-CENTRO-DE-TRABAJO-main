@@ -353,7 +353,11 @@ export default function TemplateManager({ client, clienteDatos }) {
                     <div style={{
                       fontSize: '0.68rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem',
                     }}>
-                      {new Date(template.creado_en).toLocaleDateString()} • {template.tipo_contenido?.split('/')[1]?.toUpperCase() || 'DOC'}
+                      {new Date(template.creado_en).toLocaleDateString()}
+                      {template.actualizado_en && template.actualizado_en !== template.creado_en ? (
+                        <span> • Actualizado: {new Date(template.actualizado_en).toLocaleDateString()}</span>
+                      ) : null}
+                      <span> • {template.tipo_contenido?.split('/')[1]?.toUpperCase() || 'DOC'}</span>
                     </div>
 
                     {/* Actions */}

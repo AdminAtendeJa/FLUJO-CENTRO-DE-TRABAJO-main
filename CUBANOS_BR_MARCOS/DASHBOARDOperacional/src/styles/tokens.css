@@ -1,0 +1,366 @@
+/**
+ * tokens.css — Design System Tokens
+ * Agente Visual 2: Sistema de diseño unificado
+ * Primary: #534AB7 | Escala de espaciado consistente
+ */
+
+/* ─────────────────────────────────────────────
+   PALETA DE COLORES — Modo oscuro (default)
+───────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --brand-primary:       #534AB7;
+  --brand-primary-dark:  #3C3489;
+  --brand-primary-light: rgba(83, 74, 183, 0.15);
+  --brand-primary-glow:  rgba(83, 74, 183, 0.25);
+
+  /* Semantic */
+  --color-success:       #10b981;
+  --color-success-bg:    rgba(16, 185, 129, 0.12);
+  --color-success-border:rgba(16, 185, 129, 0.3);
+
+  --color-warning:       #f59e0b;
+  --color-warning-bg:    rgba(245, 158, 11, 0.12);
+  --color-warning-border:rgba(245, 158, 11, 0.3);
+
+  --color-danger:        #ef4444;
+  --color-danger-bg:     rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(239, 68, 68, 0.3);
+
+  --color-info:          #3b82f6;
+  --color-info-bg:       rgba(59, 130, 246, 0.12);
+  --color-info-border:   rgba(59, 130, 246, 0.3);
+
+  /* Tramite status colors */
+  --status-pendiente:         #f59e0b;
+  --status-pendiente-bg:      rgba(245, 158, 11, 0.1);
+  --status-pendiente-border:  rgba(245, 158, 11, 0.25);
+
+  --status-procesando:        #3b82f6;
+  --status-procesando-bg:     rgba(59, 130, 246, 0.1);
+  --status-procesando-border: rgba(59, 130, 246, 0.25);
+
+  --status-esperando:         #a855f7;
+  --status-esperando-bg:      rgba(168, 85, 247, 0.1);
+  --status-esperando-border:  rgba(168, 85, 247, 0.25);
+
+  --status-completada:        #10b981;
+  --status-completada-bg:     rgba(16, 185, 129, 0.1);
+  --status-completada-border: rgba(16, 185, 129, 0.25);
+
+  --status-cancelada:         #ef4444;
+  --status-cancelada-bg:      rgba(239, 68, 68, 0.1);
+  --status-cancelada-border:  rgba(239, 68, 68, 0.25);
+
+  /* ── Surface (Dark) ── */
+  --surface-canvas:   #090e1a;
+  --surface-base:     #0f172a;
+  --surface-raised:   rgba(22, 33, 56, 0.85);
+  --surface-elevated: rgba(30, 44, 74, 0.9);
+  --surface-overlay:  rgba(6, 10, 20, 0.7);
+
+  --border-subtle:    rgba(148, 163, 184, 0.08);
+  --border-default:   rgba(148, 163, 184, 0.14);
+  --border-strong:    rgba(148, 163, 184, 0.28);
+
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted:     #475569;
+  --text-disabled:  #334155;
+
+  /* ── Radius ── */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  /* ── Spacing ── */
+  --gap-xs:   4px;
+  --gap-sm:   8px;
+  --gap-md:   12px;
+  --gap-lg:   16px;
+  --gap-xl:   24px;
+  --gap-2xl:  32px;
+
+  --card-padding:  14px 16px;
+  --card-gap:      12px;
+  --section-gap:   16px;
+  --card-radius:   10px;
+  --badge-radius:  20px;
+
+  /* ── Typography ── */
+  --font-page-title:  500 15px/1.4 'Inter', sans-serif;
+  --font-section:     500 10px/1 'Inter', sans-serif;
+  --font-body:        400 13px/1.5 'Inter', sans-serif;
+  --font-data:        500 13px/1.5 'JetBrains Mono', 'Courier New', monospace;
+
+  /* ── Shadows ── */
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+  --shadow-lg:    0 10px 30px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-glow:  0 0 0 2px var(--brand-primary-glow);
+  --shadow-glass: 0 4px 30px rgba(0,0,0,0.15);
+
+  /* ── Transitions ── */
+  --transition-fast:   0.12s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow:   0.35s ease;
+
+  /* ── Aliases para compatibilidad con código existente ── */
+  --color-primary:        var(--brand-primary);
+  --color-primary-hover:  var(--brand-primary-dark);
+  --color-bg-canvas:      var(--surface-canvas);
+  --color-bg-base:        var(--surface-base);
+  --color-bg-surface:     var(--surface-raised);
+  --color-bg-elevated:    var(--surface-elevated);
+  --color-bg-secondary:   var(--surface-raised);
+  --color-bg-primary:     var(--surface-base);
+  --color-border:         var(--border-default);
+  --color-border-hover:   var(--border-strong);
+  --color-text-primary:   var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:     var(--text-muted);
+  --color-text-disabled:  var(--text-disabled);
+  --color-danger:         var(--color-danger);
+  --color-error:          var(--color-danger);
+
+  --bg-gradient:
+    radial-gradient(ellipse at 0% 0%, rgba(83,74,183,0.18) 0px, transparent 55%),
+    radial-gradient(ellipse at 100% 0%, rgba(16,185,129,0.10) 0px, transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(59,130,246,0.06) 0px, transparent 60%);
+}
+
+/* ─────────────────────────────────────────────
+   BADGE (already uses token classes)
+──────────────────────────────────────────── */
+[data-theme="light"] {
+  --surface-canvas:   #f0f4f8;
+  --surface-base:     #f8fafc;
+  --surface-raised:   rgba(255,255,255,0.9);
+  --surface-elevated: rgba(241,245,249,0.95);
+  --surface-overlay:  rgba(241,245,249,0.8);
+
+  --border-subtle:    rgba(100,116,139,0.1);
+  --border-default:   rgba(100,116,139,0.18);
+  --border-strong:    rgba(100,116,139,0.35);
+
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --text-disabled:  #cbd5e1;
+
+  --brand-primary:       #534AB7;
+  --brand-primary-dark:  #3C3489;
+  --brand-primary-light: rgba(83,74,183,0.1);
+
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.06);
+  --shadow-lg:    0 10px 30px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-glass: 0 4px 24px rgba(0,0,0,0.08);
+
+  --color-bg-canvas:      var(--surface-canvas);
+  --color-bg-base:        var(--surface-base);
+  --color-bg-surface:     var(--surface-raised);
+  --color-bg-elevated:    var(--surface-elevated);
+  --color-bg-secondary:   var(--surface-raised);
+  --color-bg-primary:     var(--surface-base);
+  --color-border:         var(--border-default);
+  --color-border-hover:   var(--border-strong);
+  --color-text-primary:   var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:     var(--text-muted);
+  --color-text-disabled:  var(--text-disabled);
+  --color-danger:         var(--color-danger);
+  --color-error:          var(--color-danger);
+
+  --bg-gradient:
+    radial-gradient(ellipse at 0% 0%, rgba(83,74,183,0.08) 0px, transparent 55%),
+    radial-gradient(ellipse at 100% 0%, rgba(16,185,129,0.05) 0px, transparent 55%);
+}
+
+/* ─────────────────────────────────────────────
+   KEYFRAMES
+───────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes slideRight {
+  from { transform: translateX(-6px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────
+   GLOBAL SURFACE / BUTTON / CARD CLASSES
+───────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+.glass-panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--color-text-primary);
+}
+
+.glass-panel-elevated {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--color-text-primary);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--brand-primary); color: white; border-color: var(--brand-primary-dark); }
+.btn-secondary { background: var(--surface-elevated); color: var(--color-text-primary); border-color: var(--border-default); }
+.btn-ghost { background: transparent; color: var(--color-text-secondary); border-color: transparent; }
+.btn-danger { background: var(--color-danger); color: white; border-color: var(--color-danger-border); }
+.btn-sm { min-height: 36px; padding: 6px 10px; font-size: 0.75rem; }
+
+/* ─────────────────────────────────────────────
+   STATUS BADGE CLASSES (shared everywhere)
+───────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--badge-radius);
+  font: var(--font-section);
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.badge-pendiente   { background: var(--status-pendiente-bg);   color: var(--status-pendiente);   border-color: var(--status-pendiente-border); }
+.badge-procesando  { background: var(--status-procesando-bg);  color: var(--status-procesando);  border-color: var(--status-procesando-border); }
+.badge-esperando   { background: var(--status-esperando-bg);   color: var(--status-esperando);   border-color: var(--status-esperando-border); }
+.badge-completada  { background: var(--status-completada-bg);  color: var(--status-completada);  border-color: var(--status-completada-border); }
+.badge-cancelada   { background: var(--status-cancelada-bg);   color: var(--status-cancelada);   border-color: var(--status-cancelada-border); }
+.badge-success     { background: var(--color-success-bg);      color: var(--color-success);      border-color: var(--color-success-border); }
+.badge-warning     { background: var(--color-warning-bg);      color: var(--color-warning);      border-color: var(--color-warning-border); }
+.badge-danger      { background: var(--color-danger-bg);       color: var(--color-danger);       border-color: var(--color-danger-border); }
+.badge-info        { background: var(--color-info-bg);         color: var(--color-info);         border-color: var(--color-info-border); }
+
+/* ─────────────────────────────────────────────
+   SKELETON LOADER
+───────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-elevated) 25%,
+    var(--surface-overlay)  50%,
+    var(--surface-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ─────────────────────────────────────────────
+   CARD CLICKEABLE
+───────────────────────────────────────────── */
+.card-clickable {
+  cursor: pointer;
+  transition:
+    border-color var(--transition-normal, 0.2s ease),
+    background   var(--transition-normal, 0.2s ease);
+}
+.card-clickable:hover {
+  border-color: var(--border-strong) !important;
+  background: var(--surface-elevated) !important;
+}
+.card-clickable:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────
+   TRAMITE CARD (borde izquierdo de color)
+───────────────────────────────────────────── */
+.tramite-card {
+  border-left: 3px solid transparent;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.tramite-card-pendiente  { border-left-color: var(--status-pendiente); }
+.tramite-card-procesando { border-left-color: var(--status-procesando); }
+.tramite-card-esperando  { border-left-color: var(--status-esperando); }
+.tramite-card-completada { border-left-color: var(--status-completada); }
+.tramite-card-cancelada  { border-left-color: var(--status-cancelada); }
+
+/* ─────────────────────────────────────────────
+   FOCUS VISIBLE GLOBAL
+───────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible) {
+  outline: none;
+}

@@ -91,3 +91,18 @@ export async function deleteDocument(doc) {
     return { success: false, error: err.message || 'Error eliminando el documento.' };
   }
 }
+
+/**
+ * Obtiene todos los documentos de un cliente ordenados por fecha descendente.
+ * @param {number|string} clientId
+ * @returns {Promise<object[]>}
+ */
+export async function getDocuments(clientId) {
+  const { data, error } = await supabase
+    .from('documentos_operacionales')
+    .select('*')
+    .eq('id_cliente', clientId)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
