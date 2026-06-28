@@ -11,6 +11,9 @@ export const useNavigation = (isReady = true) => {
         const hash = window.location.hash;
         if (hash.startsWith('#client/')) return 'client';
         if (hash === '#clients') return 'clients';
+        if (hash === '#dashboard') return 'dashboard';
+        const saved = localStorage.getItem('app_currentView');
+        if (saved) return saved;
         return 'dashboard';
     });
 
@@ -20,12 +23,20 @@ export const useNavigation = (isReady = true) => {
             const idStr = hash.replace('#client/', '');
             return idStr ? Number(idStr) : null;
         }
-        return null;
+        const saved = localStorage.getItem('app_selectedClientId');
+        return saved ? Number(saved) : null;
     });
 
-    // Sync state → URL hash
+    // Sync state → URL hash & localStorage
     useEffect(() => {
         if (!isReady) return;
+        localStorage.setItem('app_currentView', currentView);
+        if (selectedClientId) {
+            localStorage.setItem('app_selectedClientId', selectedClientId);
+        } else {
+            localStorage.removeItem('app_selectedClientId');
+        }
+
         if (currentView === 'client' && selectedClientId) {
             window.location.hash = `client/${selectedClientId}`;
         } else if (currentView === 'clients') {
