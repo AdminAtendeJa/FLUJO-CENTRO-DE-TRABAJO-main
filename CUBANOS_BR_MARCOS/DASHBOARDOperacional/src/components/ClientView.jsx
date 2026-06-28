@@ -25,6 +25,7 @@ import ClientViewRelateModal from './ClientViewRelateModal';
 import ClientViewNewTramiteModal from './ClientViewNewTramiteModal';
 import ClientViewEditModal from './ClientViewEditModal';
 import ClientViewExtractionModal from './ClientViewExtractionModal';
+import ClientKommoData from './ClientKommoData';
 import { findDuplicateContacts } from '../utils/contactUtils';
 import DuplicateContactsWarning from './DuplicateContactsWarning';
 import useClientData from '../hooks/useClientData';
@@ -885,8 +886,19 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         openEditModal={openEditModal}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
-        {/* Columna Izquierda: Datos Personales y Trámites */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
+        {/* Columna Izquierda Nueva: Kommo CRM Data */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
+          <ClientKommoData 
+            clientId={clientId} 
+            onDocumentVerified={() => {
+              fetchClientData(true);
+              toast.success('Documento de Kommo procesado correctamente');
+            }} 
+          />
+        </div>
+
+        {/* Columna Centro: Datos Personales y Trámites */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
           <ClientPersonalData
             client={client}
