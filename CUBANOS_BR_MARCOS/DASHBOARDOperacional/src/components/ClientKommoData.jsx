@@ -93,21 +93,37 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
         <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
           <MessageSquare size={18} /> Notas del Lead (Kommo)
         </h3>
-        <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.875rem', color: 'var(--color-text-secondary)', minHeight: '100px', maxHeight: '200px', overflowY: 'auto' }}>
+        <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.875rem', color: 'var(--color-text-secondary)', minHeight: '100px', maxHeight: '300px', overflowY: 'auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {loading ? (
-              <div style={{ textAlign: 'center', opacity: 0.5 }}>Cargando notas...</div>
+              <div style={{ textAlign: 'center', opacity: 0.5 }}>Cargando historial...</div>
             ) : notes.length === 0 ? (
-              <p style={{ margin: 0 }}><em>No hay mensajes de texto sincronizados para este cliente.</em></p>
+              <p style={{ margin: 0 }}><em>No hay historial de chat sincronizado para este cliente.</em></p>
             ) : (
-              notes.map(nota => (
-                <div key={nota.id} style={{ background: 'var(--color-bg-canvas)', padding: '0.75rem', borderRadius: '6px', borderLeft: '3px solid var(--color-primary)' }}>
-                  <p style={{ margin: '0 0 0.25rem 0', color: 'var(--color-text-primary)' }}>{nota.texto}</p>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                    {new Date(nota.fecha_recepcion).toLocaleString()}
-                  </span>
-                </div>
-              ))
+              notes.map(nota => {
+                const isIncoming = !nota.remitente || nota.remitente === 'incoming';
+                return (
+                  <div key={nota.id} style={{ 
+                    alignSelf: isIncoming ? 'flex-start' : 'flex-end',
+                    background: isIncoming ? 'var(--color-bg-canvas)' : 'var(--color-primary)',
+                    color: isIncoming ? 'var(--color-text-primary)' : 'white',
+                    padding: '0.75rem', 
+                    borderRadius: '12px', 
+                    borderBottomLeftRadius: isIncoming ? '2px' : '12px',
+                    borderBottomRightRadius: !isIncoming ? '2px' : '12px',
+                    maxWidth: '90%',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                  }}>
+                    <p style={{ margin: '0 0 0.25rem 0', fontWeight: 500, fontSize: '0.75rem', opacity: 0.8 }}>
+                      {isIncoming ? '👤 Cliente' : '🤵 Nosotros'}
+                    </p>
+                    <p style={{ margin: '0 0 0.25rem 0' }}>{nota.texto}</p>
+                    <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>
+                      {new Date(nota.fecha_recepcion).toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

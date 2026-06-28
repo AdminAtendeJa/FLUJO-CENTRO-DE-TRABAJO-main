@@ -135,6 +135,10 @@
             {
               "column": "texto",
               "value": "={{ $('Webhook (Recibe de Kommo)').item.json.body[\"message[add][0][text]\"] }}"
+            },
+            {
+              "column": "remitente",
+              "value": "={{ $('Webhook (Recibe de Kommo)').item.json.body[\"message[add][0][type]\"] }}"
             }
           ]
         }

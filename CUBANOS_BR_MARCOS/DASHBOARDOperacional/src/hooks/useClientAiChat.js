@@ -32,8 +32,22 @@ export default function useClientAiChat(client, clienteDatos = [], entradas = []
         ]);
       }
 
+      // Fetch notas from Supabase
+      const { data: notasData } = await supabase
+        .from('notas_kommo')
+        .select('*')
+        .eq('cliente_id', client.id)
+        .order('fecha_recepcion', { ascending: false });
+
+      const notasText = (notasData && notasData.length > 0) 
+        ? "Historial de Chat de WhatsApp (Kommo):\n" + notasData.map(n => {
+            const remitente = (!n.remitente || n.remitente === 'incoming') ? 'Cliente' : 'Agente CubanosBR';
+            return `- [${new Date(n.fecha_recepcion).toLocaleString()}] ${remitente}: ${n.texto}`;
+          }).join('\n')
+        : "";
+
       const n8nData = await getChatHistoryFromN8n(client.id_kommo || client.id_crm);
-      setCrmContext(n8nData || 'CRM sin historial');
+      setCrmContext(`${notasText}\n\nHistorial CRM Externo:\n${n8nData || 'CRM sin historial'}`);
     } catch (err) {
       console.error('[useClientAiChat] loadChatHistory:', err);
       toast.error('No se pudo cargar el historial de chat.');

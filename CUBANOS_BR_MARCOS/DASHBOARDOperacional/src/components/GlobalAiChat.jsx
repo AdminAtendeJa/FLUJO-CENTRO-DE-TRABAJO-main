@@ -7,7 +7,7 @@ import { Sparkles, X, Send, Loader2, Trash2 } from 'lucide-react';
 // - searchClientsByName / search
 // - countPendingProcedures / procedures / tramites
 
-export const GlobalAiChat = () => {
+export const GlobalAiChat = ({ isVisible = true, onNavigateToClient }) => {
   const {
     isOpen: isChatOpen,
     setIsOpen,
@@ -49,6 +49,8 @@ export const GlobalAiChat = () => {
       handleSubmit(e);
     }
   };
+
+  if (!isVisible) return null;
 
   if (!isChatOpen) {
     return (
@@ -169,25 +171,66 @@ export const GlobalAiChat = () => {
           gap: '0.75rem',
         }}
       >
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            style={{
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
-              padding: '0.75rem 1rem',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
-              color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
-              fontSize: '0.85rem',
-              lineHeight: 1.4,
-              whiteSpace: 'pre-wrap',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
-            }}
-          >
-            {msg.content}
-          </div>
-        ))}
+        {messages.map((msg, idx) => {
+          // Parse view client tags
+          const parts = msg.content.split(/(\[VIEW_CLIENT:\d+:?[^\]]*\])/g);
+          
+          return (
+            <div
+              key={idx}
+              style={{
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '85%',
+                padding: '0.75rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
+                color: msg.role === 'user' ? 'white' : 'var(--color-text-primary)',
+                fontSize: '0.85rem',
+                lineHeight: 1.4,
+                whiteSpace: 'pre-wrap',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              {parts.map((part, pIdx) => {
+                const match = part.match(/\[VIEW_CLIENT:(\d+):?([^\]]*)\]/);
+                if (match) {
+                  const clientId = parseInt(match[1], 10);
+                  const clientName = match[2] || 'Ver Cliente';
+                  return (
+                    <button
+                      key={pIdx}
+                      onClick={() => {
+                        if (onNavigateToClient) {
+                          onNavigateToClient(clientId);
+                          closeGlobalAi(); // Opcional: cerrar el chat al navegar
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        background: 'var(--color-bg-primary)',
+                        color: 'var(--color-primary)',
+                        border: '1px solid var(--color-primary)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        marginTop: '0.75rem',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        width: '100%',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <Sparkles size={16} /> Ir al perfil: {clientName}
+                    </button>
+                  );
+                }
+                return <span key={pIdx}>{part}</span>;
+              })}
+            </div>
+          );
+        })}
         {isLoading && (
           <div
             style={{

@@ -276,7 +276,7 @@ function App() {
             />
           )}
 
-          <GlobalAiChat />
+          <GlobalAiChat isVisible={currentView !== 'client'} onNavigateToClient={navigateToClient} />
         </div>
       </ErrorBoundary>
     </GlobalAiChatProvider>
