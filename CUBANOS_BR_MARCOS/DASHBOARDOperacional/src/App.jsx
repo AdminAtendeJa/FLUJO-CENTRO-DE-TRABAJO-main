@@ -1,25 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   LayoutDashboard,
   Users,
   FileText,
-  Settings,
   Search,
-  Plus,
   Bell,
   UserPlus,
   Sun,
   Moon,
   ArrowLeft,
-  User,
-  UserSearch,
-  MessageCircle,
-  LogOut,
-  ChevronDown,
-  Filter,
-  Search as SearchIcon,
-  Bell as BellIcon,
-  Settings as SettingsIcon
+  Settings,
 } from 'lucide-react';
 import HomeView from './components/HomeView';
 import ClientView from './components/ClientView';
@@ -28,107 +18,46 @@ import NewClientModal from './components/NewClientModal';
 import { GlobalAiChatProvider } from './context/GlobalAiChatContext';
 import { GlobalAiChat } from './components/GlobalAiChat';
 import { supabase } from './supabaseClient';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from './context/ThemeContext';
-// import { useTheme } from './hooks/useTheme'; // Comentado temporalmente para evitar error de importación
+import { useTheme } from './context/ThemeContext';
 import { useSession } from './hooks/useSession';
 import { useNavigation } from './hooks/useNavigation';
 import { useSearch } from './hooks/useSearch';
-import { useClients } from './hooks/useClients';
-import { useGlobalAiChat } from './hooks/useGlobalAiChat';
-import { usePermissions } from './hooks/usePermissions';
-import { useNotifications } from './hooks/useNotifications';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { NotificationToast } from './components/NotificationToast';
 import './App.css';
 
-// Configuración de React Query
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutos antes de considerar los datos como obsoletos
-      cacheTime: 10 * 60 * 1000, // 10 minutos antes de eliminar de la caché
-      retry: 2, // Reintentar 2 veces en caso de error
-      retryDelay: (attemptIndex) => {
-        // Incrementar el delay entre reintentos (exponential backoff)
-        return Math.min(1000 * 2 ** attemptIndex, 30000); // Máximo 30 segundos
-      },
-      refetchOnWindowFocus: false, // Desactivar refetch automático al enfocar ventana para mejor rendimiento
-      refetchOnReconnect: true, // Refetch al reconectar
-    },
-  },
-});
-
 function App() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // --- Auth ---
+  const { session, loading } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
 
-  const [currentView, setCurrentView] = useState(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith('#client/')) return 'client';
-    if (hash === '#clients') return 'clients';
-    return 'dashboard';
-  });
-  const [selectedClientId, setSelectedClientId] = useState(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith('#client/')) {
-      const idStr = hash.replace('#client/', '');
-      return idStr ? Number(idStr) : null;
+  // --- Navigation (hash-based SPA routing) ---
+  const {
+    currentView,
+    selectedClientId,
+    navigateToClient,
+    navigateToHome,
+    navigateToClientsList,
+  } = useNavigation(!!session);
+
+  // --- Search ---
+  const onSearchStart = useCallback(() => {
+    if (currentView !== 'clients') {
+      navigateToClientsList();
     }
-    return null;
-  });
-  const [globalSearch, setGlobalSearch] = useState('');
+  }, [currentView, navigateToClientsList]);
+
+  const { globalSearch, setGlobalSearch, handleSearchChange } = useSearch(onSearchStart);
+
+  // --- Theme ---
+  const { theme, toggleTheme } = useTheme();
+
+  // --- New Client Modal ---
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // Debug: global click listener in capture phase to detect overlays blocking clicks
-  useEffect(() => {
-    const handler = (e) => {
-      try {
-        const path = (e.composedPath && e.composedPath()) || (e.path || []);
-        const top = path && path[0];
-        console.log('[GLOBAL CLICK] target:', e.target, 'topPath0:', top, 'composedPathLen:', path.length);
-        // log first few ancestors with computed z-index and position
-        const info = [];
-        for (let i = 0; i < Math.min(6, path.length); i++) {
-          const el = path[i];
-          if (!el || !el.tagName) continue;
-          const cs = window.getComputedStyle(el);
-          info.push({ tag: el.tagName, id: el.id || null, cls: el.className || null, z: cs.zIndex, pos: cs.position });
-        }
-        console.log('[GLOBAL CLICK] path snapshot:', info);
-      } catch (err) {
-        console.error('[GLOBAL CLICK] error reading path', err);
-      }
-    };
-    document.addEventListener('click', handler, true);
-    return () => document.removeEventListener('click', handler, true);
-  }, []);
-
+  // --- Login ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -138,67 +67,7 @@ function App() {
     }
   };
 
-  // Sync state to URL hash
-  useEffect(() => {
-    if (!session) return;
-    if (currentView === 'client' && selectedClientId) {
-      window.location.hash = `client/${selectedClientId}`;
-    } else if (currentView === 'clients') {
-      window.location.hash = 'clients';
-    } else {
-      window.location.hash = 'dashboard';
-    }
-  }, [currentView, selectedClientId, session]);
-
-  // Listen to browser Back/Forward buttons and manual hash changes
-  useEffect(() => {
-    const handleHashChange = () => {
-      if (!session) return;
-      const hash = window.location.hash;
-      if (hash.startsWith('#client/')) {
-        setCurrentView('client');
-        const idStr = hash.replace('#client/', '');
-        setSelectedClientId(idStr ? Number(idStr) : null);
-      } else if (hash === '#clients') {
-        setCurrentView('clients');
-        setSelectedClientId(null);
-      } else {
-        setCurrentView('dashboard');
-        setSelectedClientId(null);
-      }
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [session]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
-
-  const navigateToClient = (clientId) => {
-    console.log('[navigateToClient] requested:', clientId);
-    setSelectedClientId(clientId);
-    setCurrentView('client');
-  };
-
-  const navigateToHome = () => {
-    setSelectedClientId(null);
-    setCurrentView('dashboard');
-  };
-
-  const navigateToClientsList = (query = '') => {
-    setSelectedClientId(null);
-    setCurrentView('clients');
-    if (query) setGlobalSearch(query);
-  };
-
-  const handleSearchChange = (e) => {
-    setGlobalSearch(e.target.value);
-    if (currentView !== 'clients') {
-      setCurrentView('clients');
-    }
-  };
-
+  // --- Render ---
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-text-primary)' }}>

@@ -3,6 +3,7 @@ import { UploadCloud, FileText, Loader2, Tag, Eye, Trash2, Sparkles, Plus, Searc
 import { uploadTemplate, getTemplates, deleteTemplate, analyzeTemplateWithAI, renderPdfPageAsImage } from '../services/templateService';
 import TemplateEditorModal from './TemplateEditorModal';
 import TemplatePreviewModal from './TemplatePreviewModal';
+import { formatDate } from '../utils/dateFormatter';
 
 /**
  * TemplateManager
@@ -353,9 +354,9 @@ export default function TemplateManager({ client, clienteDatos }) {
                     <div style={{
                       fontSize: '0.68rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem',
                     }}>
-                      {new Date(template.creado_en).toLocaleDateString()}
+                      {formatDate(template.creado_en)}
                       {template.actualizado_en && template.actualizado_en !== template.creado_en ? (
-                        <span> • Actualizado: {new Date(template.actualizado_en).toLocaleDateString()}</span>
+                        <span> • Actualizado: {formatDate(template.actualizado_en)}</span>
                       ) : null}
                       <span> • {template.tipo_contenido?.split('/')[1]?.toUpperCase() || 'DOC'}</span>
                     </div>

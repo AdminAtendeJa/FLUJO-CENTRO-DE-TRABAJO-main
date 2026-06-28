@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, Clock, Loader2 } from 'lucide-react';
+import { formatDate } from '../utils/dateFormatter';
 
 const TRAMITE_COLORS = {
   completada: { bg: 'rgba(29,158,117,0.18)', color: '#1D9E75' },
@@ -65,7 +66,7 @@ export default function ClientViewTramites({
                 </select>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                {new Date(entrada.creado_en).toLocaleDateString()} • {entrada.operario || 'Sin asignar'}
+                {formatDate(entrada.creado_en)} • {entrada.operario || 'Sin asignar'}
               </div>
             </div>
           ))

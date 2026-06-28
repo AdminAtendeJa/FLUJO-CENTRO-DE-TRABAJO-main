@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { User, Search, Loader2, Filter, ArrowDownUp, Calendar, X, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { formatDate } from '../utils/dateFormatter';
 
 export default function ClientListView({ onNavigateToClient, searchQuery }) {
   const [clientes, setClientes] = useState([]);
@@ -179,13 +180,7 @@ export default function ClientListView({ onNavigateToClient, searchQuery }) {
     }
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    // Add timezone offset so it doesn't shift days
-    d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
-    return d.toLocaleDateString();
-  };
+
 
   if (loading) {
     return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}><Loader2 className="animate-spin" size={32} style={{margin:'0 auto'}} /></div>;
