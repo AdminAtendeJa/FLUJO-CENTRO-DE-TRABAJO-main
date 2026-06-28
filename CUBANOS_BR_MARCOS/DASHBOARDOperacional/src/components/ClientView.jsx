@@ -629,7 +629,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         const upperVal = String(value).toUpperCase();
 
         const mappedCol = fieldMap[upperKey];
-        if (mappedCol && (!client[mappedCol] || client[mappedCol] === '')) {
+        if (mappedCol) {
           updates[mappedCol] = upperVal;
         }
       }
@@ -1019,6 +1019,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       <ClientViewExtractionModal
         isOpen={isExtractionModalOpen}
         extractedData={extractedData}
+        cliente={client}
         onClose={() => setIsExtractionModalOpen(false)}
         onExtractedDataChange={setExtractedData}
         onSave={handleSaveExtractedData}
