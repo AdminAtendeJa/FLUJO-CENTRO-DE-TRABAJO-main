@@ -115,7 +115,7 @@ export default function ClientViewEditModal({
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <input type="text" className="form-input" placeholder="00000-000" value={field._cep || ''} onChange={e => updateField({ _cep: e.target.value })} />
                             {handleCepSearch && (
-                              <button className="btn btn-secondary" onClick={() => handleCepSearch(field._cep, (data) => updateField({ _endereco: data.logradouro, _bairro: data.bairro, _cidade: data.localidade, _estado: data.uf }))}>
+                              <button type="button" className="btn btn-secondary" onClick={() => handleCepSearch(field._cep, (data) => updateField({ _endereco: data.logradouro, _bairro: data.bairro, _cidade: data.localidade, _estado: data.uf }))}>
                                 <Search size={14} />
                               </button>
                             )}

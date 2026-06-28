@@ -228,10 +228,15 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               return f;
             }));
           }
+        } else {
+          toast.error("CEP no encontrado en ViaCEP");
         }
       } catch (err) {
         console.error('Error fetching CEP:', err);
+        toast.error("Error al conectar con ViaCEP");
       }
+    } else {
+      toast.error("El CEP debe tener 8 números");
     }
   };
 
