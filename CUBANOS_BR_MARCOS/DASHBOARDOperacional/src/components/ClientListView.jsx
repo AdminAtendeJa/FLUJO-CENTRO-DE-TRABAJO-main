@@ -25,21 +25,38 @@ export default function ClientListView({ onNavigateToClient, searchQuery }) {
   useEffect(() => {
     async function fetchClientes() {
       try {
-        const { data: clientesData, error: err1 } = await supabase
-          .from('clientes')
-          .select('*')
-          .order('creado_en', { ascending: false });
-          
-        if (err1) throw err1;
+        // Fetch all clientes bypassing 1000 limit
+        let allClientes = [];
+        let fromC = 0;
+        const step = 999;
+        while (true) {
+          const { data: batch, error: err1 } = await supabase
+            .from('clientes')
+            .select('*')
+            .order('creado_en', { ascending: false })
+            .range(fromC, fromC + step);
+          if (err1) throw err1;
+          allClientes = allClientes.concat(batch || []);
+          if (!batch || batch.length <= step) break;
+          fromC += step + 1;
+        }
 
-        const { data: opData, error: err2 } = await supabase
-          .from('cliente_datos_operacionales')
-          .select('*');
-          
-        if (err2) throw err2;
+        // Fetch all operational data bypassing 1000 limit
+        let allOpData = [];
+        let fromOp = 0;
+        while (true) {
+          const { data: batchOp, error: err2 } = await supabase
+            .from('cliente_datos_operacionales')
+            .select('*')
+            .range(fromOp, fromOp + step);
+          if (err2) throw err2;
+          allOpData = allOpData.concat(batchOp || []);
+          if (!batchOp || batchOp.length <= step) break;
+          fromOp += step + 1;
+        }
 
-        const merged = (clientesData || []).map(c => {
-           const datos = (opData || []).filter(d => d.id_cliente === c.id);
+        const merged = allClientes.map(c => {
+           const datos = allOpData.filter(d => d.id_cliente === c.id);
            datos.forEach(d => {
              c[d.campo_id] = d.valor;
            });

@@ -113,7 +113,13 @@ export default function ClientViewEditModal({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>CEP</label>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input type="text" className="form-input" placeholder="00000-000" value={field._cep || ''} onChange={e => updateField({ _cep: e.target.value })} />
+                            <input type="text" className="form-input" placeholder="00000-000" value={field._cep || ''} onChange={e => {
+                              const val = e.target.value;
+                              updateField({ _cep: val });
+                              if (val.replace(/\D/g, '').length === 8 && handleCepSearch) {
+                                handleCepSearch(val, (data) => updateField({ _endereco: data.logradouro, _bairro: data.bairro, _cidade: data.localidade, _estado: data.uf }));
+                              }
+                            }} />
                             {handleCepSearch && (
                               <button type="button" className="btn btn-secondary" onClick={() => handleCepSearch(field._cep, (data) => updateField({ _endereco: data.logradouro, _bairro: data.bairro, _cidade: data.localidade, _estado: data.uf }))}>
                                 <Search size={14} />

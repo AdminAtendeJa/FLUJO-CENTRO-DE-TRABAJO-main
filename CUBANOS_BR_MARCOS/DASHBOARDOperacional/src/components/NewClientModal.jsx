@@ -167,6 +167,9 @@ export default function NewClientModal({ onClose, onClientCreated }) {
     let val = value.replace(/\D/g, '');
     if (val.length > 5) val = `${val.substring(0, 5)}-${val.substring(5, 8)}`;
     updateField('cep', val);
+    if (val.replace(/\D/g, '').length === 8) {
+      handleCepSearch(val);
+    }
   };
 
   const visibleError = (field) => touched[field] ? errors[field] : '';
