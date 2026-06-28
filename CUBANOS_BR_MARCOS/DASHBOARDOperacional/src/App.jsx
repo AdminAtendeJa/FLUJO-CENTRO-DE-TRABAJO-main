@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +10,8 @@ import {
   Moon,
   ArrowLeft,
   Settings,
+  Menu,
+  X,
 } from 'lucide-react';
 import HomeView from './components/HomeView';
 import ClientView from './components/ClientView';
@@ -41,6 +43,17 @@ function App() {
     navigateToHome,
     navigateToClientsList,
   } = useNavigation(!!session);
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Automatically close sidebar on client view
+  useEffect(() => {
+    if (currentView === 'client') {
+      setIsSidebarOpen(false);
+    } else {
+      setIsSidebarOpen(true);
+    }
+  }, [currentView]);
 
   // --- Search ---
   const onSearchStart = useCallback(() => {
@@ -114,15 +127,31 @@ function App() {
         <div className="app-layout" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
 
           {/* Sidebar */}
-          <aside style={{ width: '240px', background: 'var(--color-bg-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '2rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ width: '32px', height: '32px', background: 'var(--color-primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <FileText size={18} color="white" />
+          <aside style={{ 
+              width: isSidebarOpen ? '240px' : '0px', 
+              background: 'var(--color-bg-surface)', 
+              borderRight: isSidebarOpen ? '1px solid var(--color-border)' : 'none', 
+              display: 'flex', 
+              flexDirection: 'column',
+              transition: 'all 0.3s ease',
+              overflow: 'hidden',
+              opacity: isSidebarOpen ? 1 : 0
+            }}>
+            <div style={{ padding: '2rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: '240px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '32px', height: '32px', background: 'var(--color-primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileText size={18} color="white" />
+                </div>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.025em', margin: 0 }}>OpDash</h1>
               </div>
-              <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.025em' }}>OpDash</h1>
+              {currentView === 'client' && isSidebarOpen && (
+                <button onClick={() => setIsSidebarOpen(false)} className="btn btn-ghost" style={{ padding: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Cerrar menú">
+                  <X size={20} />
+                </button>
+              )}
             </div>
 
-            <nav style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+            <nav style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minWidth: '240px' }}>
               <button
                 onClick={navigateToHome}
                 style={{
@@ -162,7 +191,7 @@ function App() {
               </button>
             </nav>
 
-            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '240px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
                   AD
@@ -186,12 +215,17 @@ function App() {
           </aside>
 
           {/* Main Content Area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'transparent', overflow: 'hidden' }}>
 
-            {/* Top Bar / Search */}
-            <header style={{ height: '70px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', padding: '0 2.5rem', justifyContent: 'space-between', background: 'var(--color-bg-surface)', zIndex: 10 }}>
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                {currentView === 'client' && (
+              {/* Top Bar / Search */}
+            <header style={{ height: '70px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', padding: '0 2.5rem', justifyContent: 'space-between', background: 'var(--color-bg-surface)', zIndex: 10, flexShrink: 0 }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                {currentView === 'client' && !isSidebarOpen && (
+                  <button onClick={() => setIsSidebarOpen(true)} className="btn btn-ghost" style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Abrir menú">
+                    <Menu size={20} />
+                  </button>
+                )}
+                {currentView === 'client' && !isSidebarOpen && (
                   <button onClick={navigateToHome} className="btn btn-ghost" style={{ paddingLeft: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <ArrowLeft size={18} /> Volver a Trámites
                   </button>
