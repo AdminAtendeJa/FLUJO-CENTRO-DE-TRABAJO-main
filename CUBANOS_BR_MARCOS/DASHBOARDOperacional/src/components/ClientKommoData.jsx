@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { FileText, CheckCircle, Clock, AlertCircle, MessageSquare, Trash2 } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
 
-export default function ClientKommoData({ clientId, onDocumentVerified }) {
+export default function ClientKommoData({ clientId, onDocumentVerified, setViewingDocument }) {
   const [pendingDocs, setPendingDocs] = useState([]);
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,8 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
           id_cliente: doc.cliente_id,
           url_archivo: doc.url_archivo,
           nombre_archivo: doc.nombre_archivo || 'Documento de Kommo',
-          tipo_documento: 'Imagen Kommo',
+          tipo_documento: doc.url_archivo?.toLowerCase().endsWith('.pdf') ? 'Documento Kommo' : 'Imagen Kommo',
+          subido_por: 'Kommo'
         });
 
       if (insertError) throw insertError;
@@ -200,10 +201,31 @@ export default function ClientKommoData({ clientId, onDocumentVerified }) {
             />
           ) : (
             pendingDocs.map(doc => (
-              <div key={doc.id} style={{ flexShrink: 0, background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div 
+                key={doc.id} 
+                style={{ flexShrink: 0, background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: setViewingDocument ? 'pointer' : 'default' }}
+                onDoubleClick={() => {
+                  if (setViewingDocument) {
+                    const lowerUrl = doc.url_archivo?.toLowerCase() || '';
+                    const lowerName = doc.nombre_archivo?.toLowerCase() || '';
+                    const isPdf = lowerUrl.includes('.pdf') || lowerName.includes('.pdf');
+                    let tipoContenido = 'image/jpeg';
+                    if (isPdf) tipoContenido = 'application/pdf';
+                    else if (lowerUrl.includes('.png') || lowerName.includes('.png')) tipoContenido = 'image/png';
+                    else if (lowerUrl.includes('.gif') || lowerName.includes('.gif')) tipoContenido = 'image/gif';
+                    
+                    setViewingDocument({
+                      ...doc,
+                      nombre_archivo: doc.nombre_archivo || 'Documento de Kommo',
+                      tipo_documento: isPdf ? 'Documento Kommo' : 'Imagen Kommo',
+                      tipo_contenido: tipoContenido
+                    });
+                  }
+                }}
+              >
                 <div style={{ height: '150px', background: 'var(--color-bg-canvas)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {doc.url_archivo?.match(/\.(jpeg|jpg|gif|png)$/i) || !doc.url_archivo?.match(/\./) ? (
-                    <img src={doc.url_archivo} alt="Documento Kommo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    <img src={doc.url_archivo} alt="Documento Kommo" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   ) : (
                     <FileText size={48} color="var(--color-text-muted)" />
                   )}

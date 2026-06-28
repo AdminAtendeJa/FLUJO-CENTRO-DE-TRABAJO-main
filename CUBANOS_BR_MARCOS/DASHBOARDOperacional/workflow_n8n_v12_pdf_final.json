@@ -1,0 +1,335 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "kommo-webhook-docs",
+        "options": {}
+      },
+      "id": "9166d1f9-4e70-442d-91f7-9a18510992a6",
+      "name": "Webhook (Recibe de Kommo)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 800, 3184 ],
+      "webhookId": "generado-automaticamente"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nlet entity_id = null;\nlet text = null;\nlet type = null;\nlet attachment_link = null;\nlet attachment_name = null;\nlet attachment_ext = '.jpg';\nlet attachment_mime = 'image/jpeg';\nlet message_id = null;\n\nif (body && body[\"message[add][0][id]\"]) {\n  entity_id = body[\"message[add][0][contact_id]\"] || body[\"message[add][0][entity_id]\"];\n  text = body[\"message[add][0][text]\"];\n  type = body[\"message[add][0][type]\"];\n  attachment_link = body[\"message[add][0][attachment][link]\"];\n  attachment_name = body[\"message[add][0][attachment][file_name]\"];\n  message_id = body[\"message[add][0][id]\"];\n  if (attachment_name) {\n    const lowerName = attachment_name.toLowerCase();\n    if (lowerName.endsWith('.pdf')) { attachment_ext = '.pdf'; attachment_mime = 'application/pdf'; }\n    else if (lowerName.endsWith('.png')) { attachment_ext = '.png'; attachment_mime = 'image/png'; }\n    else if (lowerName.endsWith('.jpeg') || lowerName.endsWith('.jpg')) { attachment_ext = '.jpg'; attachment_mime = 'image/jpeg'; }\n  }\n} else if (body && body[\"note[add][0][id]\"]) {\n  entity_id = body[\"note[add][0][contact_id]\"] || body[\"note[add][0][entity_id]\"];\n  text = body[\"note[add][0][params][text]\"];\n  type = \"nota_interna\";\n  message_id = body[\"note[add][0][id]\"];\n}\n\nreturn { json: { entity_id, text, type, attachment_link, attachment_name, attachment_ext, attachment_mime, message_id } };"
+      },
+      "id": "ce08c565-9f9d-4627-9405-71d0635513ba",
+      "name": "Normalizar Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 1088, 3184 ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "clientes",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id_kommo",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook (Recibe de Kommo)').item.json.body['message[add][0][contact_id]'] }}"
+            }
+          ]
+        }
+      },
+      "id": "c77c51e0-87fe-4c16-9469-8bb3d7f4e35e",
+      "name": "Buscar ID Interno",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [ 1280, 3184 ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7dcbMZavL5HiWiwq",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "82345e7f-3f4b-4a79-b678-857e9829466f",
+      "name": "¿Cliente Existe?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [ 1248, 2880 ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $('Normalizar Datos').item.json.attachment_link ? 0 : ($('Normalizar Datos').item.json.type === 'nota_interna' ? 2 : 1) }}"
+      },
+      "id": "7184a9e0-2994-4807-8c28-b65859634a2a",
+      "name": "Enrutador",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [ 1632, 2928 ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Normalizar Datos').item.json.attachment_link }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "bc5eb18f-d6da-4177-af81-56f9b856a0f5",
+      "name": "Descargar Imagen Kommo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [ 1888, 2976 ]
+    },
+    {
+      "parameters": {
+        "tableId": "documentos_pendientes",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "cliente_id",
+              "fieldValue": "={{ $('Buscar ID Interno').item.json.id }}"
+            },
+            {
+              "fieldId": "url_archivo",
+              "fieldValue": "=https://rcqkmaxkuxllcyjzqbvn.supabase.co/storage/v1/object/public/documentos_operacionales/kommo_{{ $('Normalizar Datos').item.json.message_id }}{{ $('Normalizar Datos').item.json.attachment_ext }}"
+            },
+            {
+              "fieldId": "nombre_archivo",
+              "fieldValue": "={{ $('Normalizar Datos').item.json.attachment_name || 'kommo_' + $('Normalizar Datos').item.json.message_id + $('Normalizar Datos').item.json.attachment_ext }}"
+            }
+          ]
+        }
+      },
+      "id": "3216e372-a40e-4bc8-b084-7222e48f3e75",
+      "name": "Insertar en documentos_pendientes",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [ 2288, 2976 ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "7dcbMZavL5HiWiwq",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "notas_kommo",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "cliente_id",
+              "fieldValue": "={{ $('Buscar ID Interno').item.json.id }}"
+            },
+            {
+              "fieldId": "texto",
+              "fieldValue": "={{ $('Normalizar Datos').item.json.text }}"
+            },
+            {
+              "fieldId": "remitente",
+              "fieldValue": "={{ $('Normalizar Datos').item.json.type }}"
+            }
+          ]
+        }
+      },
+      "id": "39c88182-0326-4b64-9d49-7e5c68ccfed2",
+      "name": "Guardar Mensaje WhatsApp",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [ 1888, 3184 ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "7dcbMZavL5HiWiwq",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "notas_kommo",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "cliente_id",
+              "fieldValue": "={{ $('Buscar ID Interno').item.json.id }}"
+            },
+            {
+              "fieldId": "texto",
+              "fieldValue": "={{ $('Normalizar Datos').item.json.text }}"
+            },
+            {
+              "fieldId": "remitente",
+              "fieldValue": "nota_interna"
+            }
+          ]
+        }
+      },
+      "id": "074fbcc6-428f-4bb3-92b2-5768657ceb04",
+      "name": "Guardar Nota Interna",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [ 1888, 3376 ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "7dcbMZavL5HiWiwq",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rcqkmaxkuxllcyjzqbvn.supabase.co/storage/v1/object/documentos_operacionales/kommo_{{ $('Normalizar Datos').item.json.message_id }}{{ $('Normalizar Datos').item.json.attachment_ext }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-upsert",
+              "value": "true"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $('Normalizar Datos').item.json.attachment_mime }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "3938c266-2881-4e04-8fad-62fb9d6f4872",
+      "name": "Subir a Supabase Storage (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [ 2416, 3328 ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "7dcbMZavL5HiWiwq",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook (Recibe de Kommo)": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Datos": {
+      "main": [
+        [
+          {
+            "node": "Buscar ID Interno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar ID Interno": {
+      "main": [
+        [
+          {
+            "node": "¿Cliente Existe?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cliente Existe?1": {
+      "main": [
+        [
+          {
+            "node": "Enrutador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrutador": {
+      "main": [
+        [
+          {
+            "node": "Descargar Imagen Kommo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar Mensaje WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar Nota Interna",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Imagen Kommo": {
+      "main": [
+        [
+          {
+            "node": "Subir a Supabase Storage (HTTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir a Supabase Storage (HTTP)": {
+      "main": [
+        [
+          {
+            "node": "Insertar en documentos_pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "db0cb74972bcc08991723ce67e0af6a9272904c7894e9a307eded2d5020ea127"
+  }
+}

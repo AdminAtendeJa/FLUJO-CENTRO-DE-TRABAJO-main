@@ -138,7 +138,7 @@ const ClientDocuments = ({
 
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   {doc.url_archivo && doc.tipo_contenido?.startsWith('image/') ? (
-                    <img src={doc.url_archivo} alt={doc.nombre_archivo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={doc.url_archivo} alt={doc.nombre_archivo} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <FileText size={24} color="var(--color-text-muted)" />
                   )}

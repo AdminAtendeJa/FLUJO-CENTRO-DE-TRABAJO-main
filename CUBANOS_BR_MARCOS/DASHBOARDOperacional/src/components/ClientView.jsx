@@ -905,6 +905,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               fetchClientData(true);
               toast.success('Documento de Kommo procesado correctamente');
             }} 
+            setViewingDocument={setViewingDocument}
           />
         </div>
 
