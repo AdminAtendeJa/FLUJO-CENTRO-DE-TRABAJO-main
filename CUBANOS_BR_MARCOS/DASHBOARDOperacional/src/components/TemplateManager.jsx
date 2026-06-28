@@ -133,8 +133,8 @@ export default function TemplateManager({ client, clienteDatos }) {
   };
 
   // Filtered templates
-  const filteredTemplates = searchQuery.trim()
-    ? templates.filter(t => t.nombre.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredTemplates = String(searchQuery).trim()
+    ? templates.filter(t => (t.nombre || '').toLowerCase().includes(String(searchQuery).toLowerCase()))
     : templates;
 
   return (

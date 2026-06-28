@@ -57,7 +57,7 @@ export default function ClientListView({ onNavigateToClient, searchQuery }) {
 
   const filteredClientes = clientes.filter(c => {
     if (searchQuery) {
-      const q = searchQuery.toLowerCase().trim();
+      const q = String(searchQuery).toLowerCase().trim();
       const qNormalized = q.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remove accents
 
       const allText = Object.values(c)
