@@ -26,7 +26,7 @@ import ClientViewNewTramiteModal from './ClientViewNewTramiteModal';
 import ClientViewEditModal from './ClientViewEditModal';
 import ClientViewExtractionModal from './ClientViewExtractionModal';
 import { findDuplicateContacts } from '../utils/contactUtils';
-import MergeContactsModal from './MergeContactsModal';
+import DuplicateContactsWarning from './DuplicateContactsWarning';
 import useClientData from '../hooks/useClientData';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import useDebounce from '../hooks/useDebounce';
@@ -187,33 +187,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   // Document Viewer State (doble click)
   const [viewingDocument, setViewingDocument] = useState(null);
-  const [showDuplicateWarning, setShowDuplicateWarning] = useState(true);
   const [showMergeModal, setShowMergeModal] = useState(false);
-
-  useEffect(() => {
-    if (duplicateContacts.length > 1) {
-      setShowDuplicateWarning(true);
-    } else {
-      setShowDuplicateWarning(false);
-    }
-  }, [duplicateContacts]);
 
   const fetchClientData = async (fullReload = false) => {
     await queryClient.invalidateQueries();
   };
-
-  const handleMergeComplete = async (mergedData, keepContactId) => {
-    console.log('Fusión completada:', mergedData, keepContactId);
-    setShowMergeModal(false);
-    setShowDuplicateWarning(false);
-    queryClient.invalidateQueries({ queryKey: ['duplicateContacts'] });
-    queryClient.invalidateQueries({ queryKey: ['client', clientId] });
-    queryClient.invalidateQueries({ queryKey: ['clientData', clientId] });
-    queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
-    queryClient.invalidateQueries({ queryKey: ['documents', clientId] });
-    await fetchClientData(true);
-  };
-
 
   const handleCopy = (text, id) => {
     if (!text) return;
@@ -970,40 +948,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       </div>
 
       {/* Alerta de contactos duplicados */}
-      {duplicateContacts.length > 1 && showDuplicateWarning && (
-        <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg" style={{ margin: '0 2.5rem 2rem 2.5rem' }}>
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                    Se detectaron {duplicateContacts.length} contactos duplicados con el mismo teléfono
-                  </p>
-                  <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                    {duplicateContacts.map(c => c.nombre || c.email || c.telefono).join(', ')}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowDuplicateWarning(false)}
-                  className="p-1 rounded-full text-yellow-700 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-800 transition-colors"
-                  aria-label="Cerrar notificación de duplicados"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={() => setShowMergeModal(true)}
-              className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
-            >
-              Fusionar
-            </button>
-          </div>
-        </div>
-      )}
+      <DuplicateContactsWarning 
+        clientId={clientId} 
+        duplicateContacts={duplicateContacts} 
+        onMergeCompleteCallback={() => fetchClientData(true)} 
+        externalShowModal={showMergeModal} 
+        setExternalShowModal={setShowMergeModal} 
+        onNavigateToClient={onNavigateToClient}
+      />
 
       <ClientViewAiChat
         isOpen={isAiChatOpen}
@@ -1091,15 +1043,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         />
       )}
 
-      {showMergeModal && duplicateContacts.length > 1 && (
-        <MergeContactsModal
-          isOpen={showMergeModal}
-          onClose={() => setShowMergeModal(false)}
-          onMergeComplete={handleMergeComplete}
-          contact1={duplicateContacts[0]}
-          contact2={duplicateContacts[1]}
-        />
-      )}
+
     </div>
   );
 }

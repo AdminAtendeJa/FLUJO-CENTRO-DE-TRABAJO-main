@@ -44,7 +44,7 @@ function App() {
 
   // --- Search ---
   const onSearchStart = useCallback(() => {
-    if (currentView !== 'clients') {
+    if (currentView === 'client') {
       navigateToClientsList();
     }
   }, [currentView, navigateToClientsList]);
@@ -226,7 +226,7 @@ function App() {
             </header>
 
             <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: currentView === 'client' ? 'hidden' : 'auto' }}>
-              {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} onNavigateToClientsList={navigateToClientsList} />}
+              {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} onNavigateToClientsList={navigateToClientsList} searchQuery={globalSearch} />}
               {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
               {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}
             </main>

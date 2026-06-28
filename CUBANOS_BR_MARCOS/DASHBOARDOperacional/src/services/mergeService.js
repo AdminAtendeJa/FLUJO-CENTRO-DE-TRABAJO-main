@@ -12,16 +12,6 @@ export const mergeContacts = async (keepContactId, contactIdsToDelete, mergedDat
             throw new Error('Debe proporcionar al menos un contacto para eliminar');
         }
 
-        // Actualizar el contacto que se va a mantener con los datos fusionados
-        const { error: updateError } = await supabase
-            .from('clientes')
-            .update(mergedData)
-            .eq('id', keepContactId);
-
-        if (updateError) {
-            throw new Error('Error al actualizar el contacto fusionado');
-        }
-
         // Transferir todos los datos relacionados de los contactos a eliminar al contacto a mantener
         for (const contactToDelete of contactIdsToDelete) {
             // 1. Transferir documentos
@@ -55,7 +45,7 @@ export const mergeContacts = async (keepContactId, contactIdsToDelete, mergedDat
                 .eq('id_cliente', contactToDelete);
         }
 
-        // Finalmente, eliminamos los contactos duplicados
+        // Eliminamos los contactos duplicados
         for (const contactToDelete of contactIdsToDelete) {
             const { error: deleteError } = await supabase
                 .from('clientes')
@@ -65,6 +55,17 @@ export const mergeContacts = async (keepContactId, contactIdsToDelete, mergedDat
             if (deleteError) {
                 console.error(`Error al eliminar contacto ${contactToDelete}:`, deleteError);
             }
+        }
+
+        // Actualizar el contacto que se va a mantener con los datos fusionados (se hace al final para evitar conflictos de campos únicos)
+        const { error: updateError } = await supabase
+            .from('clientes')
+            .update(mergedData)
+            .eq('id', keepContactId);
+
+        if (updateError) {
+            console.error('Detalles del error de actualización (Supabase):', updateError);
+            throw new Error(`Error al actualizar el contacto fusionado: ${updateError.message || JSON.stringify(updateError)}`);
         }
 
         return { success: true, keptContactId: keepContactId, mergedCount: contactIdsToDelete.length };

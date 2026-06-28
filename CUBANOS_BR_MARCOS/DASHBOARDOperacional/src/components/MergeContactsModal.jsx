@@ -2,60 +2,58 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Phone, Mail, Copy, Check } from 'lucide-react';
 import { mergeContacts } from '../services/mergeService';
 
+const commonFields = [
+    { id: 'nombre', label: 'Nombre', icon: User },
+    { id: 'telefono', label: 'Teléfono', icon: Phone },
+    { id: 'email', label: 'Email', icon: Mail },
+    { id: 'cpf', label: 'CPF' },
+    { id: 'carnet_identidad', label: 'Carnet de Identidad' },
+    { id: 'fecha_nacimiento', label: 'Fecha de Nacimiento' },
+    { id: 'estado_civil', label: 'Estado Civil' },
+    { id: 'sexo', label: 'Sexo' },
+    { id: 'nacionalidad', label: 'Nacionalidad' },
+    { id: 'pais', label: 'País' },
+    { id: 'lugar_nacimiento', label: 'Lugar de Nacimiento' },
+    { id: 'estado_federal', label: 'Estado Federal' },
+    { id: 'ciudad', label: 'Ciudad' },
+    { id: 'direccion', label: 'Dirección' },
+    { id: 'rnm', label: 'RNM' },
+    { id: 'numero_pasaporte', label: 'Número Pasaporte' },
+    { id: 'fecha_emision_pasaporte', label: 'Fecha Emisión Pasaporte' },
+    { id: 'fecha_vencimiento_pasaporte', label: 'Fecha Vencimiento Pasaporte' },
+    { id: 'numero_refugio', label: 'Número Refugio' },
+    { id: 'fecha_vencimiento_refugio', label: 'Fecha Vencimiento Refugio' },
+    { id: 'nombre_madre', label: 'Nombre Madre' },
+    { id: 'nombre_padre', label: 'Nombre Padre' },
+];
+
 const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComplete }) => {
     const [copiedId, setCopiedId] = useState(null);
     const [selectedContact, setSelectedContact] = useState('contact1');
-    const [mergeData, setMergeData] = useState({
-        nombre: contact1?.nombre || contact2?.nombre || '',
-        telefono: contact1?.telefono || contact2?.telefono || '',
-        email: contact1?.email || contact2?.email || '',
-        cpf: contact1?.cpf || contact2?.cpf || '',
-        carnet_identidad: contact1?.carnet_identidad || contact2?.carnet_identidad || '',
-        fecha_nacimiento: contact1?.fecha_nacimiento || contact2?.fecha_nacimiento || '',
-        estado_civil: contact1?.estado_civil || contact2?.estado_civil || '',
-        sexo: contact1?.sexo || contact2?.sexo || '',
-        nacionalidad: contact1?.nacionalidad || contact2?.nacionalidad || '',
-        pais: contact1?.pais || contact2?.pais || '',
-        lugar_nacimiento: contact1?.lugar_nacimiento || contact2?.lugar_nacimiento || '',
-        estado_federal: contact1?.estado_federal || contact2?.estado_federal || '',
-        ciudad: contact1?.ciudad || contact2?.ciudad || '',
-        direccion: contact1?.direccion || contact2?.direccion || '',
-        rnm: contact1?.rnm || contact2?.rnm || '',
-        numero_pasaporte: contact1?.numero_pasaporte || contact2?.numero_pasaporte || '',
-        fecha_emision_pasaporte: contact1?.fecha_emision_pasaporte || contact2?.fecha_emision_pasaporte || '',
-        fecha_vencimiento_pasaporte: contact1?.fecha_vencimiento_pasaporte || contact2?.fecha_vencimiento_pasaporte || '',
-        numero_refugio: contact1?.numero_refugio || contact2?.numero_refugio || '',
-        fecha_vencimiento_refugio: contact1?.fecha_vencimiento_refugio || contact2?.fecha_vencimiento_refugio || '',
-        nombre_madre: contact1?.nombre_madre || contact2?.nombre_madre || '',
-        nombre_padre: contact1?.nombre_padre || contact2?.nombre_padre || '',
-    });
+    const [mergeData, setMergeData] = useState({});
+    const [selectedSources, setSelectedSources] = useState({});
 
     useEffect(() => {
         if (contact1 && contact2) {
-            setMergeData({
-                nombre: contact1.nombre || contact2.nombre || '',
-                telefono: contact1.telefono || contact2.telefono || '',
-                email: contact1.email || contact2.email || '',
-                cpf: contact1.cpf || contact2.cpf || '',
-                carnet_identidad: contact1.carnet_identidad || contact2.carnet_identidad || '',
-                fecha_nacimiento: contact1.fecha_nacimiento || contact2.fecha_nacimiento || '',
-                estado_civil: contact1.estado_civil || contact2.estado_civil || '',
-                sexo: contact1.sexo || contact2.sexo || '',
-                nacionalidad: contact1.nacionalidad || contact2.nacionalidad || '',
-                pais: contact1.pais || contact2.pais || '',
-                lugar_nacimiento: contact1.lugar_nacimiento || contact2.lugar_nacimiento || '',
-                estado_federal: contact1.estado_federal || contact2.estado_federal || '',
-                ciudad: contact1.ciudad || contact2.ciudad || '',
-                direccion: contact1.direccion || contact2.direccion || '',
-                rnm: contact1.rnm || contact2.rnm || '',
-                numero_pasaporte: contact1.numero_pasaporte || contact2.numero_pasaporte || '',
-                fecha_emision_pasaporte: contact1.fecha_emision_pasaporte || contact2.fecha_emision_pasaporte || '',
-                fecha_vencimiento_pasaporte: contact1.fecha_vencimiento_pasaporte || contact2.fecha_vencimiento_pasaporte || '',
-                numero_refugio: contact1.numero_refugio || contact2.numero_refugio || '',
-                fecha_vencimiento_refugio: contact1.fecha_vencimiento_refugio || contact2.fecha_vencimiento_refugio || '',
-                nombre_madre: contact1.nombre_madre || contact2.nombre_madre || '',
-                nombre_padre: contact1.nombre_padre || contact2.nombre_padre || '',
+            const initialSources = {};
+            const initialMergeData = {};
+            
+            commonFields.forEach(field => {
+                const id = field.id;
+                if (contact1[id]) {
+                    initialSources[id] = 'contact1';
+                    initialMergeData[id] = contact1[id];
+                } else if (contact2[id]) {
+                    initialSources[id] = 'contact2';
+                    initialMergeData[id] = contact2[id];
+                } else {
+                    initialSources[id] = null;
+                    initialMergeData[id] = '';
+                }
             });
+            
+            setSelectedSources(initialSources);
+            setMergeData(initialMergeData);
         }
     }, [contact1, contact2]);
 
@@ -67,6 +65,10 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
 
     const handleSelectField = (field, contactSource) => {
         const sourceContact = contactSource === 'contact1' ? contact1 : contact2;
+        setSelectedSources(prev => ({
+            ...prev,
+            [field]: contactSource
+        }));
         setMergeData(prev => ({
             ...prev,
             [field]: sourceContact[field] || ''
@@ -74,16 +76,19 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
     };
 
     const handleMerge = async () => {
-        // Determinar cuál contacto mantener y cuál eliminar
         const contactToKeep = selectedContact === 'contact1' ? contact1 : contact2;
         const contactToDelete = selectedContact === 'contact1' ? contact2 : contact1;
 
-        // Realizar la fusión de contactos
-        const result = await mergeContacts(contactToKeep.id, contactToDelete.id, mergeData);
+        // Limpiar los datos vacíos antes de enviar a Supabase (convertir '' a null para campos de fecha)
+        const cleanedData = {};
+        for (const key in mergeData) {
+            cleanedData[key] = mergeData[key] === '' ? null : mergeData[key];
+        }
+
+        const result = await mergeContacts(contactToKeep.id, contactToDelete.id, cleanedData);
 
         if (result.success) {
-            // Notificar al componente padre que la fusión se completó exitosamente
-            onMergeComplete(mergeData, contactToKeep.id);
+            onMergeComplete(cleanedData, contactToKeep.id);
         } else {
             console.error('Error en la fusión de contactos:', result.error);
             alert('Error al fusionar contactos: ' + result.error);
@@ -92,72 +97,57 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
 
     if (!isOpen || !contact1 || !contact2) return null;
 
-    const commonFields = [
-        { id: 'nombre', label: 'Nombre', icon: User },
-        { id: 'telefono', label: 'Teléfono', icon: Phone },
-        { id: 'email', label: 'Email', icon: Mail },
-        { id: 'cpf', label: 'CPF' },
-        { id: 'carnet_identidad', label: 'Carnet de Identidad' },
-        { id: 'fecha_nacimiento', label: 'Fecha de Nacimiento' },
-        { id: 'estado_civil', label: 'Estado Civil' },
-        { id: 'sexo', label: 'Sexo' },
-        { id: 'nacionalidad', label: 'Nacionalidad' },
-        { id: 'pais', label: 'País' },
-        { id: 'lugar_nacimiento', label: 'Lugar de Nacimiento' },
-        { id: 'estado_federal', label: 'Estado Federal' },
-        { id: 'ciudad', label: 'Ciudad' },
-        { id: 'direccion', label: 'Dirección' },
-        { id: 'rnm', label: 'RNM' },
-        { id: 'numero_pasaporte', label: 'Número Pasaporte' },
-        { id: 'fecha_emision_pasaporte', label: 'Fecha Emisión Pasaporte' },
-        { id: 'fecha_vencimiento_pasaporte', label: 'Fecha Vencimiento Pasaporte' },
-        { id: 'numero_refugio', label: 'Número Refugio' },
-        { id: 'fecha_vencimiento_refugio', label: 'Fecha Vencimiento Refugio' },
-        { id: 'nombre_madre', label: 'Nombre Madre' },
-        { id: 'nombre_padre', label: 'Nombre Padre' },
-    ];
+    const getBtnStyle = (contactSource, fieldId) => {
+        const sourceContact = contactSource === 'contact1' ? contact1 : contact2;
+        const contactValue = sourceContact[fieldId];
+        const isSelected = selectedSources[fieldId] === contactSource;
+        
+        return {
+            padding: '4px 8px',
+            fontSize: '0.75rem',
+            background: isSelected ? 'var(--color-success)' : 'var(--surface-elevated)',
+            color: isSelected ? '#fff' : 'var(--text-primary)',
+            border: '1px solid ' + (isSelected ? 'var(--color-success)' : 'var(--border-default)'),
+            opacity: !contactValue ? 0.5 : 1,
+            cursor: 'pointer',
+            borderRadius: 'var(--radius-sm)',
+            transition: 'all 0.2s'
+        };
+    };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Fusión de Contactos</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    >
-                        <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px', backdropFilter: 'blur(4px)' }}>
+            <div className="glass-panel-elevated" style={{ width: '100%', maxWidth: '1152px', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>Fusión de Contactos</h2>
+                    <button onClick={onClose} className="btn btn-ghost" style={{ padding: '8px' }}>
+                        <X size={20} />
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6">
-                    <div className="flex gap-4 mb-6">
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ display: 'flex', gap: '16px' }}>
                         <button
                             onClick={() => setSelectedContact('contact1')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedContact === 'contact1'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                }`}
+                            className={`btn ${selectedContact === 'contact1' ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ padding: '8px 16px' }}
                         >
                             Contacto Principal (Mantener)
                         </button>
                         <button
                             onClick={() => setSelectedContact('contact2')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedContact === 'contact2'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                }`}
+                            className={`btn ${selectedContact === 'contact2' ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ padding: '8px 16px' }}
                         >
                             Contacto Secundario (Eliminar)
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) auto minmax(250px, 1fr)', gap: '24px', overflowX: 'auto' }}>
                         {/* Contact 1 */}
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                <User className="w-4 h-4" />
-                                Contacto 1: {contact1.nombre || 'Sin nombre'}
+                        <div className="glass-panel" style={{ padding: '16px', background: 'var(--surface-base)' }}>
+                            <h3 style={{ fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem' }}>
+                                <User size={16} /> Contacto 1: {contact1.nombre || 'Sin nombre'}
                             </h3>
                             {commonFields.map(field => {
                                 const IconComponent = field.icon || User;
@@ -165,21 +155,19 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
                                 if (!value && !mergeData[field.id]) return null;
 
                                 return (
-                                    <div key={`contact1-${field.id}`} className="mb-3 p-2 bg-white dark:bg-gray-600 rounded border">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <IconComponent className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{field.label}</span>
+                                    <div key={`contact1-${field.id}`} style={{ marginBottom: '12px', padding: '8px', background: 'var(--surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                            <IconComponent size={12} style={{ color: 'var(--text-secondary)' }} />
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{field.label}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-gray-900 dark:text-white truncate">{value || 'Vacío'}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{value || 'Vacío'}</span>
                                             <button
                                                 onClick={() => handleCopy(value || '', `contact1-${field.id}`)}
-                                                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500 rounded transition-colors"
+                                                className="btn btn-ghost"
+                                                style={{ padding: '4px', minHeight: 'auto' }}
                                             >
-                                                {copiedId === `contact1-${field.id}` ?
-                                                    <Check className="w-3 h-3 text-green-500" /> :
-                                                    <Copy className="w-3 h-3" />
-                                                }
+                                                {copiedId === `contact1-${field.id}` ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
                                             </button>
                                         </div>
                                     </div>
@@ -188,37 +176,27 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
                         </div>
 
                         {/* Selection Controls */}
-                        <div className="flex flex-col justify-center items-center">
-                            <div className="text-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Seleccionar datos</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ textAlign: 'center', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '16px' }}>Seleccionar datos</div>
                             {commonFields.map(field => {
                                 const contact1Value = contact1[field.id];
                                 const contact2Value = contact2[field.id];
                                 if (!contact1Value && !contact2Value) return null;
 
                                 return (
-                                    <div key={`controls-${field.id}`} className="flex flex-col items-center gap-2 mb-4 w-full">
-                                        <div className="text-xs text-gray-600 dark:text-gray-400 text-center truncate w-full">{field.label}</div>
-                                        <div className="flex gap-1">
+                                    <div key={`controls-${field.id}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px', width: '100px' }}>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{field.label}</div>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
                                             <button
                                                 onClick={() => handleSelectField(field.id, 'contact1')}
-                                                className={`px-2 py-1 text-xs rounded ${mergeData[field.id] === contact1Value
-                                                        ? 'bg-green-500 text-white'
-                                                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
-                                                    }`}
+                                                style={getBtnStyle('contact1', field.id)}
                                                 disabled={!contact1Value}
-                                            >
-                                                C1
-                                            </button>
+                                            >C1</button>
                                             <button
                                                 onClick={() => handleSelectField(field.id, 'contact2')}
-                                                className={`px-2 py-1 text-xs rounded ${mergeData[field.id] === contact2Value
-                                                        ? 'bg-green-500 text-white'
-                                                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
-                                                    }`}
+                                                style={getBtnStyle('contact2', field.id)}
                                                 disabled={!contact2Value}
-                                            >
-                                                C2
-                                            </button>
+                                            >C2</button>
                                         </div>
                                     </div>
                                 );
@@ -226,10 +204,9 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
                         </div>
 
                         {/* Contact 2 */}
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                <User className="w-4 h-4" />
-                                Contacto 2: {contact2.nombre || 'Sin nombre'}
+                        <div className="glass-panel" style={{ padding: '16px', background: 'var(--surface-base)' }}>
+                            <h3 style={{ fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem' }}>
+                                <User size={16} /> Contacto 2: {contact2.nombre || 'Sin nombre'}
                             </h3>
                             {commonFields.map(field => {
                                 const IconComponent = field.icon || User;
@@ -237,21 +214,19 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
                                 if (!value && !mergeData[field.id]) return null;
 
                                 return (
-                                    <div key={`contact2-${field.id}`} className="mb-3 p-2 bg-white dark:bg-gray-600 rounded border">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <IconComponent className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{field.label}</span>
+                                    <div key={`contact2-${field.id}`} style={{ marginBottom: '12px', padding: '8px', background: 'var(--surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                            <IconComponent size={12} style={{ color: 'var(--text-secondary)' }} />
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-secondary)' }}>{field.label}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-gray-900 dark:text-white truncate">{value || 'Vacío'}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{value || 'Vacío'}</span>
                                             <button
                                                 onClick={() => handleCopy(value || '', `contact2-${field.id}`)}
-                                                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-500 rounded transition-colors"
+                                                className="btn btn-ghost"
+                                                style={{ padding: '4px', minHeight: 'auto' }}
                                             >
-                                                {copiedId === `contact2-${field.id}` ?
-                                                    <Check className="w-3 h-3 text-green-500" /> :
-                                                    <Copy className="w-3 h-3" />
-                                                }
+                                                {copiedId === `contact2-${field.id}` ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
                                             </button>
                                         </div>
                                     </div>
@@ -261,17 +236,33 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
                     </div>
 
                     {/* Preview of merged data */}
-                    <div className="border-t pt-6">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Resultado de la Fusión</h3>
-                        <div className="grid grid-cols-2 gap-4">
+                    <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: '24px' }}>
+                        <h3 style={{ fontWeight: 600, marginBottom: '16px', fontSize: '1.125rem' }}>Resultado de la Fusión</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
                             {commonFields.map(field => {
-                                const value = mergeData[field.id];
-                                if (!value) return null;
+                                const value = mergeData[field.id] || '';
 
                                 return (
-                                    <div key={`merged-${field.id}`} className="p-3 bg-blue-50 dark:bg-blue-900 rounded border border-blue-200 dark:border-blue-700">
-                                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">{field.label}</div>
-                                        <div className="text-sm text-blue-900 dark:text-blue-100">{value}</div>
+                                    <div key={`merged-${field.id}`} style={{ padding: '12px', background: 'var(--color-info-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-info-border)' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-info)', marginBottom: '4px' }}>{field.label}</div>
+                                        <input 
+                                            type="text"
+                                            value={value}
+                                            onChange={(e) => {
+                                                setMergeData(prev => ({...prev, [field.id]: e.target.value}));
+                                                setSelectedSources(prev => ({...prev, [field.id]: 'custom'}));
+                                            }}
+                                            style={{ 
+                                                width: '100%', 
+                                                fontSize: '0.875rem', 
+                                                color: 'var(--text-primary)',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                borderBottom: '1px solid var(--color-info-border)',
+                                                padding: '4px 0',
+                                                outline: 'none'
+                                            }}
+                                        />
                                     </div>
                                 );
                             })}
@@ -279,17 +270,11 @@ const MergeContactsModal = ({ isOpen, onClose, contact1, contact2, onMergeComple
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
+                <div style={{ padding: '24px', borderTop: '1px solid var(--border-default)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                    <button onClick={onClose} className="btn btn-secondary" style={{ padding: '8px 16px' }}>
                         Cancelar
                     </button>
-                    <button
-                        onClick={handleMerge}
-                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-                    >
+                    <button onClick={handleMerge} className="btn btn-danger" style={{ padding: '8px 16px' }}>
                         Fusionar Contactos
                     </button>
                 </div>
