@@ -1659,39 +1659,39 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             </div>
           </section>
         </div>
-        );
-};
-
-        {/* Botón para abrir el modal de fusión si hay duplicados */}
-        {duplicateContacts.length > 1 && (
-          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                  Se detectaron {duplicateContacts.length} contactos duplicados con el mismo teléfono
-                </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                  {duplicateContacts.map(c => c.nombre || c.email || c.telefono).join(', ')}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedContacts(duplicateContacts);
-                  setShowMergeModal(true);
-                }}
-                className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
-              >
-                <Merge className="w-3 h-3" />
-                Fusionar
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+      </div>
     </div>
 
-        {
+    {/* Botón para abrir el modal de fusión si hay duplicados */ }
+  {
+    duplicateContacts.length > 1 && (
+      <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+              Se detectaron {duplicateContacts.length} contactos duplicados con el mismo teléfono
+            </p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+              {duplicateContacts.map(c => c.nombre || c.email || c.telefono).join(', ')}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setSelectedContacts(duplicateContacts);
+              setShowMergeModal(true);
+            }}
+            className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+          >
+            <Merge className="w-3 h-3" />
+            Fusionar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  {
     isAiChatOpen && (
       <div
         style={{
@@ -1765,9 +1765,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       </div>
     )
   }
-      </div >
 
-    { isRelateModalOpen && (
+  {
+    isRelateModalOpen && (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
         <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Vincular Familiar / Amigo</h2>
@@ -1821,369 +1821,369 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
       </div>
     )
-}
+  }
 
 
-{
-  isEditModalOpen && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+  {
+    isEditModalOpen && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+        <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
 
-        <datalist id="existing-fields-list">
-          {categorias.flatMap(c => c.campos_datos_operacionales || []).map(f => (
-            <option key={f.id} value={f.nombre_campo} />
-          ))}
-        </datalist>
+          <datalist id="existing-fields-list">
+            {categorias.flatMap(c => c.campos_datos_operacionales || []).map(f => (
+              <option key={f.id} value={f.nombre_campo} />
+            ))}
+          </datalist>
 
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Editar Datos del Cliente</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, maxWidth: '400px' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input
-                type="text"
-                placeholder="Filtrar campos (ej. Pasaporte, Madre)..."
-                className="form-input"
-                value={editModalSearchQuery}
-                onChange={e => setEditModalSearchQuery(e.target.value)}
-                style={{ paddingLeft: '2.2rem', width: '100%', fontSize: '0.875rem' }}
-              />
-            </div>
-            <button className="btn btn-ghost" style={{ padding: '0.5rem', flexShrink: 0 }} onClick={() => setIsEditModalOpen(false)}>✕</button>
-          </div>
-        </div>
-
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {!hasEditModalResults ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-              No se encontraron campos que coincidan con "{editModalSearchQuery}"
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
-                {filteredEditFormData.map((field, idx) => {
-                  const originalIdx = editFormData.findIndex(f => f.campo_id === field.campo_id && f.id === field.id);
-                  if (field.id === 'nombre') {
-                    return (
-                      <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Nombre(s) <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                          </label>
-                          <input className="form-input" type="text" value={field._nombres || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], _nombres: e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Apellidos <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                          </label>
-                          <input className="form-input" type="text" value={field._apellidos || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], _apellidos: e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (field.id === 'direccion') {
-                    return (
-                      <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
-                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
-                        </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>CEP</label>
-                            <input className="form-input" placeholder="00000-000" type="text" value={field._cep || ''} onChange={e => {
-                              let val = e.target.value.replace(/\D/g, '');
-                              if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
-                              const arr = [...editFormData];
-                              arr[originalIdx] = { ...arr[originalIdx], _cep: val };
-                              setEditFormData(arr);
-                            }} onBlur={e => handleCepSearch(e.target.value)} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Endereço</label>
-                            <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Número</label>
-                            <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Complemento</label>
-                            <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Bairro</label>
-                            <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Cidade</label>
-                            <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Estado</label>
-                            <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Ponto de Referência</label>
-                            <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  const isDate = field.nombre_campo?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
-                  return (
-                    <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          {field.nombre_campo}{field.es_fijo && <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>}
-                        </label>
-                        {field.id === 'estado_civil' ? (
-                          <select className="form-input" value={field.valor || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
-                            setEditFormData(arr);
-                          }}>
-                            <option value="">Selecione</option>
-                            {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : field.id === 'sexo' ? (
-                          <select className="form-input" value={field.valor || ''} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
-                            setEditFormData(arr);
-                          }}>
-                            <option value="">Selecione</option>
-                            {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : (
-                          <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={(e) => {
-                            const arr = [...editFormData];
-                            arr[originalIdx] = { ...arr[originalIdx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
-                            setEditFormData(arr);
-                          }} />
-                        )}
-                      </div>
-                      {field.es_fijo && field.id === 'nombre' ? null : (
-                        <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteFieldData(field.id, field.es_fijo)} title="Borrar dato">
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Editar Datos del Cliente</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, maxWidth: '400px' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="Filtrar campos (ej. Pasaporte, Madre)..."
+                  className="form-input"
+                  value={editModalSearchQuery}
+                  onChange={e => setEditModalSearchQuery(e.target.value)}
+                  style={{ paddingLeft: '2.2rem', width: '100%', fontSize: '0.875rem' }}
+                />
               </div>
+              <button className="btn btn-ghost" style={{ padding: '0.5rem', flexShrink: 0 }} onClick={() => setIsEditModalOpen(false)}>✕</button>
+            </div>
+          </div>
 
-              {newFields.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%', marginTop: '1rem' }}>
-                  {newFields.map((field, idx) => {
-                    const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
-                    let activeCategoriasNombres = [];
-                    let activeCategoriasIds = [];
-                    if (editingCategoryId === 'ALL_PERSONAL') {
-                      const cats = categorias.filter(c => ["Informaciones Personales", "Datos Familiares", "Documentos de Identidad"].includes(c.nombre));
-                      activeCategoriasNombres = cats.map(c => c.nombre);
-                      activeCategoriasIds = cats.map(c => c.id);
-                    } else {
-                      const editingCategory = categorias.find(c => c.id === editingCategoryId);
-                      if (editingCategory) {
-                        activeCategoriasNombres = [editingCategory.nombre];
-                        activeCategoriasIds = [editingCategory.id];
-                      }
-                    }
-                    const avFixed = FIXED_FIELDS_CATALOG.filter(f => activeCategoriasNombres.includes(f.category_name) && !client?.[f.id] && !usedIds.includes(f.id));
-                    const avDynamic = campos.filter(c => activeCategoriasIds.includes(c.categoria_id) && !usedIds.includes(c.id));
-                    return (
-                      <div key={field.id} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '0.875rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                          <div style={{ flex: '1 1 160px' }}>
-                            <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Campo</label>
-                            <select className="form-input" value={field.campo_id} onChange={(e) => {
-                              const arr = [...newFields];
-                              arr[idx] = { ...arr[idx], campo_id: e.target.value, customName: '' };
-                              setNewFields(arr);
-                            }}>
-                              <option value="">-- Seleccionar --</option>
-                              {avFixed.length > 0 && <optgroup label="Campos Base">{avFixed.map(f => <option key={f.id} value={f.id}>{f.nombre_campo}</option>)}</optgroup>}
-                              {avDynamic.length > 0 && <optgroup label="Campos Operacionales">{avDynamic.map(c => <option key={c.id} value={c.id}>{c.nombre_campo}</option>)}</optgroup>}
-                              <optgroup label="Nuevo"><option value="custom">+ Crear Campo Personalizado</option></optgroup>
-                            </select>
+          <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {!hasEditModalResults ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                No se encontraron campos que coincidan con "{editModalSearchQuery}"
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%' }}>
+                  {filteredEditFormData.map((field, idx) => {
+                    const originalIdx = editFormData.findIndex(f => f.campo_id === field.campo_id && f.id === field.id);
+                    if (field.id === 'nombre') {
+                      return (
+                        <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', width: '100%' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Nombre(s) <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                            </label>
+                            <input className="form-input" type="text" value={field._nombres || ''} onChange={(e) => {
+                              const arr = [...editFormData];
+                              arr[originalIdx] = { ...arr[originalIdx], _nombres: e.target.value };
+                              setEditFormData(arr);
+                            }} />
                           </div>
-                          {field.campo_id === 'custom' && (
-                            <div style={{ flex: '1 1 140px' }}>
-                              <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Nombre del Campo</label>
-                              <input className="form-input" type="text" placeholder="Ej: Talla Camisa" value={field.customName || ''} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], customName: e.target.value }; setNewFields(arr); }} />
-                            </div>
-                          )}
-                          <div style={{ flex: '1 1 140px' }}>
-                            <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Valor</label>
-                            {(() => {
-                              const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
-                              const nombreParaCheck = field.campo_id === 'custom' ? field.customName : (campoRef?.nombre_campo || '');
-                              const isDate = nombreParaCheck?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
-                              if (field.campo_id === 'estado_civil') {
-                                return (
-                                  <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
-                                    <option value="">Selecione</option>
-                                    {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                );
-                              }
-                              if (field.campo_id === 'sexo') {
-                                return (
-                                  <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
-                                    <option value="">Selecione</option>
-                                    {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                );
-                              }
-                              return (
-                                <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} disabled={!field.campo_id} placeholder="Valor" onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value }; setNewFields(arr); }} />
-                              );
-                            })()}
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Apellidos <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                            </label>
+                            <input className="form-input" type="text" value={field._apellidos || ''} onChange={(e) => {
+                              const arr = [...editFormData];
+                              arr[originalIdx] = { ...arr[originalIdx], _apellidos: e.target.value };
+                              setEditFormData(arr);
+                            }} />
                           </div>
-                          <button className="btn btn-ghost" style={{ color: 'var(--color-danger)', padding: '0.4rem' }} onClick={() => setNewFields(newFields.filter((_, i) => i !== idx))}><X size={16} /></button>
                         </div>
+                      );
+                    }
+                    if (field.id === 'direccion') {
+                      return (
+                        <div key={`exist-${field.campo_id}-${idx}`} style={{ gridColumn: '1 / -1', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--color-bg-secondary)' }}>
+                          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Dirección Completa <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>
+                          </label>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>CEP</label>
+                              <input className="form-input" placeholder="00000-000" type="text" value={field._cep || ''} onChange={e => {
+                                let val = e.target.value.replace(/\D/g, '');
+                                if (val.length > 5) val = val.substring(0, 5) + '-' + val.substring(5, 8);
+                                const arr = [...editFormData];
+                                arr[originalIdx] = { ...arr[originalIdx], _cep: val };
+                                setEditFormData(arr);
+                              }} onBlur={e => handleCepSearch(e.target.value)} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Endereço</label>
+                              <input className="form-input" type="text" value={field._endereco || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _endereco: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Número</label>
+                              <input className="form-input" type="text" value={field._numero || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _numero: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Complemento</label>
+                              <input className="form-input" type="text" value={field._complemento || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _complemento: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Bairro</label>
+                              <input className="form-input" type="text" value={field._bairro || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _bairro: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Cidade</label>
+                              <input className="form-input" type="text" value={field._cidade || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _cidade: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Estado</label>
+                              <input className="form-input" type="text" value={field._estado || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _estado: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Ponto de Referência</label>
+                              <input className="form-input" type="text" value={field._ponto_referencia || ''} onChange={e => { const arr = [...editFormData]; arr[originalIdx] = { ...arr[originalIdx], _ponto_referencia: e.target.value }; setEditFormData(arr); }} style={{ width: '100%' }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    const isDate = field.nombre_campo?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
+                    return (
+                      <div key={`exist-${field.campo_id}-${idx}`} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {field.nombre_campo}{field.es_fijo && <span style={{ color: 'var(--color-primary)', marginLeft: 6, fontSize: '0.62rem' }}>BASE</span>}
+                          </label>
+                          {field.id === 'estado_civil' ? (
+                            <select className="form-input" value={field.valor || ''} onChange={(e) => {
+                              const arr = [...editFormData];
+                              arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
+                              setEditFormData(arr);
+                            }}>
+                              <option value="">Selecione</option>
+                              {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                          ) : field.id === 'sexo' ? (
+                            <select className="form-input" value={field.valor || ''} onChange={(e) => {
+                              const arr = [...editFormData];
+                              arr[originalIdx] = { ...arr[originalIdx], valor: e.target.value };
+                              setEditFormData(arr);
+                            }}>
+                              <option value="">Selecione</option>
+                              {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                          ) : (
+                            <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} onChange={(e) => {
+                              const arr = [...editFormData];
+                              arr[originalIdx] = { ...arr[originalIdx], valor: isDate ? toSlashDate(e.target.value) : e.target.value };
+                              setEditFormData(arr);
+                            }} />
+                          )}
+                        </div>
+                        {field.es_fijo && field.id === 'nombre' ? null : (
+                          <button className="btn btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteFieldData(field.id, field.es_fijo)} title="Borrar dato">
+                            <Trash2 size={18} />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-              )}
-              <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
-                <Plus size={16} /> Añadir Más Datos
-              </button>
-            </>
-          )}
-        </div>
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn btn-ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>
-          <button className="btn btn-primary" onClick={handleSaveEdits} disabled={isSaving}>
-            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-{
-  isNewRelateClientModalOpen && (
-    <NewClientModal
-      onClose={() => setIsNewRelateClientModalOpen(false)}
-      onClientCreated={(newClient) => {
-        setAllClientes([...allClientes, newClient]);
-        setSelectedRelateId(newClient.id);
-        setIsNewRelateClientModalOpen(false);
-      }}
-    />
-  )
-}
-
-
-
-{
-  isExtractionModalOpen && extractedData && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
-          <Sparkles size={18} /> IA Detectó Datos del Documento
-        </h2>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-          Se extrajeron los siguientes datos del documento. ¿Deseas guardarlos en la categoría actual?
-        </p>
-        {extractedData.ILEGIBLE && (
-          <div style={{ background: 'rgba(216,90,48,0.1)', color: '#D85A30', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontWeight: 600 }}>⚠️ Aviso:</span> La parte superior del documento estaba borrosa, por lo que la IA extrajo los datos del código inferior (MRZ). Verifica que sean correctos.
+                {newFields.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', alignItems: 'start', width: '100%', marginTop: '1rem' }}>
+                    {newFields.map((field, idx) => {
+                      const usedIds = [...editFormData.map(f => f.campo_id), ...newFields.filter((_, i) => i !== idx).map(f => f.campo_id)];
+                      let activeCategoriasNombres = [];
+                      let activeCategoriasIds = [];
+                      if (editingCategoryId === 'ALL_PERSONAL') {
+                        const cats = categorias.filter(c => ["Informaciones Personales", "Datos Familiares", "Documentos de Identidad"].includes(c.nombre));
+                        activeCategoriasNombres = cats.map(c => c.nombre);
+                        activeCategoriasIds = cats.map(c => c.id);
+                      } else {
+                        const editingCategory = categorias.find(c => c.id === editingCategoryId);
+                        if (editingCategory) {
+                          activeCategoriasNombres = [editingCategory.nombre];
+                          activeCategoriasIds = [editingCategory.id];
+                        }
+                      }
+                      const avFixed = FIXED_FIELDS_CATALOG.filter(f => activeCategoriasNombres.includes(f.category_name) && !client?.[f.id] && !usedIds.includes(f.id));
+                      const avDynamic = campos.filter(c => activeCategoriasIds.includes(c.categoria_id) && !usedIds.includes(c.id));
+                      return (
+                        <div key={field.id} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '0.875rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                            <div style={{ flex: '1 1 160px' }}>
+                              <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Campo</label>
+                              <select className="form-input" value={field.campo_id} onChange={(e) => {
+                                const arr = [...newFields];
+                                arr[idx] = { ...arr[idx], campo_id: e.target.value, customName: '' };
+                                setNewFields(arr);
+                              }}>
+                                <option value="">-- Seleccionar --</option>
+                                {avFixed.length > 0 && <optgroup label="Campos Base">{avFixed.map(f => <option key={f.id} value={f.id}>{f.nombre_campo}</option>)}</optgroup>}
+                                {avDynamic.length > 0 && <optgroup label="Campos Operacionales">{avDynamic.map(c => <option key={c.id} value={c.id}>{c.nombre_campo}</option>)}</optgroup>}
+                                <optgroup label="Nuevo"><option value="custom">+ Crear Campo Personalizado</option></optgroup>
+                              </select>
+                            </div>
+                            {field.campo_id === 'custom' && (
+                              <div style={{ flex: '1 1 140px' }}>
+                                <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Nombre del Campo</label>
+                                <input className="form-input" type="text" placeholder="Ej: Talla Camisa" value={field.customName || ''} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], customName: e.target.value }; setNewFields(arr); }} />
+                              </div>
+                            )}
+                            <div style={{ flex: '1 1 140px' }}>
+                              <label style={{ display: 'block', fontSize: '0.72rem', marginBottom: '0.4rem', color: 'var(--color-text-secondary)' }}>Valor</label>
+                              {(() => {
+                                const campoRef = campos.find(c => c.id === field.campo_id) || FIXED_FIELDS_CATALOG.find(f => f.id === field.campo_id);
+                                const nombreParaCheck = field.campo_id === 'custom' ? field.customName : (campoRef?.nombre_campo || '');
+                                const isDate = nombreParaCheck?.toLowerCase().includes('fecha') || String(field.campo_id).toLowerCase().includes('fecha');
+                                if (field.campo_id === 'estado_civil') {
+                                  return (
+                                    <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
+                                      <option value="">Selecione</option>
+                                      {ESTADO_CIVIL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                  );
+                                }
+                                if (field.campo_id === 'sexo') {
+                                  return (
+                                    <select className="form-input" value={field.valor || ''} disabled={!field.campo_id} onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: e.target.value }; setNewFields(arr); }}>
+                                      <option value="">Selecione</option>
+                                      {SEXO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                  );
+                                }
+                                return (
+                                  <input className="form-input" type={isDate ? "date" : "text"} value={isDate ? toIsoDate(field.valor) : (field.valor || '')} disabled={!field.campo_id} placeholder="Valor" onChange={e => { const arr = [...newFields]; arr[idx] = { ...arr[idx], valor: isDate ? toSlashDate(e.target.value) : e.target.value }; setNewFields(arr); }} />
+                                );
+                              })()}
+                            </div>
+                            <button className="btn btn-ghost" style={{ color: 'var(--color-danger)', padding: '0.4rem' }} onClick={() => setNewFields(newFields.filter((_, i) => i !== idx))}><X size={16} /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <button className="btn btn-secondary" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }} onClick={handleAddCustomField}>
+                  <Plus size={16} /> Añadir Más Datos
+                </button>
+              </>
+            )}
           </div>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-          {Object.entries(extractedData).map(([k, v]) => (
-            v && k !== 'ILEGIBLE' && (
-              <div key={k} style={{ background: 'var(--color-bg-elevated)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>{k}</div>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={v || ''}
-                  onChange={(e) => setExtractedData({ ...extractedData, [k]: e.target.value })}
-                  style={{ fontSize: '0.875rem', fontWeight: 500, width: '100%' }}
-                />
-              </div>
-            )
-          ))}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn btn-ghost" onClick={() => setIsExtractionModalOpen(false)}>Descartar</button>
-          <button className="btn btn-primary" onClick={handleSaveExtractedData} disabled={isSaving}>
-            {isSaving ? 'Guardando...' : 'Guardar Datos'}
-          </button>
+
+          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+            <button className="btn btn-ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>
+            <button className="btn btn-primary" onClick={handleSaveEdits} disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
-{
-  isNewTramiteModalOpen && (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '420px', padding: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Plus size={20} color="var(--color-primary)" /> Nuevo Trámite
-        </h2>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
-            Servicio / Tipo de Trámite <span style={{ color: 'var(--color-danger)' }}>*</span>
-          </label>
-          <input
-            className="form-input"
-            type="text"
-            placeholder="Ej: Solicitud de Refugio, Renovación RNM, etc."
-            value={newTramiteData.servicio}
-            onChange={(e) => setNewTramiteData(prev => ({ ...prev, servicio: e.target.value }))}
-            style={{ width: '100%' }}
-            autoFocus
-          />
-        </div>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
-            Operario / Responsable
-          </label>
-          <input
-            className="form-input"
-            type="text"
-            placeholder="Nombre del operario (opcional)"
-            value={newTramiteData.operario}
-            onChange={(e) => setNewTramiteData(prev => ({ ...prev, operario: e.target.value }))}
-            style={{ width: '100%' }}
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-          <button className="btn btn-ghost" onClick={() => { setIsNewTramiteModalOpen(false); setNewTramiteData({ servicio: '', operario: '' }); }}>Cancelar</button>
-          <button className="btn btn-primary" onClick={handleCreateTramite} disabled={isCreatingTramite || !newTramiteData.servicio.trim()}>
-            {isCreatingTramite ? <><Loader2 size={16} className="animate-spin" style={{ marginRight: '4px' }} /> Creando...</> : 'Crear Trámite'}
-          </button>
+  {
+    isNewRelateClientModalOpen && (
+      <NewClientModal
+        onClose={() => setIsNewRelateClientModalOpen(false)}
+        onClientCreated={(newClient) => {
+          setAllClientes([...allClientes, newClient]);
+          setSelectedRelateId(newClient.id);
+          setIsNewRelateClientModalOpen(false);
+        }}
+      />
+    )
+  }
+
+
+
+  {
+    isExtractionModalOpen && extractedData && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: '1rem' }}>
+        <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
+            <Sparkles size={18} /> IA Detectó Datos del Documento
+          </h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+            Se extrajeron los siguientes datos del documento. ¿Deseas guardarlos en la categoría actual?
+          </p>
+          {extractedData.ILEGIBLE && (
+            <div style={{ background: 'rgba(216,90,48,0.1)', color: '#D85A30', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontWeight: 600 }}>⚠️ Aviso:</span> La parte superior del documento estaba borrosa, por lo que la IA extrajo los datos del código inferior (MRZ). Verifica que sean correctos.
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+            {Object.entries(extractedData).map(([k, v]) => (
+              v && k !== 'ILEGIBLE' && (
+                <div key={k} style={{ background: 'var(--color-bg-elevated)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>{k}</div>
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={v || ''}
+                    onChange={(e) => setExtractedData({ ...extractedData, [k]: e.target.value })}
+                    style={{ fontSize: '0.875rem', fontWeight: 500, width: '100%' }}
+                  />
+                </div>
+              )
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+            <button className="btn btn-ghost" onClick={() => setIsExtractionModalOpen(false)}>Descartar</button>
+            <button className="btn btn-primary" onClick={handleSaveExtractedData} disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Guardar Datos'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
-{
-  viewingDocument && (
-    <DocumentViewerModal
-      document={viewingDocument}
-      onClose={() => setViewingDocument(null)}
-    />
-  )
-}
+  {
+    isNewTramiteModalOpen && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+        <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '420px', padding: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Plus size={20} color="var(--color-primary)" /> Nuevo Trámite
+          </h2>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
+              Servicio / Tipo de Trámite <span style={{ color: 'var(--color-danger)' }}>*</span>
+            </label>
+            <input
+              className="form-input"
+              type="text"
+              placeholder="Ej: Solicitud de Refugio, Renovación RNM, etc."
+              value={newTramiteData.servicio}
+              onChange={(e) => setNewTramiteData(prev => ({ ...prev, servicio: e.target.value }))}
+              style={{ width: '100%' }}
+              autoFocus
+            />
+          </div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
+              Operario / Responsable
+            </label>
+            <input
+              className="form-input"
+              type="text"
+              placeholder="Nombre del operario (opcional)"
+              value={newTramiteData.operario}
+              onChange={(e) => setNewTramiteData(prev => ({ ...prev, operario: e.target.value }))}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+            <button className="btn btn-ghost" onClick={() => { setIsNewTramiteModalOpen(false); setNewTramiteData({ servicio: '', operario: '' }); }}>Cancelar</button>
+            <button className="btn btn-primary" onClick={handleCreateTramite} disabled={isCreatingTramite || !newTramiteData.servicio.trim()}>
+              {isCreatingTramite ? <><Loader2 size={16} className="animate-spin" style={{ marginRight: '4px' }} /> Creando...</> : 'Crear Trámite'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  {
+    viewingDocument && (
+      <DocumentViewerModal
+        document={viewingDocument}
+        onClose={() => setViewingDocument(null)}
+      />
+    )
+  }
     </div >
   );
 }
