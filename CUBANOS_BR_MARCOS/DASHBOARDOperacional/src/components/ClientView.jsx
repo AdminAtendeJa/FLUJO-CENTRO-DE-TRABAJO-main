@@ -289,20 +289,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
         {/* Columna 3: Documentos y Multimedia */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1 }}>
-          <ClientDocuments
-            documentos={documentos}
-            uploading={docs.uploading}
-            isDragging={docs.isDragging}
-            draggedDocument={docs.draggedDocument}
-            handleDragOver={docs.handleDragOver}
-            handleDragLeave={docs.handleDragLeave}
-            handleDrop={docs.handleDrop}
-            handleFileUpload={docs.handleFileUpload}
-            setDraggedDocument={docs.setDraggedDocument}
-            setDragOverRelId={docs.setDragOverRelId}
-            setViewingDocument={docs.setViewingDocument}
-            handleDeleteDocument={docs.handleDeleteDocument}
-          />
           <ClientKommoData
             clientId={clientId}
             onDocumentVerified={async (url) => {
@@ -329,6 +315,20 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
               }
             }}
             setViewingDocument={docs.setViewingDocument}
+          />
+          <ClientDocuments
+            documentos={documentos}
+            uploading={docs.uploading}
+            isDragging={docs.isDragging}
+            draggedDocument={docs.draggedDocument}
+            handleDragOver={docs.handleDragOver}
+            handleDragLeave={docs.handleDragLeave}
+            handleDrop={docs.handleDrop}
+            handleFileUpload={docs.handleFileUpload}
+            setDraggedDocument={docs.setDraggedDocument}
+            setDragOverRelId={docs.setDragOverRelId}
+            setViewingDocument={docs.setViewingDocument}
+            handleDeleteDocument={docs.handleDeleteDocument}
           />
           <ClientMediaLibrary />
         </div>
