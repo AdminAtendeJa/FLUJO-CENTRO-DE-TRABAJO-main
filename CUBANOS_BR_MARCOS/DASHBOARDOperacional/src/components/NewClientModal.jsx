@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { AlertTriangle, CheckCircle2, Loader2, MapPin, UserPlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, MapPin, UserPlus, UploadCloud, Bot } from 'lucide-react';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Modal from './ui/Modal';
 import Avatar from './ui/Avatar';
+import toast from 'react-hot-toast';
+import { analyzeDocumentImage } from '../services/aiService';
 
 const initialFormData = {
   nombres: '',
@@ -73,7 +75,9 @@ export default function NewClientModal({ onClose, onClientCreated }) {
   const [touched, setTouched] = useState({});
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const fileInputRef = useRef(null);
 
   const errors = useMemo(() => {
     return Object.keys(formData).reduce((acc, key) => {
@@ -176,6 +180,60 @@ export default function NewClientModal({ onClose, onClientCreated }) {
 
   const visibleError = (field) => touched[field] ? errors[field] : '';
 
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsExtracting(true);
+    const toastId = toast.loading('Analizando documento con IA...');
+    
+    try {
+      let fileOrBase64 = file;
+      if (file.type === 'application/pdf') {
+        const { convertPdfPageToImageBase64 } = await import('../services/pdfToImage');
+        fileOrBase64 = await convertPdfPageToImageBase64(file);
+      }
+
+      const aiData = await analyzeDocumentImage(fileOrBase64);
+      
+      if (aiData && Object.keys(aiData).length > 0) {
+        let nuevosNombres = formData.nombres;
+        let nuevosApellidos = formData.apellidos;
+
+        if (aiData.NOMBRE_COMPLETO) {
+          const parts = aiData.NOMBRE_COMPLETO.split(' ');
+          if (parts.length > 2) {
+            nuevosNombres = parts.slice(0, parts.length - 2).join(' ');
+            nuevosApellidos = parts.slice(parts.length - 2).join(' ');
+          } else if (parts.length === 2) {
+            nuevosNombres = parts[0];
+            nuevosApellidos = parts[1];
+          } else {
+            nuevosNombres = parts[0];
+          }
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          nombres: nuevosNombres || prev.nombres,
+          apellidos: nuevosApellidos || prev.apellidos,
+          cpf: aiData.CPF || prev.cpf,
+          carnet_identidad: aiData.CARNET_IDENTIDAD || prev.carnet_identidad,
+        }));
+
+        toast.success('¡Datos autocompletados con éxito!', { id: toastId });
+      } else {
+        toast.error('No se pudo extraer información útil.', { id: toastId });
+      }
+    } catch (err) {
+      console.error('Error analizando documento:', err);
+      toast.error('Error al procesar el documento.', { id: toastId });
+    } finally {
+      setIsExtracting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <Modal
       isOpen
@@ -211,6 +269,39 @@ export default function NewClientModal({ onClose, onClientCreated }) {
             <AlertTriangle size={16} /> {errorMessage}
           </div>
         )}
+
+        {/* Zona de subida para IA */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--color-border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-primary)' }}>
+              <Bot size={20} color="var(--brand-primary)" />
+              <span style={{ fontWeight: 500 }}>Autocompletado con IA</span>
+            </div>
+            <input 
+              type="file" 
+              accept="image/*,application/pdf" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              onChange={handleFileUpload}
+            />
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isExtracting}
+              type="button"
+            >
+              {isExtracting ? (
+                <><Loader2 className="animate-spin" size={16} /> Procesando...</>
+              ) : (
+                <><UploadCloud size={16} /> Subir Documento</>
+              )}
+            </Button>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+            Sube un pasaporte, carnet de identidad o documento brasileño (JPG, PNG o PDF) para autocompletar los campos automáticamente.
+          </p>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(260px, 0.6fr)', gap: 'var(--section-gap, 16px)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--section-gap, 16px)' }}>
