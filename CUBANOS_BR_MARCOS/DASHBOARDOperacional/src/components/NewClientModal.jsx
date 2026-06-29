@@ -32,7 +32,7 @@ const validateField = (name, value) => {
   if (requiredFields.includes(name) && !clean) return 'Campo obligatorio';
   if (name === 'email' && clean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return 'Email inválido';
   if (name === 'cpf' && clean && clean.replace(/\D/g, '').length < 11) return 'CPF incompleto';
-  if (name === 'cep' && clean && clean.replace(/\D/g, '').length !== 8) return 'CEP debe tener 8 dígitos';
+  // Permitimos cualquier formato en el CEP para evitar bloqueos
   return '';
 };
 
