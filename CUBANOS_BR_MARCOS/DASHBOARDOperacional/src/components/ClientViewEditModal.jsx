@@ -86,8 +86,7 @@ export default function ClientViewEditModal({
                 const isDireccion = field.id === 'direccion';
 
                 const updateField = (updates) => {
-                  const newArray = editFormData.map(f => (f.id === field.id && f.campo_id === field.campo_id) ? { ...f, ...updates } : f);
-                  onEditFormDataChange(newArray);
+                  onEditFormDataChange(prev => prev.map(f => (f.id === field.id && f.campo_id === field.campo_id) ? { ...f, ...updates } : f));
                 };
 
                 if (isNombre) {

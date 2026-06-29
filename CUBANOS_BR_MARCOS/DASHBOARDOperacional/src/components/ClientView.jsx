@@ -110,14 +110,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
   // Drag to scroll refs
   const scrollContainerRef = useRef(null);
-  const isDragging = useRef(false);
+  const isScrollDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeft = useRef(0);
 
   const handleMouseDown = (e) => {
     // Habilitar arrastre con click derecho (2) o izquierdo (0)
     if (e.button === 2 || e.button === 0) {
-      isDragging.current = true;
+      isScrollDragging.current = true;
       startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
       scrollLeft.current = scrollContainerRef.current.scrollLeft;
       scrollContainerRef.current.style.cursor = 'grabbing';
@@ -126,7 +126,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   };
 
   const handleMouseLeave = () => {
-    isDragging.current = false;
+    isScrollDragging.current = false;
     if (scrollContainerRef.current) {
       scrollContainerRef.current.style.cursor = 'default';
       scrollContainerRef.current.style.userSelect = 'auto';
@@ -134,7 +134,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   };
 
   const handleMouseUp = () => {
-    isDragging.current = false;
+    isScrollDragging.current = false;
     if (scrollContainerRef.current) {
       scrollContainerRef.current.style.cursor = 'default';
       scrollContainerRef.current.style.userSelect = 'auto';
@@ -142,7 +142,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   };
 
   const handleMouseMove = (e) => {
-    if (!isDragging.current) return;
+    if (!isScrollDragging.current) return;
     e.preventDefault();
     const x = e.pageX - scrollContainerRef.current.offsetLeft;
     const walk = (x - startX.current) * 1.5; // Velocidad de arrastre
