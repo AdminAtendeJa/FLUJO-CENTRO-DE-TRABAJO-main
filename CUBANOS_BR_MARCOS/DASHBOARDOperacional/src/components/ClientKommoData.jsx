@@ -113,7 +113,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
   const internalNotes = notes.filter(n => n.remitente === 'nota_interna');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flexShrink: 0 }}>
 
 
       {/* Sección de Notas Internas (Lead Notes) */}
