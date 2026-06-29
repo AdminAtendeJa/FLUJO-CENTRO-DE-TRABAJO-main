@@ -20,7 +20,8 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-error-boundary": "^6.1.2",
-    "react-hot-toast": "^2.6.0"
+    "react-hot-toast": "^2.6.0",
+    "react-image-crop": "^11.1.2"
   },
   "devDependencies": {
     "@tanstack/react-query-devtools": "^5.101.1",

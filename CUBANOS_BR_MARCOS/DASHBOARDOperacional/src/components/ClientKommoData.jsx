@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import {  FileText, CheckCircle, Clock, AlertCircle, MessageSquare, Trash2 , ChevronDown, ChevronUp } from 'lucide-react';
+import {  FileText, CheckCircle, Clock, AlertCircle, MessageSquare, Trash2, ChevronDown, ChevronUp, Crop } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
+import ImageCropperModal from './ImageCropperModal';
 
 export default function ClientKommoData({ clientId, onDocumentVerified, setViewingDocument }) {
   const [pendingDocs, setPendingDocs] = useState([]);
@@ -10,6 +11,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
   const [isVerificarExpanded, setIsVerificarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [verifyingId, setVerifyingId] = useState(null);
+  const [editingDoc, setEditingDoc] = useState(null);
 
   useEffect(() => {
     fetchPendingDocs();
@@ -49,17 +51,27 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
     }
   };
 
-  const handleVerify = async (doc) => {
+  const handleVerify = async (doc, overrideUrl = null) => {
     setVerifyingId(doc.id);
+    const finalUrl = overrideUrl || doc.url_archivo;
     try {
       // 1. Mover a documentos_operacionales
+      const isPdf = finalUrl?.toLowerCase().endsWith('.pdf') || doc.nombre_archivo?.toLowerCase().endsWith('.pdf');
+      const ext = finalUrl?.split('.').pop()?.toLowerCase();
+      let tipoCont = 'image/jpeg';
+      if (isPdf) tipoCont = 'application/pdf';
+      else if (ext === 'png') tipoCont = 'image/png';
+      else if (ext === 'gif') tipoCont = 'image/gif';
+      else if (ext === 'webp') tipoCont = 'image/webp';
+
       const { error: insertError } = await supabase
         .from('documentos_operacionales')
         .insert({
           id_cliente: doc.cliente_id,
-          url_archivo: doc.url_archivo,
+          url_archivo: finalUrl,
           nombre_archivo: doc.nombre_archivo || 'Documento de Kommo',
-          tipo_documento: doc.url_archivo?.toLowerCase().endsWith('.pdf') ? 'Documento Kommo' : 'Imagen Kommo',
+          tipo_documento: isPdf ? 'Documento Kommo' : 'Imagen Kommo',
+          tipo_contenido: tipoCont,
           subido_por: 'Kommo'
         });
 
@@ -78,13 +90,41 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       
       // 4. Notificar al padre para que dispare la IA y actualice la lista de documentos
       if (onDocumentVerified) {
-        onDocumentVerified(doc.url_archivo);
+        onDocumentVerified(finalUrl);
       }
 
     } catch (err) {
       console.error('Error verifying document:', err);
       alert('Error al verificar el documento.');
     } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const handleCropComplete = async (file) => {
+    if (!editingDoc) return;
+    setVerifyingId(editingDoc.id);
+    const docToVerify = editingDoc;
+    setEditingDoc(null); // Close modal immediately
+    try {
+      const ext = 'jpg';
+      const uniqueName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const storagePath = `${clientId}/${uniqueName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documentos_operacionales')
+        .upload(storagePath, file, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('documentos_operacionales')
+        .getPublicUrl(storagePath);
+
+      await handleVerify(docToVerify, urlData.publicUrl);
+    } catch (err) {
+      console.error('Error uploading cropped image:', err);
+      alert('Error al subir la imagen recortada.');
       setVerifyingId(null);
     }
   };
@@ -114,8 +154,6 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flexShrink: 0 }}>
-
-
       {/* Sección de Notas Internas (Lead Notes) */}
       <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
@@ -142,7 +180,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       </div>
 
       {/* Sección de Documentos Pendientes */}
-      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0, maxHeight: '400px' }}>
+      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0, maxHeight: '500px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
             <Clock size={18} /> Por Verificar
@@ -167,70 +205,90 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
               description="No hay documentos pendientes de verificar para este cliente." 
             />
           ) : (
-            pendingDocs.map(doc => (
-              <div 
-                key={doc.id} 
-                style={{ flexShrink: 0, background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: setViewingDocument ? 'pointer' : 'default' }}
-                onDoubleClick={() => {
-                  if (setViewingDocument) {
-                    const lowerUrl = doc.url_archivo?.toLowerCase() || '';
-                    const lowerName = doc.nombre_archivo?.toLowerCase() || '';
-                    const isPdf = lowerUrl.includes('.pdf') || lowerName.includes('.pdf');
-                    let tipoContenido = 'image/jpeg';
-                    if (isPdf) tipoContenido = 'application/pdf';
-                    else if (lowerUrl.includes('.png') || lowerName.includes('.png')) tipoContenido = 'image/png';
-                    else if (lowerUrl.includes('.gif') || lowerName.includes('.gif')) tipoContenido = 'image/gif';
-                    
-                    setViewingDocument({
-                      ...doc,
-                      nombre_archivo: doc.nombre_archivo || 'Documento de Kommo',
-                      tipo_documento: isPdf ? 'Documento Kommo' : 'Imagen Kommo',
-                      tipo_contenido: tipoContenido
-                    });
-                  }
-                }}
-              >
-                <div style={{ height: '150px', background: 'var(--color-bg-canvas)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {doc.url_archivo?.match(/\.(jpeg|jpg|gif|png)$/i) || !doc.url_archivo?.match(/\./) ? (
-                    <img src={doc.url_archivo} alt="Documento Kommo" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  ) : (
-                    <FileText size={48} color="var(--color-text-muted)" />
-                  )}
-                </div>
-                <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <AlertCircle size={14} /> Sin verificar
+            pendingDocs.map(doc => {
+              const isImage = doc.url_archivo?.match(/\.(jpeg|jpg|gif|png|webp)$/i) || !doc.url_archivo?.match(/\./);
+              return (
+                <div 
+                  key={doc.id} 
+                  style={{ flexShrink: 0, background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: setViewingDocument ? 'pointer' : 'default' }}
+                  onDoubleClick={() => {
+                    if (setViewingDocument) {
+                      const lowerUrl = doc.url_archivo?.toLowerCase() || '';
+                      const lowerName = doc.nombre_archivo?.toLowerCase() || '';
+                      const isPdf = lowerUrl.includes('.pdf') || lowerName.includes('.pdf');
+                      let tipoContenido = 'image/jpeg';
+                      if (isPdf) tipoContenido = 'application/pdf';
+                      else if (lowerUrl.includes('.png') || lowerName.includes('.png')) tipoContenido = 'image/png';
+                      else if (lowerUrl.includes('.gif') || lowerName.includes('.gif')) tipoContenido = 'image/gif';
+                      
+                      setViewingDocument({
+                        ...doc,
+                        nombre_archivo: doc.nombre_archivo || 'Documento de Kommo',
+                        tipo_documento: isPdf ? 'Documento Kommo' : 'Imagen Kommo',
+                        tipo_contenido: tipoContenido
+                      });
+                    }
+                  }}
+                >
+                  <div style={{ height: '150px', background: 'var(--color-bg-canvas)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {isImage ? (
+                      <img src={doc.url_archivo} alt="Documento Kommo" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      <FileText size={48} color="var(--color-text-muted)" />
+                    )}
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '0.5rem' }}
-                      onClick={() => handleVerify(doc)}
-                      disabled={verifyingId === doc.id}
-                    >
-                      {verifyingId === doc.id ? (
-                        <span className="animate-pulse">Verificando...</span>
-                      ) : (
-                        <>
-                          <CheckCircle size={16} /> Procesar
-                        </>
+                  <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <AlertCircle size={14} /> Sin verificar
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {isImage && (
+                        <button 
+                          className="btn" 
+                          style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '0.25rem', padding: '0.5rem', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', cursor: verifyingId === doc.id ? 'wait' : 'pointer' }}
+                          onClick={() => setEditingDoc(doc)}
+                          disabled={verifyingId === doc.id}
+                        >
+                          <Crop size={14} /> Editar
+                        </button>
                       )}
-                    </button>
-                    <button
-                      className="btn"
-                      style={{ padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-                      onClick={() => handleDeleteDocument(doc.id)}
-                      title="Descartar imagen"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '0.25rem', padding: '0.5rem' }}
+                        onClick={() => handleVerify(doc)}
+                        disabled={verifyingId === doc.id}
+                      >
+                        {verifyingId === doc.id ? (
+                          <span className="animate-pulse">...</span>
+                        ) : (
+                          <>
+                            <CheckCircle size={14} /> Procesar
+                          </>
+                        )}
+                      </button>
+                      <button
+                        className="btn"
+                        style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        title="Descartar imagen"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
+
+      <ImageCropperModal
+        isOpen={!!editingDoc}
+        imageUrl={editingDoc?.url_archivo}
+        onClose={() => setEditingDoc(null)}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 }

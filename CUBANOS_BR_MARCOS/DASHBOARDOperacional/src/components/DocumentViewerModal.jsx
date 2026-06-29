@@ -189,17 +189,38 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
         setRotation(prev => (prev + 90) % 360);
     };
 
+    const isPdfFallback = doc?.url_archivo?.toLowerCase().endsWith('.pdf') || doc?.nombre_archivo?.toLowerCase().endsWith('.pdf');
+    const isImageFallback = doc?.url_archivo?.match(/\.(jpeg|jpg|gif|png|webp)$/i) || doc?.nombre_archivo?.match(/\.(jpeg|jpg|gif|png|webp)$/i) || (!doc?.url_archivo?.match(/\./) && !isPdfFallback);
+    const isImage = doc?.tipo_contenido?.startsWith('image/') || isImageFallback;
+    const isPdf = doc?.tipo_contenido === 'application/pdf' || isPdfFallback;
+
     const handleDownload = async () => {
         if (!doc?.url_archivo) return;
         setIsDownloading(true);
         try {
+            let filename = doc.nombre_archivo || 'documento';
+            if (isPdf && !filename.toLowerCase().endsWith('.pdf')) filename += '.pdf';
+            if (isImage && !filename.match(/\.(jpeg|jpg|gif|png|webp)$/i)) filename += '.jpg';
+
+            if (doc.url_archivo.includes('supabase.co/storage/v1/object/public/')) {
+                const downloadUrl = new URL(doc.url_archivo);
+                downloadUrl.searchParams.set('download', filename);
+                const a = document.createElement('a');
+                a.href = downloadUrl.toString();
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return;
+            }
+
             const response = await fetch(doc.url_archivo);
             if (!response.ok) throw new Error('Network response was not ok');
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = doc.nombre_archivo || 'documento';
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -212,9 +233,6 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
             setIsDownloading(false);
         }
     };
-
-    const isImage = doc?.tipo_contenido?.startsWith('image/');
-    const isPdf = doc?.tipo_contenido === 'application/pdf';
 
     // Resize handle style
     const handleStyle = {
