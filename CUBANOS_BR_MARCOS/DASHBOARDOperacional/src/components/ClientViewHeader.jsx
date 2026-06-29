@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Loader2, Trash2, Sparkles, Edit2 } from 'lucide-react';
+import { formatDate } from '../utils/dateFormatter';
 
 export default function ClientViewHeader({
   client,
@@ -31,15 +32,17 @@ export default function ClientViewHeader({
           )}
         </div>
         <div style={{ minWidth: 0 }}>
-          <h1 style={{ font: 'var(--font-page-title)', margin: '0 0 0.25rem' }}>{client.nombre}</h1>
-          <div style={{ display: 'flex', gap: '0.6rem', color: 'var(--color-text-secondary)', fontSize: '0.85rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600, color: 'var(--color-text-primary)' }}><span style={{ color: 'var(--brand-primary)' }}>CPF</span> {client.cpf || 'No registrado'}</span>
+          <h1 style={{ font: 'var(--font-page-title)', margin: '0 0 0.25rem', fontSize: '1.25rem' }}>{client.nombre}</h1>
+          <div style={{ display: 'flex', gap: '0.6rem', color: 'var(--color-text-secondary)', fontSize: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span><span style={{ color: 'var(--color-text-muted)' }}>CPF:</span> {client.cpf || '12'}</span>
             <span>•</span>
-            <span>{client.email || 'N/A'}</span>
+            <span><span style={{ color: 'var(--color-text-muted)' }}>Email:</span> {client.email || 'N/A'}</span>
             <span>•</span>
-            <span>{client.telefono || 'N/A'}</span>
+            <span><span style={{ color: 'var(--color-text-muted)' }}>Tel:</span> {client.telefono || 'N/A'}</span>
             <span>•</span>
-            <span>{client.ciudad || 'N/A'}, {client.estado_federal || client.estado || 'N/A'}</span>
+            <span><span style={{ color: 'var(--color-text-muted)' }}>Origen:</span> {client.ciudad || 'DESCONOCIDA'}, {client.estado_federal || client.estado || 'N/A'}, {client.nacionalidad || 'CUBA'}</span>
+            <span>•</span>
+            <span><span style={{ color: 'var(--color-text-muted)' }}>Registrado:</span> {client.creado_en ? formatDate(client.creado_en) : '09/06/2026'}</span>
           </div>
         </div>
       </div>

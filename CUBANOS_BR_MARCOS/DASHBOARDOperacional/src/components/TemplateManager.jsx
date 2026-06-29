@@ -146,16 +146,11 @@ export default function TemplateManager({ client, clienteDatos }) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem',
         }}>
-          <div>
-            <h2 style={{
-              fontSize: '1.125rem', fontWeight: 600, color: 'var(--color-primary)',
-              display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem',
-            }}>
-              <FileText size={20} /> Motor de Plantillas
-            </h2>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0 }}>
-              Sube una plantilla de documento, la IA detecta los campos, edita el mapeo y genera copias con los datos del cliente.
-            </p>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ font: 'var(--font-section-title)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+              <FileText size={18} color="var(--color-info)" />
+              Formularios y Multimedia
+            </h3>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             {templates.length > 3 && (

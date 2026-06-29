@@ -53,11 +53,11 @@
   --status-cancelada-border:  rgba(239, 68, 68, 0.25);
 
   /* ── Surface (Dark) ── */
-  --surface-canvas:   #090e1a;
-  --surface-base:     #0f172a;
-  --surface-raised:   rgba(22, 33, 56, 0.85);
-  --surface-elevated: rgba(30, 44, 74, 0.9);
-  --surface-overlay:  rgba(6, 10, 20, 0.7);
+  --surface-canvas:   #0b101e;
+  --surface-base:     #12182b;
+  --surface-raised:   #171f36;
+  --surface-elevated: #1e2945;
+  --surface-overlay:  rgba(11, 16, 30, 0.85);
 
   --border-subtle:    rgba(148, 163, 184, 0.08);
   --border-default:   rgba(148, 163, 184, 0.14);

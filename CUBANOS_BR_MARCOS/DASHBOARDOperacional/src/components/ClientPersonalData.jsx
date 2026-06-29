@@ -42,7 +42,7 @@ const ClientPersonalData = ({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {targetNames.map(catName => {
           const cat = categorias.find(c => c.nombre === catName);
           if (!cat) return null;
@@ -128,22 +128,26 @@ const ClientPersonalData = ({
 
                   return (
                     <React.Fragment key={campo.id}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', marginBottom: '1rem' }}>
-                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>Nombres</label>
-                          <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{n_nombres}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                        <div style={{ flex: '0 0 140px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                          Nombres
                         </div>
-                        <button onClick={() => handleCopy(n_nombres || '', 'nombres')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                          {copiedId === 'nombres' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                        <div style={{ flex: 1, fontSize: '0.875rem', color: 'var(--color-text-primary)', fontWeight: 500, paddingRight: '1rem', wordBreak: 'break-word' }}>
+                          {n_nombres}
+                        </div>
+                        <button onClick={() => handleCopy(n_nombres || '', 'nombres')} className="btn btn-ghost" style={{ padding: '0.35rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg-elevated)', flexShrink: 0 }} title="Copiar">
+                          {copiedId === 'nombres' ? <Check size={14} color="var(--color-success)" /> : <Copy size={14} />}
                         </button>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>Apellidos</label>
-                          <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{n_apellidos}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                        <div style={{ flex: '0 0 140px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                          Apellidos
                         </div>
-                        <button onClick={() => handleCopy(n_apellidos || '', 'apellidos')} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                          {copiedId === 'apellidos' ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                        <div style={{ flex: 1, fontSize: '0.875rem', color: 'var(--color-text-primary)', fontWeight: 500, paddingRight: '1rem', wordBreak: 'break-word' }}>
+                          {n_apellidos}
+                        </div>
+                        <button onClick={() => handleCopy(n_apellidos || '', 'apellidos')} className="btn btn-ghost" style={{ padding: '0.35rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg-elevated)', flexShrink: 0 }} title="Copiar">
+                          {copiedId === 'apellidos' ? <Check size={14} color="var(--color-success)" /> : <Copy size={14} />}
                         </button>
                       </div>
                     </React.Fragment>
@@ -151,17 +155,15 @@ const ClientPersonalData = ({
                 }
 
                 return (
-                  <div key={campo.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <label style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
-                        {campo.nombre_campo}
-                      </label>
-                      <div style={{ fontSize: '1rem', color: 'var(--color-text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>
-                        {dato.valor}
-                      </div>
+                  <div key={campo.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                    <div style={{ flex: '0 0 140px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                      {campo.nombre_campo}
                     </div>
-                    <button onClick={() => handleCopy(dato.valor, campo.id)} className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', marginLeft: '0.5rem', background: 'var(--color-bg-primary)' }} title="Copiar rápido">
-                      {copiedId === campo.id ? <Check size={16} color="var(--color-success)" /> : <Copy size={16} />}
+                    <div style={{ flex: 1, fontSize: '0.875rem', color: 'var(--color-text-primary)', fontWeight: 500, paddingRight: '1rem', wordBreak: 'break-word' }}>
+                      {dato.valor}
+                    </div>
+                    <button onClick={() => handleCopy(dato.valor, campo.id)} className="btn btn-ghost" style={{ padding: '0.35rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg-elevated)', flexShrink: 0 }} title="Copiar">
+                      {copiedId === campo.id ? <Check size={14} color="var(--color-success)" /> : <Copy size={14} />}
                     </button>
                   </div>
                 );

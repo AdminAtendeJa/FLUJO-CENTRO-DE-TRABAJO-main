@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User } from 'lucide-react';
+import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User, X, File, Loader2, Paperclip, Smile } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
+import EmojiPicker from 'emoji-picker-react';
 
 export default function ClientWhatsApp({ clientId, telefono }) {
   const [view, setView] = useState('chat'); // 'chat' | 'list'
@@ -14,6 +15,13 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Drag & Drop Media states
+  const [isDragOverChat, setIsDragOverChat] = useState(false);
+  const [mediaToSend, setMediaToSend] = useState(null);
 
   // List view states
   const [recentChats, setRecentChats] = useState([]);
@@ -42,7 +50,6 @@ export default function ClientWhatsApp({ clientId, telefono }) {
         .from('notas_kommo')
         .select('*')
         .eq('cliente_id', activeChatId)
-        .neq('remitente', 'nota_interna')
         .order('fecha_recepcion', { ascending: true });
 
       if (error) throw error;
@@ -97,7 +104,6 @@ export default function ClientWhatsApp({ clientId, telefono }) {
           remitente,
           clientes ( nombre, telefono )
         `)
-        .neq('remitente', 'nota_interna')
         .order('fecha_recepcion', { ascending: false })
         .limit(200);
 
@@ -167,20 +173,43 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     }
   }, [searchQuery]);
 
+  const onEmojiClick = (emojiObject) => {
+    setNewMessage(prev => prev + emojiObject.emoji);
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setMediaToSend({
+        url: event.target.result,
+        nombre: file.name,
+        tipo: file.type || 'document'
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || sending) return;
 
     setSending(true);
+    setShowEmojiPicker(false);
     try {
-      const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || '';
+      let webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || '';
       if (!webhookUrl || webhookUrl.includes('your_n8n') || webhookUrl.includes('TU_URL')) {
         toast.error('Falta configurar la URL de n8n en el archivo .env');
         setSending(false);
         return;
       }
+      // Sanitize URL to remove trailing paths just in case
+      webhookUrl = webhookUrl.replace(/\/webhook(\/enviar-whatsapp)?\/?$/, '');
 
-      const response = await fetch(`${webhookUrl}/webhook/enviar-whatsapp-evolution`, {
+      const response = await fetch(`${webhookUrl}/webhook/enviar-whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -202,6 +231,77 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     }
   };
 
+  const handleSendMedia = async () => {
+    if (!mediaToSend || sending) return;
+    setSending(true);
+    try {
+      let webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || '';
+      if (!webhookUrl || webhookUrl.includes('your_n8n') || webhookUrl.includes('TU_URL')) {
+        toast.error('Falta configurar la URL de n8n en el archivo .env');
+        setSending(false);
+        return;
+      }
+      // Sanitize URL to remove trailing paths just in case
+      webhookUrl = webhookUrl.replace(/\/webhook(\/enviar-whatsapp)?\/?$/, '');
+
+      const response = await fetch(`${webhookUrl}/webhook/enviar-whatsapp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id: activeChatId,
+          telefono: cleanPhone,
+          url_archivo: mediaToSend.url,
+          tipo_archivo: mediaToSend.tipo,
+          nombre_archivo: mediaToSend.nombre
+        })
+      });
+
+      if (!response.ok) throw new Error('Error al conectar con n8n');
+      
+      toast.success(`Archivo enviado: ${mediaToSend.nombre}`);
+      setMediaToSend(null);
+    } catch (err) {
+      console.error('Error enviando archivo:', err);
+      toast.error('Error al enviar archivo');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverChat(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverChat(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverChat(false);
+
+    try {
+      const dataStr = e.dataTransfer.getData('application/json');
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      
+      if (data.type === 'media_library_item' || data.type === 'document_copy') {
+        setMediaToSend({
+          url: data.url,
+          nombre: data.nombre,
+          tipo: data.tipo || 'document' // Fallback si no tiene tipo
+        });
+      }
+    } catch (err) {
+      console.error('Error parsing drop data:', err);
+    }
+  };
+
   const openChat = (id, phone, name) => {
     setActiveChatId(id);
     setActiveChatPhone(phone);
@@ -212,6 +312,19 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   return (
     <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
       
+      {/* TABS HEADER */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', background: 'var(--surface-base)' }}>
+        <div style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-info)', borderBottom: '2px solid var(--color-info)', cursor: 'pointer' }}>
+          WhatsApp
+        </div>
+        <div style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+          Enviar Email
+        </div>
+        <div style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+          Formularios
+        </div>
+      </div>
+
       {/* -------------------- VIEW: CHAT LIST -------------------- */}
       {view === 'list' && (
         <>
@@ -303,7 +416,58 @@ export default function ClientWhatsApp({ clientId, telefono }) {
             </div>
           </div>
 
-          <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: '#e5ddd5', backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundSize: '400px', backgroundRepeat: 'repeat' }}>
+          <div 
+            style={{ 
+              flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', 
+              background: '#e5ddd5', backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundSize: '400px', backgroundRepeat: 'repeat',
+              position: 'relative'
+            }}
+            onClick={() => setShowEmojiPicker(false)}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {/* Overlay de Drag & Drop */}
+            {isDragOverChat && (
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(37, 211, 102, 0.9)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'white' }}>
+                <File size={48} />
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Suelta el archivo para enviarlo</h3>
+              </div>
+            )}
+
+            {/* Modal de confirmación de envío multimedia */}
+            {mediaToSend && (
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.7)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div style={{ background: 'var(--color-bg-canvas)', borderRadius: '12px', width: '100%', maxWidth: '300px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                  <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-primary)' }}>Confirmar Envío</h3>
+                    <button onClick={() => setMediaToSend(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div style={{ padding: '1.25rem', textAlign: 'center' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--surface-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
+                      <File size={24} color="var(--color-info)" />
+                    </div>
+                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', color: 'var(--color-text-secondary)', wordBreak: 'break-word' }}>
+                      ¿Deseas enviar el archivo <strong>{mediaToSend.nombre}</strong> a este chat?
+                    </p>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      Destino: +{cleanPhone}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', borderTop: '1px solid var(--color-border)' }}>
+                    <button onClick={() => setMediaToSend(null)} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: 'none', borderRight: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handleSendMedia} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: '#25D366', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                      {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      Enviar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {loadingMessages ? (
               <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.8)', padding: '0.5rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.8rem' }}>
                 Cargando historial...
@@ -342,7 +506,36 @@ export default function ClientWhatsApp({ clientId, telefono }) {
             <div ref={messagesEndRef} />
           </div>
 
+          {showEmojiPicker && (
+            <div style={{ position: 'absolute', bottom: '70px', left: '10px', zIndex: 50 }}>
+              <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={400} />
+            </div>
+          )}
           <form onSubmit={handleSendMessage} style={{ padding: '0.75rem', background: '#f0f2f5', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button 
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              disabled={!cleanPhone || sending}
+              style={{ background: 'transparent', border: 'none', color: '#54656f', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
+            >
+              <Smile size={24} />
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!cleanPhone || sending}
+              style={{ background: 'transparent', border: 'none', color: '#54656f', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
+            >
+              <Paperclip size={24} />
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              onChange={handleFileSelect} 
+            />
+
             <input 
               type="text" 
               value={newMessage}

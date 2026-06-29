@@ -50,6 +50,7 @@ import ClientViewNewTramiteModal from './ClientViewNewTramiteModal';
 import ClientViewEditModal from './ClientViewEditModal';
 import ClientViewExtractionModal from './ClientViewExtractionModal';
 import ClientKommoData from './ClientKommoData';
+import ClientMediaLibrary from './ClientMediaLibrary';
 import DuplicateContactsWarning from './DuplicateContactsWarning';
 import useClientData from '../hooks/useClientData';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -244,8 +245,50 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         {...scrollHandlers}
         style={{ display: 'flex', gap: '1.5rem', flex: 1, overflowX: 'auto', overflowY: 'hidden', minHeight: 0, position: 'relative', paddingBottom: '0.5rem', cursor: 'grab' }}
       >
-        {/* Columna Izquierda: Kommo CRM Data */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
+        {/* Columna 1: Datos del Cliente */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '380px', flex: 1.2 }}>
+          <ClientPersonalData
+            client={client}
+            categorias={categorias}
+            campos={campos}
+            clienteDatos={clienteDatos}
+            fixedFields={FIXED_FIELDS_CATALOG}
+            localSearchQuery={localSearchQuery}
+            setLocalSearchQuery={setLocalSearchQuery}
+            openEditModal={edit.openEditModal}
+            handleCopy={handleCopy}
+            copiedId={copiedId}
+          />
+        </div>
+
+        {/* Columna 2: Trámites y Relacionamientos */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1 }}>
+          <TemplateManager client={client} clienteDatos={clienteDatos} />
+          <ClientViewTramites
+            entradas={entradas}
+            onCreateTramite={() => tramites.setIsNewTramiteModalOpen(true)}
+            onUpdateEstado={tramites.handleChangeTramiteState}
+          />
+          <ClientRelations
+            relaciones={relaciones}
+            clientId={clientId}
+            draggedDocument={docs.draggedDocument}
+            dragOverRelId={docs.dragOverRelId}
+            setDragOverRelId={docs.setDragOverRelId}
+            handleCopyDocumentToClient={(doc, targetId) => extraction.handleCopyDocumentToClient(doc, targetId, docs.setDraggedDocument)}
+            onNavigateToClient={onNavigateToClient}
+            editingRelId={relations.editingRelId}
+            setEditingRelId={relations.setEditingRelId}
+            handleUpdateRelationType={relations.handleUpdateRelationType}
+            handleDeleteRelation={relations.handleDeleteRelation}
+            setSearchQuery={relations.setSearchQuery}
+            setSelectedRelateId={relations.setSelectedRelateId}
+            setIsRelateModalOpen={relations.setIsRelateModalOpen}
+          />
+        </div>
+
+        {/* Columna 3: Documentos y Multimedia */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1 }}>
           <ClientKommoData
             clientId={clientId}
             onDocumentVerified={async (url) => {
@@ -273,44 +316,6 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             }}
             setViewingDocument={docs.setViewingDocument}
           />
-        </div>
-
-        {/* Columna Centro: Datos Personales y Plantillas */}
-        <div style={{ overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
-          <ClientPersonalData
-            client={client}
-            categorias={categorias}
-            campos={campos}
-            clienteDatos={clienteDatos}
-            fixedFields={FIXED_FIELDS_CATALOG}
-            localSearchQuery={localSearchQuery}
-            setLocalSearchQuery={setLocalSearchQuery}
-            openEditModal={edit.openEditModal}
-            handleCopy={handleCopy}
-            copiedId={copiedId}
-          />
-          <TemplateManager client={client} clienteDatos={clienteDatos} />
-        </div>
-
-        {/* Columna Derecha: Relaciones, Docs, Trámites */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
-          <ClientRelations
-            relaciones={relaciones}
-            clientId={clientId}
-            draggedDocument={docs.draggedDocument}
-            dragOverRelId={docs.dragOverRelId}
-            setDragOverRelId={docs.setDragOverRelId}
-            handleCopyDocumentToClient={(doc, targetId) => extraction.handleCopyDocumentToClient(doc, targetId, docs.setDraggedDocument)}
-            onNavigateToClient={onNavigateToClient}
-            editingRelId={relations.editingRelId}
-            setEditingRelId={relations.setEditingRelId}
-            handleUpdateRelationType={relations.handleUpdateRelationType}
-            handleDeleteRelation={relations.handleDeleteRelation}
-            setSearchQuery={relations.setSearchQuery}
-            setSelectedRelateId={relations.setSelectedRelateId}
-            setIsRelateModalOpen={relations.setIsRelateModalOpen}
-          />
-
           <ClientDocuments
             documentos={documentos}
             uploading={docs.uploading}
@@ -325,15 +330,10 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             setViewingDocument={docs.setViewingDocument}
             handleDeleteDocument={docs.handleDeleteDocument}
           />
-
-          <ClientViewTramites
-            entradas={entradas}
-            onCreateTramite={() => tramites.setIsNewTramiteModalOpen(true)}
-            onUpdateEstado={tramites.handleChangeTramiteState}
-          />
+          <ClientMediaLibrary />
         </div>
 
-        {/* Columna Derecha: WhatsApp */}
+        {/* Columna 4: Comunicaciones */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
           <ClientWhatsApp clientId={clientId} telefono={client?.telefono} />
         </div>

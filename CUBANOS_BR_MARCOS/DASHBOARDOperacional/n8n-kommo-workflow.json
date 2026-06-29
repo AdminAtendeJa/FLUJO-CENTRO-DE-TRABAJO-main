@@ -643,6 +643,47 @@
         3104
       ],
       "webhookId": "generar-un-id-unico-en-tu-n8n"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://rcqkmaxkuxllcyjzqbvn.supabase.co/rest/v1/notas_kommo?telefono=eq.{{ $('Mapear Datos Completos').item.json.telefono.replace(/\\D/g, '') }}&cliente_id=is.null",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjcWttYXhrdXhsbGN5anpxYnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MzU3NzQsImV4cCI6MjA5NjIxMTc3NH0.3JlpvnK5OqjMWGAP3jl97VXknCi98Bks70owBe1jOz8"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjcWttYXhrdXhsbGN5anpxYnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MzU3NzQsImV4cCI6MjA5NjIxMTc3NH0.3JlpvnK5OqjMWGAP3jl97VXknCi98Bks70owBe1jOz8"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "cliente_id",
+              "value": "={{ $('Mapear Datos Completos').item.json.id_kommo }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "asociar-historial-flotante-http",
+      "name": "Vincular Historial (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3400,
+        2448
+      ]
     }
   ],
   "connections": {
@@ -851,6 +892,17 @@
         [
           {
             "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar Entrada": {
+      "main": [
+        [
+          {
+            "node": "Vincular Historial (HTTP)",
             "type": "main",
             "index": 0
           }
