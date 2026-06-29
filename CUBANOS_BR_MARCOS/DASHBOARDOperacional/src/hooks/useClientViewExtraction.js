@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import { analyzeDocumentImage } from '../services/aiService';
+import { normalizeDateToDDMMYYYY } from '../utils/dateFormatter';
 
 /** Mapeo de claves IA → columnas de la tabla `clientes` */
 const AI_FIELD_MAP = {
@@ -30,6 +31,14 @@ const AI_FIELD_MAP = {
   'NOMBRE_PADRE': 'nombre_padre',
 };
 
+/** Claves de la IA que contienen fechas (para normalizar a DD/MM/YYYY) */
+const AI_DATE_KEYS = new Set([
+  'FECHA_NACIMIENTO',
+  'FECHA_EMISION_PASAPORTE',
+  'FECHA_VENCIMIENTO_PASAPORTE',
+  'FECHA_VENCIMIENTO_REFUGIO',
+]);
+
 export default function useClientViewExtraction({ clientId, fetchClientData }) {
   // Extraction modal state
   const [extractedData, setExtractedData] = useState(null);
@@ -47,11 +56,15 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
       for (const [key, value] of Object.entries(extractedData)) {
         if (!value) continue;
         const upperKey = key.toUpperCase();
-        const upperVal = String(value).toUpperCase();
 
         const mappedCol = AI_FIELD_MAP[upperKey];
         if (mappedCol) {
-          updates[mappedCol] = upperVal;
+          // Normalize dates to DD/MM/YYYY, uppercase everything else
+          if (AI_DATE_KEYS.has(upperKey)) {
+            updates[mappedCol] = normalizeDateToDDMMYYYY(value) || String(value).toUpperCase();
+          } else {
+            updates[mappedCol] = String(value).toUpperCase();
+          }
         }
       }
 
