@@ -211,6 +211,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   // AI Extraction State
   const [extractedData, setExtractedData] = useState(null);
   const [isExtractionModalOpen, setIsExtractionModalOpen] = useState(false);
+  const [extractionTargetClientId, setExtractionTargetClientId] = useState(null);
+  const [extractionTargetClientData, setExtractionTargetClientData] = useState(null);
 
   const {
     isAiChatOpen,
@@ -572,6 +574,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           url_archivo: sourceDoc.url_archivo,
           tipo_contenido: sourceDoc.tipo_contenido,
           tipo_documento: sourceDoc.tipo_documento,
+          subido_por: sourceDoc.subido_por || 'user/admin',
           estado: 'pendiente'
         })
         .select()
@@ -584,6 +587,39 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
       alert('Documento copiado al cliente relacionado exitosamente.');
       setDraggedDocument(null);
+
+      if (sourceDoc.tipo_contenido.startsWith('image/') || sourceDoc.tipo_contenido === 'application/pdf') {
+        const toastId = toast.loading('Analizando documento para el cliente relacionado...');
+        try {
+          const { data: targetClient } = await supabase.from('clientes').select('*').eq('id', targetClientId).single();
+
+          const response = await fetch(sourceDoc.url_archivo);
+          const blob = await response.blob();
+          const isPdf = sourceDoc.tipo_contenido === 'application/pdf';
+          const file = new File([blob], isPdf ? 'documento.pdf' : 'imagen.jpg', { type: sourceDoc.tipo_contenido });
+
+          let fileOrBase64 = file;
+          if (isPdf) {
+            const { convertPdfPageToImageBase64 } = await import('../services/pdfToImage');
+            fileOrBase64 = await convertPdfPageToImageBase64(file);
+          }
+
+          const aiData = await analyzeDocumentImage(fileOrBase64);
+          if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
+            toast.dismiss(toastId);
+            setExtractedData(aiData);
+            setExtractionTargetClientId(targetClientId);
+            setExtractionTargetClientData(targetClient);
+            setIsExtractionModalOpen(true);
+          } else {
+            toast.error('La IA no encontró datos extraíbles.', { id: toastId });
+          }
+        } catch (aiErr) {
+          console.warn('[ClientView] AI copy analysis error:', aiErr.message);
+          toast.error('Error durante el análisis de IA.', { id: toastId });
+        }
+      }
+
     } catch (err) {
       console.error('Error copying document:', err);
       alert('Error al copiar el documento. Verifica la consola.');
@@ -690,11 +726,14 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
       // 2. Save fixed fields to `clientes` table
       if (Object.keys(updates).length > 0) {
-        await supabase.from('clientes').update(updates).eq('id', clientId);
+        const targetId = extractionTargetClientId || clientId;
+        await supabase.from('clientes').update(updates).eq('id', targetId);
       }
 
       await fetchClientData();
       setIsExtractionModalOpen(false);
+      setExtractionTargetClientId(null);
+      setExtractionTargetClientData(null);
     } catch (err) {
       console.error('Error saving extracted data:', err);
       alert('Error guardando los datos extraídos.');
@@ -1126,8 +1165,12 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       <ClientViewExtractionModal
         isOpen={isExtractionModalOpen}
         extractedData={extractedData}
-        cliente={client}
-        onClose={() => setIsExtractionModalOpen(false)}
+        cliente={extractionTargetClientData || client}
+        onClose={() => {
+          setIsExtractionModalOpen(false);
+          setExtractionTargetClientId(null);
+          setExtractionTargetClientData(null);
+        }}
         onExtractedDataChange={setExtractedData}
         onSave={handleSaveExtractedData}
         isSaving={isSaving}
