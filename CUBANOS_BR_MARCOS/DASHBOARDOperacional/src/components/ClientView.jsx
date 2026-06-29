@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient'; // Solo para: upload / delete de documentos y consultas directas
 import toast from 'react-hot-toast';
 import { handleError } from '../utils/errorHandler';
@@ -107,6 +107,47 @@ const TRAMITE_COLORS = {
 export default function ClientView({ clientId, onBack, onNavigateToClient }) {
   const queryClient = useQueryClient();
   const { client, categories: categorias, fields: campos, clientData: clienteDatos, relations: relaciones, documents: documentos, entradas, duplicateContacts, isLoading, isError } = useClientData(clientId);
+
+  // Drag to scroll refs
+  const scrollContainerRef = useRef(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  const handleMouseDown = (e) => {
+    // Habilitar arrastre con click derecho (2) o izquierdo (0)
+    if (e.button === 2 || e.button === 0) {
+      isDragging.current = true;
+      startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
+      scrollLeft.current = scrollContainerRef.current.scrollLeft;
+      scrollContainerRef.current.style.cursor = 'grabbing';
+      scrollContainerRef.current.style.userSelect = 'none';
+    }
+  };
+
+  const handleMouseLeave = () => {
+    isDragging.current = false;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.cursor = 'default';
+      scrollContainerRef.current.style.userSelect = 'auto';
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.cursor = 'default';
+      scrollContainerRef.current.style.userSelect = 'auto';
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5; // Velocidad de arrastre
+    scrollContainerRef.current.scrollLeft = scrollLeft.current - walk;
+  };
 
   const { data: allClientes = [] } = useQuery({
     queryKey: ['allClientesBase'],
@@ -898,9 +939,23 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         openEditModal={openEditModal}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', flex: 1, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
+      <div 
+        ref={scrollContainerRef}
+        onMouseDown={handleMouseDown}
+        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
+        onContextMenu={(e) => {
+          // Prevenir el menú contextual para que el arrastre con click derecho funcione sin interrupciones
+          // Solo lo evitamos si el target no es algo importante (como un input)
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }}
+        style={{ display: 'flex', gap: '1.5rem', flex: 1, overflowX: 'auto', overflowY: 'hidden', minHeight: 0, position: 'relative', paddingBottom: '0.5rem', cursor: 'grab' }}
+      >
         {/* Columna Izquierda Nueva: Kommo CRM Data */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
           <ClientKommoData 
             clientId={clientId} 
             onDocumentVerified={async (url) => {
@@ -934,7 +989,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
 
         {/* Columna Centro: Datos Personales y Trámites */}
-        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
+        <div style={{ overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
           <ClientPersonalData
             client={client}
             categorias={categorias}
@@ -952,7 +1007,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
 
         {/* Columna Derecha: Sidebar (Relaciones, Docs, Historial) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
           {/* Moviendo la sección de Relacionamientos arriba en el sidebar */}
           <ClientRelations
             relaciones={relaciones}
@@ -994,7 +1049,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
 
         {/* Columna Derecha: WhatsApp */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
           <ClientWhatsApp clientId={clientId} telefono={client?.telefono} />
         </div>
       </div>
