@@ -103,51 +103,16 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
     }
   };
 
-  const chatMessages = notes.filter(n => n.remitente !== 'nota_interna');
+  const chatMessages = notes.filter(n => 
+    n.remitente !== 'nota_interna' && 
+    !n.texto?.includes('mensagem de mídia') && 
+    !n.texto?.includes('mensagem de media')
+  );
   const internalNotes = notes.filter(n => n.remitente === 'nota_interna');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
-      {/* Sección de Historial de Chat */}
-      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
-          <MessageSquare size={18} /> Historial de WhatsApp (Kommo)
-        </h3>
-        <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '0.875rem', color: 'var(--color-text-secondary)', minHeight: '100px', maxHeight: '300px', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {loading ? (
-              <div style={{ textAlign: 'center', opacity: 0.5 }}>Cargando historial...</div>
-            ) : chatMessages.length === 0 ? (
-              <p style={{ margin: 0 }}><em>No hay historial de chat sincronizado para este cliente.</em></p>
-            ) : (
-              chatMessages.map(nota => {
-                const isIncoming = !nota.remitente || nota.remitente === 'incoming';
-                return (
-                  <div key={nota.id} style={{ 
-                    alignSelf: isIncoming ? 'flex-start' : 'flex-end',
-                    background: isIncoming ? 'var(--color-bg-canvas)' : 'var(--color-primary)',
-                    color: isIncoming ? 'var(--color-text-primary)' : 'white',
-                    padding: '0.75rem', 
-                    borderRadius: '12px', 
-                    borderBottomLeftRadius: isIncoming ? '2px' : '12px',
-                    borderBottomRightRadius: !isIncoming ? '2px' : '12px',
-                    maxWidth: '90%',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                  }}>
-                    <p style={{ margin: '0 0 0.25rem 0', fontWeight: 500, fontSize: '0.75rem', opacity: 0.8 }}>
-                      {isIncoming ? '👤 Cliente' : '🤵 Nosotros'}
-                    </p>
-                    <p style={{ margin: '0 0 0.25rem 0', whiteSpace: 'pre-wrap' }}>{nota.texto}</p>
-                    <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>
-                      {new Date(nota.fecha_recepcion).toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
+
 
       {/* Sección de Notas Internas (Lead Notes) */}
       <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>

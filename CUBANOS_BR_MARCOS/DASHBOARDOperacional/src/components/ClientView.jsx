@@ -16,6 +16,7 @@ import TemplateManager from './TemplateManager';
 import DocumentViewerModal from './DocumentViewerModal';
 import ClientPersonalData from './ClientPersonalData';
 import ClientDocuments from './ClientDocuments';
+import ClientWhatsApp from './ClientWhatsApp';
 import ClientRelations from './ClientRelations';
 import PDFGenerator from './PDFGenerator';
 import ClientViewHeader from './ClientViewHeader';
@@ -902,9 +903,31 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
           <ClientKommoData 
             clientId={clientId} 
-            onDocumentVerified={() => {
+            onDocumentVerified={async (url) => {
               fetchClientData(true);
-              toast.success('Documento de Kommo procesado correctamente');
+              toast.success('Documento procesado correctamente. Ejecutando IA...');
+              try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                
+                const lowerUrl = url.toLowerCase();
+                const isPdf = lowerUrl.includes('.pdf') || blob.type === 'application/pdf';
+                const file = new File([blob], isPdf ? 'documento.pdf' : 'imagen.jpg', { type: isPdf ? 'application/pdf' : (blob.type || 'image/jpeg') });
+                
+                let fileOrBase64 = file;
+                if (isPdf) {
+                  const { convertPdfPageToImageBase64 } = await import('../services/pdfToImage');
+                  fileOrBase64 = await convertPdfPageToImageBase64(file);
+                }
+                
+                const aiData = await analyzeDocumentImage(fileOrBase64);
+                if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
+                  setExtractedData(aiData);
+                  setIsExtractionModalOpen(true);
+                }
+              } catch (aiErr) {
+                console.warn('[ClientView] AI analysis error:', aiErr.message);
+              }
             }} 
             setViewingDocument={setViewingDocument}
           />
@@ -968,6 +991,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             onCreateTramite={() => setIsNewTramiteModalOpen(true)}
             onUpdateEstado={handleChangeTramiteState}
           />
+        </div>
+
+        {/* Columna Derecha: WhatsApp */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%' }}>
+          <ClientWhatsApp clientId={clientId} telefono={client?.telefono} />
         </div>
       </div>
 
