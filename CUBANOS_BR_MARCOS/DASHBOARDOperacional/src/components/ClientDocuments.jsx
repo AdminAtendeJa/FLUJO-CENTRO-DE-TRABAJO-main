@@ -22,7 +22,7 @@ const ClientDocuments = ({
   const openFilePicker = () => inputRef.current?.click();
 
   return (
-    <section id="documentos-subidos" className="glass-panel" style={{ overflow: 'hidden' }}>
+    <section id="documentos-subidos" className="glass-panel" style={{ overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isSectionExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer' }} onClick={() => setIsSectionExpanded(!isSectionExpanded)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
           <FileText size={18} color="var(--color-info)" />
