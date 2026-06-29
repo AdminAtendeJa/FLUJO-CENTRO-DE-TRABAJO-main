@@ -381,7 +381,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         <NewClientModal
           onClose={() => relations.setIsNewRelateClientModalOpen(false)}
           onClientCreated={(newClient) => {
-            queryClient.setQueryData(['allClientesBase'], [...allClientes, newClient]);
+            queryClient.setQueryData(['allClientesBase'], [newClient, ...allClientes]);
+            relations.setSearchQuery(''); // <--- Clear the search query so it falls back to allClientes and shows the new user
             relations.setSelectedRelateId(newClient.id);
             relations.setIsNewRelateClientModalOpen(false);
           }}

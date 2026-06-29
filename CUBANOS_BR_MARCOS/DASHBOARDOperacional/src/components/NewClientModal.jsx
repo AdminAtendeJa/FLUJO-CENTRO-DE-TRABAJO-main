@@ -7,6 +7,7 @@ import Modal from './ui/Modal';
 import Avatar from './ui/Avatar';
 import toast from 'react-hot-toast';
 import { analyzeDocumentImage } from '../services/aiService';
+import { uploadDocument } from '../services/storageService';
 
 const initialFormData = {
   nombres: '',
@@ -76,6 +77,7 @@ export default function NewClientModal({ onClose, onClientCreated }) {
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const fileInputRef = useRef(null);
 
@@ -134,6 +136,18 @@ export default function NewClientModal({ onClose, onClientCreated }) {
         .single();
 
       if (error) throw error;
+
+      if (uploadedFile) {
+        toast.loading('Guardando documento en el cliente...', { id: 'upload-doc' });
+        try {
+          await uploadDocument(uploadedFile, data.id);
+          toast.success('Documento guardado y asociado al cliente', { id: 'upload-doc' });
+        } catch (uploadErr) {
+          console.error('Error uploading document:', uploadErr);
+          toast.error('Cliente creado, pero hubo un error al guardar el documento.', { id: 'upload-doc' });
+        }
+      }
+
       onClientCreated(data);
     } catch (err) {
       console.error('Error creating client:', err);
@@ -184,6 +198,7 @@ export default function NewClientModal({ onClose, onClientCreated }) {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setUploadedFile(file);
     setIsExtracting(true);
     const toastId = toast.loading('Analizando documento con IA...');
     
@@ -294,12 +309,14 @@ export default function NewClientModal({ onClose, onClientCreated }) {
               {isExtracting ? (
                 <><Loader2 className="animate-spin" size={16} /> Procesando...</>
               ) : (
-                <><UploadCloud size={16} /> Subir Documento</>
+                <><UploadCloud size={16} /> {uploadedFile ? 'Cambiar Documento' : 'Subir Documento'}</>
               )}
             </Button>
           </div>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-            Sube un pasaporte, carnet de identidad o documento brasileño (JPG, PNG o PDF) para autocompletar los campos automáticamente.
+            {uploadedFile 
+              ? `📄 Adjunto: ${uploadedFile.name} (Se guardará al crear el cliente)`
+              : 'Sube un pasaporte, carnet de identidad o documento brasileño (JPG, PNG o PDF) para autocompletar los campos automáticamente.'}
           </p>
         </div>
 
