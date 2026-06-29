@@ -1,0 +1,137 @@
+/**
+ * useClientViewDocuments.js
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Encapsula la lógica de documentos de la vista de cliente: subida, eliminación,
+ * drag & drop, toggle de verificación, y visualización.
+ *
+ * La lógica de extracción IA tras subida queda aquí; para la copia a
+ * relacionamientos se delega a useClientViewExtraction (que recibe callbacks).
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+import { useState, useCallback } from 'react';
+import { supabase } from '../supabaseClient';
+import { handleError } from '../utils/errorHandler';
+import { analyzeDocumentImage } from '../services/aiService';
+import { uploadDocument, deleteDocument } from '../services/storageService';
+
+export default function useClientViewDocuments({
+  clientId,
+  queryClient,
+  fetchClientData,
+  // Callbacks para extracción IA (compartidos con useClientViewExtraction)
+  setExtractedData,
+  setIsExtractionModalOpen,
+}) {
+  // Upload state
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Drag document thumbnails state (for dragging to related clients)
+  const [draggedDocument, setDraggedDocument] = useState(null);
+  const [dragOverRelId, setDragOverRelId] = useState(null);
+
+  // Document viewer
+  const [viewingDocument, setViewingDocument] = useState(null);
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  const handleDeleteDocument = useCallback(async (doc) => {
+    if (!window.confirm(`Eliminar "${doc.nombre_archivo}"?`)) return;
+    const { error } = await deleteDocument(doc);
+    if (error) { alert(`Error eliminando documento: ${error}`); return; }
+    await fetchClientData(false);
+  }, [fetchClientData]);
+
+  // ── Toggle verification status ─────────────────────────────────────────────
+  const handleToggleDocumentStatus = useCallback(async (doc) => {
+    const newEstado = doc.estado === 'verificado' ? 'pendiente' : 'verificado';
+    try {
+      await supabase.from('documentos_operacionales').update({ estado: newEstado }).eq('id', doc.id);
+      queryClient.invalidateQueries({ queryKey: ['documents', clientId] });
+    } catch (err) {
+      handleError(err, 'Error actualizando estado del documento');
+    }
+  }, [clientId, queryClient]);
+
+  // ── Upload (with AI analysis) ──────────────────────────────────────────────
+  const handleFileUpload = useCallback(async (e) => {
+    e.preventDefault();
+    let file;
+    if (e.dataTransfer && e.dataTransfer.files) {
+      file = e.dataTransfer.files[0];
+    } else if (e.target && e.target.files) {
+      file = e.target.files[0];
+    }
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { data: docRecord, error } = await uploadDocument(file, clientId);
+      if (error) { alert(`Error: ${error}`); return; }
+
+      await fetchClientData(false);
+
+      // Si es imagen o PDF, lanzar análisis IA
+      if ((file.type.startsWith('image/') || file.type === 'application/pdf') && docRecord) {
+        try {
+          let fileOrBase64 = file;
+          if (file.type === 'application/pdf') {
+            const { convertPdfPageToImageBase64 } = await import('../services/pdfToImage');
+            fileOrBase64 = await convertPdfPageToImageBase64(file);
+          }
+          const aiData = await analyzeDocumentImage(fileOrBase64);
+          if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
+            setExtractedData(aiData);
+            setIsExtractionModalOpen(true);
+          } else {
+            console.warn('[useClientViewDocuments] IA no encontró datos en el documento.');
+          }
+        } catch (aiErr) {
+          console.warn('[useClientViewDocuments] AI analysis error:', aiErr.message);
+          if (aiErr.message.includes('API Key')) {
+            alert('Aviso: Análisis IA no disponible. Verifica VITE_OPENROUTER_API_KEY en el .env');
+          }
+        }
+      }
+    } finally {
+      setUploading(false);
+      if (e.target && e.target.type === 'file') {
+        e.target.value = '';
+      }
+    }
+  }, [clientId, fetchClientData, setExtractedData, setIsExtractionModalOpen]);
+
+  // ── Drag & Drop zone handlers ──────────────────────────────────────────────
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileUpload(e);
+  }, [handleFileUpload]);
+
+  return {
+    // State
+    uploading,
+    isDragging,
+    draggedDocument,
+    setDraggedDocument,
+    dragOverRelId,
+    setDragOverRelId,
+    viewingDocument,
+    setViewingDocument,
+    // Handlers
+    handleDeleteDocument,
+    handleToggleDocumentStatus,
+    handleFileUpload,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  };
+}
