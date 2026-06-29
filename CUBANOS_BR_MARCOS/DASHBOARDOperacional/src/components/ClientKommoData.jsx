@@ -142,7 +142,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       </div>
 
       {/* Sección de Documentos Pendientes */}
-      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, minHeight: '300px' }}>
+      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0, maxHeight: '400px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
             <Clock size={18} /> Por Verificar

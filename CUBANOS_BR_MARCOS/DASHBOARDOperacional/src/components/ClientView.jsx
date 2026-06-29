@@ -246,7 +246,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         style={{ display: 'flex', gap: '1.5rem', flex: 1, overflowX: 'auto', overflowY: 'hidden', minHeight: 0, position: 'relative', paddingBottom: '0.5rem', cursor: 'grab' }}
       >
         {/* Columna 1: Datos del Cliente */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '380px', flex: 1.2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '380px', flex: 1.2, flexShrink: 0 }}>
           <ClientPersonalData
             client={client}
             categorias={categorias}
@@ -262,7 +262,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
 
         {/* Columna 2: Trámites y Relacionamientos */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1, flexShrink: 0 }}>
           <TemplateManager client={client} clienteDatos={clienteDatos} />
           <ClientViewTramites
             entradas={entradas}
@@ -288,7 +288,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
 
         {/* Columna 3: Documentos y Multimedia */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1, flexShrink: 0 }}>
           <ClientKommoData
             clientId={clientId}
             onDocumentVerified={async (url) => {
@@ -334,7 +334,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         </div>
 
         {/* Columna 4: Comunicaciones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1, flexShrink: 0 }}>
           <ClientWhatsApp clientId={clientId} telefono={client?.telefono} />
         </div>
       </div>

@@ -419,7 +419,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
           <div 
             style={{ 
               flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', 
-              background: '#e5ddd5', backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundSize: '400px', backgroundRepeat: 'repeat',
+              background: 'var(--color-bg-primary)', backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundSize: '400px', backgroundRepeat: 'repeat', opacity: 0.9,
               position: 'relative'
             }}
             onClick={() => setShowEmojiPicker(false)}
@@ -469,11 +469,11 @@ export default function ClientWhatsApp({ clientId, telefono }) {
               </div>
             )}
             {loadingMessages ? (
-              <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.8)', padding: '0.5rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.8rem' }}>
+              <div style={{ textAlign: 'center', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', padding: '0.5rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
                 Cargando historial...
               </div>
             ) : messages.length === 0 ? (
-              <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.8)', padding: '0.5rem 1rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.85rem' }}>
+              <div style={{ textAlign: 'center', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', padding: '0.5rem 1rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                 Inicia la conversación. Los mensajes aparecerán aquí.
               </div>
             ) : (
@@ -482,8 +482,8 @@ export default function ClientWhatsApp({ clientId, telefono }) {
                 return (
                   <div key={msg.id} style={{
                     alignSelf: isIncoming ? 'flex-start' : 'flex-end',
-                    background: isIncoming ? '#ffffff' : '#dcf8c6',
-                    color: '#303030',
+                    background: isIncoming ? 'var(--color-bg-elevated)' : 'var(--color-primary)',
+                    color: isIncoming ? 'var(--color-text-primary)' : '#ffffff',
                     padding: '0.5rem 0.75rem',
                     borderRadius: '8px',
                     borderTopLeftRadius: isIncoming ? '0' : '8px',
@@ -496,7 +496,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
                     <span style={{ fontSize: '0.9rem', lineHeight: '1.3', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                       {msg.texto}
                     </span>
-                    <span style={{ fontSize: '0.65rem', color: 'rgba(0,0,0,0.45)', textAlign: 'right', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.65rem', color: isIncoming ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.7)', textAlign: 'right', marginTop: '4px' }}>
                       {new Date(msg.fecha_recepcion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -511,12 +511,12 @@ export default function ClientWhatsApp({ clientId, telefono }) {
               <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={400} />
             </div>
           )}
-          <form onSubmit={handleSendMessage} style={{ padding: '0.75rem', background: '#f0f2f5', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <form onSubmit={handleSendMessage} style={{ padding: '0.75rem', background: 'var(--surface-base)', display: 'flex', gap: '0.5rem', alignItems: 'center', borderTop: '1px solid var(--color-border)' }}>
             <button 
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               disabled={!cleanPhone || sending}
-              style={{ background: 'transparent', border: 'none', color: '#54656f', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
             >
               <Smile size={24} />
             </button>
@@ -525,7 +525,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={!cleanPhone || sending}
-              style={{ background: 'transparent', border: 'none', color: '#54656f', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
             >
               <Paperclip size={24} />
             </button>
@@ -542,7 +542,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder={cleanPhone ? "Escribe un mensaje..." : "Añade un teléfono para chatear"} 
               disabled={!cleanPhone || sending}
-              style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '24px', border: 'none', outline: 'none', fontSize: '0.95rem' }}
+              style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '24px', border: '1px solid var(--color-border)', background: 'var(--color-bg-canvas)', color: 'var(--color-text-primary)', outline: 'none', fontSize: '0.95rem' }}
             />
             <button 
               type="submit"

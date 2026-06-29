@@ -30,7 +30,7 @@ export default function TemplateManager({ client, clienteDatos }) {
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Thumbnails cache
+  // Thumbnails cache (No longer used in UI, but kept for compatibility if needed)
   const [thumbnails, setThumbnails] = useState({});
 
   const fetchTemplates = useCallback(async () => {
@@ -39,7 +39,7 @@ export default function TemplateManager({ client, clienteDatos }) {
     setTemplates(data);
     setLoading(false);
 
-    // Generate thumbnails for PDFs
+    // Generate thumbnails for PDFs (kept logic but not rendering them)
     for (const t of data) {
       if (t.tipo_contenido === 'application/pdf' && !thumbnails[t.id]) {
         try {
@@ -145,7 +145,7 @@ export default function TemplateManager({ client, clienteDatos }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isTemplateExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer', flexWrap: 'wrap', gap: '1rem' }} onClick={() => setIsTemplateExpanded(!isTemplateExpanded)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
             <FileText size={18} color="var(--color-info)" />
-            <h3 style={{ font: 'var(--font-section-title)', margin: 0, fontSize: '1rem' }}>Formularios y Multimedia</h3>
+            <h3 style={{ font: 'var(--font-section-title)', margin: 0, fontSize: '1rem' }}>Generador de Planillas</h3>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             {templates.length > 3 && (
@@ -231,7 +231,7 @@ export default function TemplateManager({ client, clienteDatos }) {
           </div>
         )}
 
-        {/* Template Grid */}
+        {/* Template List */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
             <Loader2 size={24} className="animate-spin" color="var(--color-primary)" style={{ margin: '0 auto 0.5rem' }} />
@@ -256,139 +256,81 @@ export default function TemplateManager({ client, clienteDatos }) {
           </div>
         ) : (
           <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '1rem',
+            display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1.25rem', paddingTop: 0
           }}>
             {filteredTemplates.map(template => {
               const mappingCount = (template.field_mappings || []).length;
               const isAnalyzing = analyzing === template.id;
-              const thumbSrc = template.tipo_contenido?.startsWith('image/')
-                ? template.url_archivo
-                : thumbnails[template.id] || null;
 
               return (
                 <div
                   key={template.id}
-                  className="glass-panel-elevated"
                   style={{
-                    overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    cursor: 'default',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.75rem 1rem', background: 'var(--color-bg-elevated)',
+                    borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)',
+                    transition: 'background 0.2s', gap: '1rem'
                   }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '';
-                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--color-bg-elevated)'}
                 >
-                  {/* Thumbnail */}
-                  <div style={{
-                    height: '120px', background: 'var(--color-bg-secondary)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden', borderBottom: '1px solid var(--color-border)',
-                    position: 'relative',
-                  }}>
-                    {thumbSrc ? (
-                      <img
-                        src={thumbSrc}
-                        alt={template.nombre}
-                        style={{
-                          width: '100%', height: '100%', objectFit: 'cover',
-                          opacity: 0.7, filter: 'brightness(0.8)',
-                        }}
-                      />
-                    ) : (
-                      <FileText size={36} color="var(--color-text-muted)" style={{ opacity: 0.3 }} />
-                    )}
-
-                    {/* AI analyzing badge */}
-                    {isAnalyzing && (
-                      <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        justifyContent: 'center', gap: '0.5rem',
-                      }}>
-                        <Sparkles size={20} color="var(--color-primary)" className="animate-spin" />
-                        <span style={{ color: 'white', fontSize: '0.7rem', fontWeight: 600 }}>
-                          IA analizando campos...
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Mapping count badge */}
+                  {/* Info */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
+                    <FileText size={16} color="var(--color-text-muted)" style={{ flexShrink: 0 }} />
+                    <div style={{
+                      fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text-primary)',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                    }} title={template.nombre}>
+                      {template.nombre}
+                    </div>
                     {mappingCount > 0 && !isAnalyzing && (
-                      <div style={{
-                        position: 'absolute', top: '8px', right: '8px',
-                        background: 'rgba(59,130,246,0.9)', color: 'white',
-                        fontSize: '0.6rem', fontWeight: 700, padding: '2px 8px',
-                        borderRadius: 'var(--radius-full)',
-                      }}>
+                      <span style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--color-info)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 600, flexShrink: 0 }}>
                         {mappingCount} campos
-                      </div>
+                      </span>
+                    )}
+                    {isAnalyzing && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', fontSize: '0.7rem', fontWeight: 600, flexShrink: 0 }}>
+                        <Sparkles size={12} className="animate-spin" /> Analizando...
+                      </span>
                     )}
                   </div>
 
-                  {/* Info */}
-                  <div style={{ padding: '0.85rem 1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{
-                      fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem',
-                      color: 'var(--color-text-primary)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {template.nombre}
-                    </div>
-                    <div style={{
-                      fontSize: '0.68rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem',
-                    }}>
-                      {formatDate(template.creado_en)}
-                      {template.actualizado_en && template.actualizado_en !== template.creado_en ? (
-                        <span> • Actualizado: {formatDate(template.actualizado_en)}</span>
-                      ) : null}
-                      <span> • {template.tipo_contenido?.split('/')[1]?.toUpperCase() || 'DOC'}</span>
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: 'auto' }}>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => setEditorTemplate(template)}
-                        style={{
-                          flex: 1, fontSize: '0.72rem', padding: '0.35rem 0.5rem',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                        }}
-                        title="Editar posiciones de los campos"
-                      >
-                        <Tag size={13} /> Mapeo
-                      </button>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => setPreviewTemplate(template)}
-                        disabled={mappingCount === 0}
-                        style={{
-                          flex: 1, fontSize: '0.72rem', padding: '0.35rem 0.5rem',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                          opacity: mappingCount === 0 ? 0.5 : 1,
-                        }}
-                        title={mappingCount === 0 ? 'Primero mapea los campos' : 'Generar copia con datos del cliente'}
-                      >
-                        <Eye size={13} /> Generar
-                      </button>
-                      <button
-                        className="btn btn-ghost"
-                        onClick={() => handleDelete(template)}
-                        style={{
-                          padding: '0.35rem 0.5rem', color: 'var(--color-danger)',
-                          flexShrink: 0,
-                        }}
-                        title="Eliminar plantilla"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setEditorTemplate(template)}
+                      style={{
+                        fontSize: '0.75rem', padding: '0.35rem 0.6rem',
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                      }}
+                      title="Editar posiciones de los campos"
+                    >
+                      <Tag size={13} /> Mapeo
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => setPreviewTemplate(template)}
+                      disabled={mappingCount === 0}
+                      style={{
+                        fontSize: '0.75rem', padding: '0.35rem 0.6rem',
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        opacity: mappingCount === 0 ? 0.5 : 1,
+                      }}
+                      title={mappingCount === 0 ? 'Primero mapea los campos' : 'Generar copia con datos del cliente'}
+                    >
+                      <Eye size={13} /> Generar
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => handleDelete(template)}
+                      style={{
+                        padding: '0.35rem', color: 'var(--color-danger)',
+                      }}
+                      title="Eliminar plantilla"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               );
