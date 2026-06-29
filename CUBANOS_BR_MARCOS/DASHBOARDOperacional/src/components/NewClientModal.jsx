@@ -164,11 +164,13 @@ export default function NewClientModal({ onClose, onClientCreated }) {
   };
 
   const handleCepChange = (value) => {
-    let val = value.replace(/\D/g, '');
-    if (val.length > 5) val = `${val.substring(0, 5)}-${val.substring(5, 8)}`;
-    updateField('cep', val);
-    if (val.replace(/\D/g, '').length === 8) {
-      handleCepSearch(val);
+    // Solo actualizamos el valor tal cual lo escribe el usuario (libre de formato)
+    updateField('cep', value);
+    
+    // Si casualmente tiene 8 números (CEP brasileño), intentamos buscar la dirección automáticamente
+    const cleanNumbers = value.replace(/\D/g, '');
+    if (cleanNumbers.length === 8) {
+      handleCepSearch(cleanNumbers);
     }
   };
 
