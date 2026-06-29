@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { FileText, CheckCircle, Clock, AlertCircle, MessageSquare, Trash2 } from 'lucide-react';
+import {  FileText, CheckCircle, Clock, AlertCircle, MessageSquare, Trash2 , ChevronDown, ChevronUp } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
 
 export default function ClientKommoData({ clientId, onDocumentVerified, setViewingDocument }) {
   const [pendingDocs, setPendingDocs] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [isNotasExpanded, setIsNotasExpanded] = useState(true);
+  const [isVerificarExpanded, setIsVerificarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [verifyingId, setVerifyingId] = useState(null);
 

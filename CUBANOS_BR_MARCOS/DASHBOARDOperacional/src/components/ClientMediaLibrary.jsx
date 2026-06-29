@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Upload, Trash2, Loader2, FileAudio, FileVideo } from 'lucide-react';
+import {  Play, Upload, Trash2, Loader2, FileAudio, FileVideo , ChevronDown, ChevronUp } from 'lucide-react';
 import { getMediaLibrary, uploadMedia, deleteMedia } from '../services/mediaLibraryService';
 
 export default function ClientMediaLibrary() {
   const [activeTab, setActiveTab] = useState('audios');
+  const [isSectionExpanded, setIsSectionExpanded] = useState(false);
   const [mediaItems, setMediaItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);

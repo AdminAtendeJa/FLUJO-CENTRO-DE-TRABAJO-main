@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link2, Plus, Trash2, Users } from 'lucide-react';
+import {  Link2, Plus, Trash2, Users , ChevronDown, ChevronUp } from 'lucide-react';
 import Avatar from './ui/Avatar';
 import Button from './ui/Button';
 import EmptyState from './ui/EmptyState';
@@ -36,6 +36,7 @@ const ClientRelations = ({
   setSelectedRelateId,
   setIsRelateModalOpen
 }) => {
+  const [isSectionExpanded, setIsSectionExpanded] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const validRelations = useMemo(
@@ -52,14 +53,18 @@ const ClientRelations = ({
   };
 
   return (
-    <section id="relacionamientos-clientes" className="glass-panel" style={{ padding: 'var(--section-gap, 16px)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--section-gap, 16px)', gap: 'var(--gap-md, 12px)' }}>
-        <h2 style={{ font: 'var(--font-page-title)', display: 'flex', alignItems: 'center', gap: 'var(--gap-sm, 8px)', margin: 0 }}>
-          <Users size={18} color="var(--brand-primary)" /> Relacionamientos
-        </h2>
-        <Button variant="ghost" size="sm" onClick={openRelateModal} aria-label="Añadir relacionamiento">
-          <Plus size={16} /> Añadir
-        </Button>
+    <section id="relacionamientos-clientes" className="glass-panel" style={{ overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isSectionExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer' }} onClick={() => setIsSectionExpanded(!isSectionExpanded)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+          <Users size={18} color="var(--brand-primary)" />
+          <h2 style={{ font: 'var(--font-page-title)', margin: 0, fontSize: '1rem' }}>Relacionamientos</h2>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openRelateModal(); }} aria-label="Añadir relacionamiento">
+            <Plus size={16} /> Añadir
+          </Button>
+          {isSectionExpanded ? <ChevronUp size={18} color="var(--color-text-muted)" /> : <ChevronDown size={18} color="var(--color-text-muted)" />}
+        </div>
       </div>
 
       {validRelations.length > 0 && (
@@ -101,7 +106,9 @@ const ClientRelations = ({
         </button>
       )}
 
-      {draggedDocument && (
+      {isSectionExpanded && (
+        <div style={{ padding: '1.25rem' }}>
+        {draggedDocument && (
         <div style={{
           marginBottom: 'var(--gap-sm, 8px)',
           padding: '10px 12px',
@@ -117,8 +124,7 @@ const ClientRelations = ({
           <Link2 size={14} color="var(--brand-primary)" /> Arrastra el documento sobre una relación para copiarlo.
         </div>
       )}
-
-      {validRelations.length === 0 ? (
+{validRelations.length === 0 ? (
         <EmptyState
           icon={<Users size={32} />}
           title="Sin relacionamientos"
@@ -238,6 +244,8 @@ const ClientRelations = ({
             );
           })}
         </div>
+      )}
+    </div>
       )}
     </section>
   );

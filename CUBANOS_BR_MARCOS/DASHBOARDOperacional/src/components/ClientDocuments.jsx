@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { FileText, Loader2, UploadCloud, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import {  FileText, Loader2, UploadCloud, X , ChevronDown, ChevronUp } from 'lucide-react';
 import EmptyState from './ui/EmptyState';
 
 const ClientDocuments = ({
@@ -16,23 +16,29 @@ const ClientDocuments = ({
   setViewingDocument,
   handleDeleteDocument
 }) => {
+  const [isSectionExpanded, setIsSectionExpanded] = useState(true);
   const inputRef = useRef(null);
 
   const openFilePicker = () => inputRef.current?.click();
 
   return (
-    <section id="documentos-subidos" className="glass-panel" style={{ padding: 'var(--section-gap, 16px)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <h3 style={{ font: 'var(--font-section-title)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+    <section id="documentos-subidos" className="glass-panel" style={{ overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isSectionExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer' }} onClick={() => setIsSectionExpanded(!isSectionExpanded)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
           <FileText size={18} color="var(--color-info)" />
-          Documentos ({documentos.length})
-        </h3>
-        <button onClick={openFilePicker} disabled={uploading} className="btn btn-ghost" style={{ padding: '0.4rem', color: 'var(--color-text-muted)' }} title="Subir documento">
-           {uploading ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
-        </button>
+          <h3 style={{ font: 'var(--font-section-title)', margin: 0, fontSize: '1rem' }}>Documentos ({documentos.length})</h3>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button onClick={(e) => { e.stopPropagation(); openFilePicker(); }} disabled={uploading} className="btn btn-ghost" style={{ padding: '0.4rem', color: 'var(--color-text-muted)' }} title="Subir documento">
+            {uploading ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
+          </button>
+          {isSectionExpanded ? <ChevronUp size={18} color="var(--color-text-muted)" /> : <ChevronDown size={18} color="var(--color-text-muted)" />}
+        </div>
       </div>
 
-      <label
+      {isSectionExpanded && (
+        <div style={{ padding: '1.25rem' }}>
+        <label
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -151,6 +157,8 @@ const ClientDocuments = ({
           onAction={openFilePicker}
           style={{ padding: 'var(--section-gap, 16px)' }}
         />
+      )}
+    </div>
       )}
     </section>
   );

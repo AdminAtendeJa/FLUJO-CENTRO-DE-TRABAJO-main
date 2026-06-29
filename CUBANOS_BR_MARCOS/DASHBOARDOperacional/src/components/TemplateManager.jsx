@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UploadCloud, FileText, Loader2, Tag, Eye, Trash2, Sparkles, Plus, Search } from 'lucide-react';
+import {  UploadCloud, FileText, Loader2, Tag, Eye, Trash2, Sparkles, Plus, Search , ChevronDown, ChevronUp } from 'lucide-react';
 import { uploadTemplate, getTemplates, deleteTemplate, analyzeTemplateWithAI, renderPdfPageAsImage } from '../services/templateService';
 import TemplateEditorModal from './TemplateEditorModal';
 import TemplatePreviewModal from './TemplatePreviewModal';
@@ -27,6 +27,7 @@ export default function TemplateManager({ client, clienteDatos }) {
   const [uploadName, setUploadName] = useState('');
 
   // Search
+  const [isTemplateExpanded, setIsTemplateExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Thumbnails cache
@@ -140,17 +141,11 @@ export default function TemplateManager({ client, clienteDatos }) {
 
   return (
     <>
-      <section id="template-engine" className="glass-panel" style={{ padding: '2rem' }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem',
-        }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ font: 'var(--font-section-title)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
-              <FileText size={18} color="var(--color-info)" />
-              Formularios y Multimedia
-            </h3>
+      <section id="template-engine" className="glass-panel" style={{ overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isTemplateExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer', flexWrap: 'wrap', gap: '1rem' }} onClick={() => setIsTemplateExpanded(!isTemplateExpanded)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+            <FileText size={18} color="var(--color-info)" />
+            <h3 style={{ font: 'var(--font-section-title)', margin: 0, fontSize: '1rem' }}>Formularios y Multimedia</h3>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             {templates.length > 3 && (
