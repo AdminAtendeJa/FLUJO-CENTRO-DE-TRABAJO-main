@@ -46,11 +46,15 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   const fetchMessages = async () => {
     if (!activeChatId) return;
     try {
-      const { data, error } = await supabase
-        .from('notas_kommo')
-        .select('*')
-        .eq('cliente_id', activeChatId)
-        .order('fecha_recepcion', { ascending: true });
+      const query = supabase.from('notas_kommo').select('*');
+      
+      if (cleanPhone) {
+        query.or(`cliente_id.eq.${activeChatId},telefono.eq.${cleanPhone}`);
+      } else {
+        query.eq('cliente_id', activeChatId);
+      }
+      
+      const { data, error } = await query.order('fecha_recepcion', { ascending: true });
 
       if (error) throw error;
       
@@ -72,18 +76,29 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       setLoadingMessages(true);
       fetchMessages();
 
-      const channel = supabase
-        .channel(`whatsapp_${activeChatId}`)
+      const channel1 = supabase
+        .channel(`whatsapp_id_${activeChatId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notas_kommo', filter: `cliente_id=eq.${activeChatId}` }, () => {
           fetchMessages();
         })
         .subscribe();
 
+      let channel2 = null;
+      if (cleanPhone) {
+        channel2 = supabase
+          .channel(`whatsapp_phone_${cleanPhone}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'notas_kommo', filter: `telefono=eq.${cleanPhone}` }, () => {
+            fetchMessages();
+          })
+          .subscribe();
+      }
+
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(channel1);
+        if (channel2) supabase.removeChannel(channel2);
       };
     }
-  }, [activeChatId, view]);
+  }, [activeChatId, view, cleanPhone]);
 
   useEffect(() => {
     if (messagesEndRef.current && view === 'chat') {
@@ -221,8 +236,35 @@ export default function ClientWhatsApp({ clientId, telefono }) {
 
       if (!response.ok) throw new Error('Error al conectar con n8n');
       
+      const outgoingMsg = {
+        id: 'temp-' + Date.now(),
+        cliente_id: activeChatId,
+        texto: newMessage.trim(),
+        remitente: 'outgoing',
+        fecha_recepcion: new Date().toISOString()
+      };
+
+      // Actualización optimista de la UI
+      setMessages(prev => [...prev, outgoingMsg]);
       setNewMessage('');
-      toast.success('Mensaje enviado a n8n');
+      
+      // Guardar el mensaje en la base de datos
+      const { error: dbError } = await supabase.from('notas_kommo').insert({
+        cliente_id: Number(activeChatId),
+        texto: outgoingMsg.texto,
+        remitente: outgoingMsg.remitente,
+        fecha_recepcion: outgoingMsg.fecha_recepcion,
+        telefono: cleanPhone
+      });
+
+      if (dbError) {
+        console.error('Error insertando en la BD:', dbError);
+        toast.error('El mensaje se envió, pero hubo un error al guardarlo localmente.');
+      } else {
+        toast.success('Mensaje enviado a n8n');
+      }
+      
+      fetchMessages();
     } catch (err) {
       console.error('Error enviando mensaje:', err);
       toast.error('Error al guardar mensaje');
@@ -258,8 +300,35 @@ export default function ClientWhatsApp({ clientId, telefono }) {
 
       if (!response.ok) throw new Error('Error al conectar con n8n');
       
-      toast.success(`Archivo enviado: ${mediaToSend.nombre}`);
+      const outgoingMsg = {
+        id: 'temp-media-' + Date.now(),
+        cliente_id: activeChatId,
+        texto: `[Archivo enviado] ${mediaToSend.nombre}`,
+        remitente: 'outgoing',
+        fecha_recepcion: new Date().toISOString()
+      };
+
+      // Actualización optimista de la UI
+      setMessages(prev => [...prev, outgoingMsg]);
       setMediaToSend(null);
+
+      // Guardar el registro del archivo en la base de datos
+      const { error: dbError } = await supabase.from('notas_kommo').insert({
+        cliente_id: Number(activeChatId),
+        texto: outgoingMsg.texto,
+        remitente: outgoingMsg.remitente,
+        fecha_recepcion: outgoingMsg.fecha_recepcion,
+        telefono: cleanPhone
+      });
+
+      if (dbError) {
+        console.error('Error insertando archivo en BD:', dbError);
+        toast.error('Archivo enviado, pero hubo un error al guardarlo localmente.');
+      } else {
+        toast.success(`Archivo enviado: ${mediaToSend.nombre}`);
+      }
+      
+      fetchMessages();
     } catch (err) {
       console.error('Error enviando archivo:', err);
       toast.error('Error al enviar archivo');
