@@ -16,7 +16,7 @@ const RELATION_OPTIONS = [
 ];
 
 const getRelatedClient = (rel, clientId) => {
-  const isPrincipal = rel.cliente_id === clientId;
+  const isPrincipal = String(rel.cliente_id) === String(clientId);
   return isPrincipal ? rel.cliente_secundario : rel.cliente_principal;
 };
 
