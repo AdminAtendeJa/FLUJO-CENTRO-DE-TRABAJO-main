@@ -261,33 +261,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           />
         </div>
 
-        {/* Columna 2: Trámites y Relacionamientos */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1, flexShrink: 0 }}>
-          <TemplateManager client={client} clienteDatos={clienteDatos} />
-          <ClientViewTramites
-            entradas={entradas}
-            onCreateTramite={() => tramites.setIsNewTramiteModalOpen(true)}
-            onUpdateEstado={tramites.handleChangeTramiteState}
-          />
-          <ClientRelations
-            relaciones={relaciones}
-            clientId={clientId}
-            draggedDocument={docs.draggedDocument}
-            dragOverRelId={docs.dragOverRelId}
-            setDragOverRelId={docs.setDragOverRelId}
-            handleCopyDocumentToClient={(doc, targetId) => extraction.handleCopyDocumentToClient(doc, targetId, docs.setDraggedDocument)}
-            onNavigateToClient={onNavigateToClient}
-            editingRelId={relations.editingRelId}
-            setEditingRelId={relations.setEditingRelId}
-            handleUpdateRelationType={relations.handleUpdateRelationType}
-            handleDeleteRelation={relations.handleDeleteRelation}
-            setSearchQuery={relations.setSearchQuery}
-            setSelectedRelateId={relations.setSelectedRelateId}
-            setIsRelateModalOpen={relations.setIsRelateModalOpen}
-          />
-        </div>
-
-        {/* Columna 3: Documentos y Multimedia */}
+        {/* Columna 2: Kommo, Relacionamientos y Plantillas */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1, flexShrink: 0 }}>
           <ClientKommoData
             clientId={clientId}
@@ -316,6 +290,27 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             }}
             setViewingDocument={docs.setViewingDocument}
           />
+          <ClientRelations
+            relaciones={relaciones}
+            clientId={clientId}
+            draggedDocument={docs.draggedDocument}
+            dragOverRelId={docs.dragOverRelId}
+            setDragOverRelId={docs.setDragOverRelId}
+            handleCopyDocumentToClient={(doc, targetId) => extraction.handleCopyDocumentToClient(doc, targetId, docs.setDraggedDocument)}
+            onNavigateToClient={onNavigateToClient}
+            editingRelId={relations.editingRelId}
+            setEditingRelId={relations.setEditingRelId}
+            handleUpdateRelationType={relations.handleUpdateRelationType}
+            handleDeleteRelation={relations.handleDeleteRelation}
+            setSearchQuery={relations.setSearchQuery}
+            setSelectedRelateId={relations.setSelectedRelateId}
+            setIsRelateModalOpen={relations.setIsRelateModalOpen}
+          />
+          <TemplateManager client={client} clienteDatos={clienteDatos} />
+        </div>
+
+        {/* Columna 3: Documentos, Biblioteca y Trámites */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1, flexShrink: 0 }}>
           <ClientDocuments
             documentos={documentos}
             uploading={docs.uploading}
@@ -331,6 +326,11 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             handleDeleteDocument={docs.handleDeleteDocument}
           />
           <ClientMediaLibrary />
+          <ClientViewTramites
+            entradas={entradas}
+            onCreateTramite={() => tramites.setIsNewTramiteModalOpen(true)}
+            onUpdateEstado={tramites.handleChangeTramiteState}
+          />
         </div>
 
         {/* Columna 4: Comunicaciones */}

@@ -37,3 +37,26 @@ export const updateEntradaEstado = async (id, estado_tramite) => {
     .eq('id', id);
   if (error) throw error;
 };
+
+export const getNotasTramite = async (entradaId) => {
+  const { data, error } = await supabase
+    .from('notas_tramite')
+    .select('*')
+    .eq('entrada_id', entradaId)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+export const createNotaTramite = async ({ entrada_id, texto }) => {
+  const { data, error } = await supabase
+    .from('notas_tramite')
+    .insert({
+      entrada_id,
+      texto: texto.trim(),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};

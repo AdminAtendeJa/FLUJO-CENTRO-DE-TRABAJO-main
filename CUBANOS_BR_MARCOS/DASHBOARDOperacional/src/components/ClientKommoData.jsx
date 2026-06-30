@@ -180,15 +180,20 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       </div>
 
       {/* Sección de Documentos Pendientes */}
-      <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0, maxHeight: '500px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
-            <Clock size={18} /> Por Verificar
-          </h3>
-          <span style={{ background: 'var(--color-primary)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
-            {pendingDocs.length}
-          </span>
+      <div className="glass-panel" style={{ overflow: 'hidden', flexShrink: 0, maxHeight: isVerificarExpanded ? '500px' : 'none' }}>
+        <div onClick={() => setIsVerificarExpanded(!isVerificarExpanded)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isVerificarExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
+              <Clock size={18} /> Por Verificar
+            </h3>
+            <span style={{ background: 'var(--color-primary)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
+              {pendingDocs.length}
+            </span>
+          </div>
+          {isVerificarExpanded ? <ChevronUp size={18} color="var(--color-text-muted)" /> : <ChevronDown size={18} color="var(--color-text-muted)" />}
         </div>
+        {isVerificarExpanded && (
+        <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: 0 }}>
           Imágenes enviadas por el cliente a través de Kommo.
         </p>
@@ -281,6 +286,8 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
             })
           )}
         </div>
+        </div>
+        )}
       </div>
 
       <ImageCropperModal
