@@ -26,7 +26,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
-  const isCancelledRef = useRef(false);
+  const shouldSendRef = useRef(false);
 
   // Drag & Drop Media states
   const [isDragOverChat, setIsDragOverChat] = useState(false);
@@ -406,7 +406,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-      isCancelledRef.current = false;
+      shouldSendRef.current = false;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
@@ -415,7 +415,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       };
 
       mediaRecorder.onstop = () => {
-        if (!isCancelledRef.current && audioChunksRef.current.length > 0) {
+        if (shouldSendRef.current && audioChunksRef.current.length > 0) {
           const mimeType = mediaRecorder.mimeType || 'audio/webm';
           const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
           const reader = new FileReader();
@@ -466,8 +466,8 @@ export default function ClientWhatsApp({ clientId, telefono }) {
 
   const stopRecording = (cancel = false) => {
     if (mediaRecorderRef.current && isRecording) {
+      shouldSendRef.current = !cancel;
       if (cancel) {
-        isCancelledRef.current = true;
         audioChunksRef.current = [];
       }
       mediaRecorderRef.current.stop();
