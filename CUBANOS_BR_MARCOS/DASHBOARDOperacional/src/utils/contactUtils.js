@@ -23,16 +23,20 @@ export const findDuplicateContacts = async (telefono, currentClientId = null) =>
 
     if (currentClientId && duplicates.length > 1) {
         // Obtenemos los relacionamientos de currentClientId
-        const { data: relaciones } = await supabase
+        const { data: relaciones, error: relError } = await supabase
             .from('relaciones_clientes')
             .select('*')
-            .or(`cliente_principal.eq.${currentClientId},cliente_secundario.eq.${currentClientId}`);
+            .or(`cliente_id.eq.${currentClientId},cliente_relacionado_id.eq.${currentClientId}`);
+
+        if (relError) {
+            console.error('Error fetching relations in findDuplicateContacts:', relError);
+        }
 
         if (relaciones && relaciones.length > 0) {
             const relatedIds = new Set();
             relaciones.forEach(rel => {
-                relatedIds.add(String(rel.cliente_principal));
-                relatedIds.add(String(rel.cliente_secundario));
+                relatedIds.add(String(rel.cliente_id));
+                relatedIds.add(String(rel.cliente_relacionado_id));
             });
 
             // Filtramos los duplicados excluyendo a aquellos que estén relacionados
