@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import TramitesSettings from './settings/TramitesSettings';
 import OperariosSettings from './settings/OperariosSettings';
 import CamposSettings from './settings/CamposSettings';
-import { Settings as SettingsIcon, FileText, UserSquare, Database } from 'lucide-react';
+import MantenimientoSettings from './settings/MantenimientoSettings';
+import { Settings as SettingsIcon, FileText, UserSquare, Database, Wand2 } from 'lucide-react';
 
 export default function SettingsView() {
   const [activeTab, setActiveTab] = useState('tramites');
@@ -60,6 +61,19 @@ export default function SettingsView() {
             <Database size={18} />
             Campos Dinámicos
           </button>
+
+          <button
+            onClick={() => setActiveTab('mantenimiento')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
+              borderRadius: 'var(--radius-md)', background: activeTab === 'mantenimiento' ? 'var(--color-bg-elevated)' : 'transparent',
+              color: activeTab === 'mantenimiento' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+              border: 'none', cursor: 'pointer', textAlign: 'left', fontWeight: activeTab === 'mantenimiento' ? 600 : 500
+            }}
+          >
+            <Wand2 size={18} />
+            Mantenimiento
+          </button>
         </div>
 
         {/* Área de Contenido */}
@@ -68,6 +82,7 @@ export default function SettingsView() {
             {activeTab === 'tramites' && <TramitesSettings />}
             {activeTab === 'operarios' && <OperariosSettings />}
             {activeTab === 'campos' && <CamposSettings />}
+            {activeTab === 'mantenimiento' && <MantenimientoSettings />}
           </div>
         </div>
       </div>
