@@ -286,8 +286,10 @@ export default function TeamChat({ isFullView = false }) {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const audioFile = new File([audioBlob], `audio_${Date.now()}.${ext}`, { type: mimeType });
         stream.getTracks().forEach(track => track.stop());
 
         if (shouldSendAudioRef.current) {
@@ -353,7 +355,7 @@ export default function TeamChat({ isFullView = false }) {
       scrollToBottom();
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
-      setToastNotification({ type: 'error', message: 'Error al enviar mensaje.' });
+      setToastNotification({ type: 'error', message: `Error al enviar mensaje: ${error.message || 'Desconocido'}` });
     } finally {
       setIsUploading(false);
     }

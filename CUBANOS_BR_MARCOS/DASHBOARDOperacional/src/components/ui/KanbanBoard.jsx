@@ -17,13 +17,14 @@ export default function KanbanBoard({ entradas, onMoveCard, stages, onNavigateTo
     }}>
       {stages.map(stage => {
         const columnEntradas = entradas.filter(e => {
-          let currentState = e.estado_tramite || 'entrante';
-          // Map legacy states
-          if (currentState === 'pendiente') currentState = 'entrante';
-          if (currentState === 'esperando_docs') currentState = 'esperando_cliente';
-          if (currentState === 'procesando') currentState = 'esperando';
-          if (currentState === 'completada') currentState = 'logrado';
-          if (currentState === 'cancelada') currentState = 'cobranza';
+          let currentState = (e.estado_tramite || 'entrante').toLowerCase();
+          
+          // Mapeo exhaustivo de estados legacy a los nuevos 5 estados
+          if (['pendiente', 'en_proceso'].includes(currentState)) currentState = 'entrante';
+          if (['esperando_docs', 'requiere_atencion'].includes(currentState)) currentState = 'esperando_cliente';
+          if (['procesando'].includes(currentState)) currentState = 'esperando';
+          if (['cancelada'].includes(currentState)) currentState = 'cobranza';
+          if (['completada'].includes(currentState)) currentState = 'logrado';
           
           return currentState === stage.id;
         });

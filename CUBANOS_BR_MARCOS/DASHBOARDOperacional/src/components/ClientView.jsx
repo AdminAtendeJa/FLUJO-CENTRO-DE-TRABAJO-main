@@ -346,7 +346,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
 
         {/* Columna 4: Comunicaciones */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '350px', flex: 1, flexShrink: 0 }}>
-          <ClientWhatsApp clientId={clientId} telefono={client?.telefono} />
+          <ClientWhatsApp clientId={clientId} telefono={client?.telefono} idKommo={client?.id_kommo} />
         </div>
       </div>
 

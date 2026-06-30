@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
 
-export default function ClientWhatsApp({ clientId, telefono }) {
+export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
   const [view, setView] = useState('chat'); // 'chat' | 'list'
   const [activeChatId, setActiveChatId] = useState(clientId);
   const [activeChatPhone, setActiveChatPhone] = useState(telefono);
@@ -270,13 +270,18 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       // Sanitize URL to remove trailing paths just in case
       webhookUrl = webhookUrl.replace(/\/webhook(\/enviar-whatsapp)?\/?$/, '');
 
+      // Determine the kommo ID. If we don't have idKommo and activeChatId is small, it's a manual user without kommo ID.
+      // n8n will fail if it tries to use a small internal ID as a kommo ID, so we pass null to force it to use 'telefono'.
+      const effectiveKommoId = idKommo || (activeChatId > 1000000 ? activeChatId : null);
+
       const response = await fetch(`${webhookUrl}/webhook/enviar-whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cliente_id: activeChatId,
+          cliente_id: effectiveKommoId,
           texto: newMessage.trim(),
-          telefono: cleanPhone
+          telefono: cleanPhone,
+          internal_client_id: activeChatId // In case n8n wants to know the internal ID for logging
         })
       });
 
@@ -330,15 +335,18 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       }
       webhookUrl = webhookUrl.replace(/\/webhook(\/enviar-whatsapp)?\/?$/, '');
 
+      const effectiveKommoId = idKommo || (activeChatId > 1000000 ? activeChatId : null);
+
       const response = await fetch(`${webhookUrl}/webhook/enviar-whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cliente_id: activeChatId,
+          cliente_id: effectiveKommoId,
           telefono: cleanPhone,
           url_archivo: mediaObj.url,
           tipo_archivo: mediaObj.tipo,
-          nombre_archivo: mediaObj.nombre
+          nombre_archivo: mediaObj.nombre,
+          internal_client_id: activeChatId
         })
       });
 
