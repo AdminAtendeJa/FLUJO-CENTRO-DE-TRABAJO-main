@@ -7,6 +7,7 @@ export default function MantenimientoSettings() {
     const [loading, setLoading] = useState(false);
     const [merging, setMerging] = useState(false);
     const [duplicates, setDuplicates] = useState([]);
+    const [skippedGroups, setSkippedGroups] = useState(0);
     const [progress, setProgress] = useState(0);
     const [results, setResults] = useState(null);
 
@@ -14,6 +15,7 @@ export default function MantenimientoSettings() {
         setLoading(true);
         setResults(null);
         setDuplicates([]);
+        setSkippedGroups(0);
         try {
             // 1. Fetch all clients with pagination
             let allClients = [];
@@ -47,9 +49,48 @@ export default function MantenimientoSettings() {
                 }
             });
 
-            // 3. Filter groups with > 1 client
-            const dupes = Object.values(phoneGroups).filter(group => group.length > 1);
-            setDuplicates(dupes);
+            // 3. Fetch all relations to prevent merging family members
+            const { data: relationsData, error: relError } = await supabase
+                .from('relaciones_clientes')
+                .select('cliente_id, cliente_relacionado_id');
+            
+            if (relError) throw relError;
+
+            const relatedPairs = new Set();
+            if (relationsData) {
+                relationsData.forEach(r => {
+                    relatedPairs.add(`${r.cliente_id}-${r.cliente_relacionado_id}`);
+                    relatedPairs.add(`${r.cliente_relacionado_id}-${r.cliente_id}`);
+                });
+            }
+
+            // 4. Filter safe groups and skipped groups
+            const safeDupes = [];
+            let skipped = 0;
+
+            Object.values(phoneGroups).forEach(group => {
+                if (group.length > 1) {
+                    let hasInternalRelations = false;
+                    for (let i = 0; i < group.length; i++) {
+                        for (let j = i + 1; j < group.length; j++) {
+                            if (relatedPairs.has(`${group[i].id}-${group[j].id}`)) {
+                                hasInternalRelations = true;
+                                break;
+                            }
+                        }
+                        if (hasInternalRelations) break;
+                    }
+
+                    if (hasInternalRelations) {
+                        skipped++;
+                    } else {
+                        safeDupes.push(group);
+                    }
+                }
+            });
+
+            setDuplicates(safeDupes);
+            setSkippedGroups(skipped);
 
         } catch (error) {
             console.error('Error finding duplicates:', error);
@@ -220,6 +261,18 @@ export default function MantenimientoSettings() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {!loading && !merging && skippedGroups > 0 && (
+                    <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-border)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <AlertTriangle size={20} color="var(--color-warning)" style={{ flexShrink: 0 }} />
+                        <div>
+                            <h4 style={{ margin: 0, color: 'var(--color-warning)', fontWeight: 600 }}>Grupos Omitidos</h4>
+                            <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+                                Se omitieron {skippedGroups} grupo(s) de contactos porque contienen familiares vinculados entre sí que comparten el mismo teléfono. Estos debes revisarlos y fusionarlos manualmente desde su perfil para evitar errores.
+                            </p>
                         </div>
                     </div>
                 )}

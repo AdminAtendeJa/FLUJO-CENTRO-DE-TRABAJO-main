@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {  FileText, Loader2, UploadCloud, X , ChevronDown, ChevronUp } from 'lucide-react';
 import EmptyState from './ui/EmptyState';
+import PreUploadDocumentModal from './PreUploadDocumentModal';
 
 const ClientDocuments = ({
   documentos = [],
@@ -14,7 +15,10 @@ const ClientDocuments = ({
   setDraggedDocument,
   setDragOverRelId,
   setViewingDocument,
-  handleDeleteDocument
+  handleDeleteDocument,
+  stagedFile,
+  setStagedFile,
+  handleConfirmUpload
 }) => {
   const [isSectionExpanded, setIsSectionExpanded] = useState(true);
   const inputRef = useRef(null);
@@ -159,6 +163,14 @@ const ClientDocuments = ({
         />
       )}
     </div>
+      )}
+
+      {stagedFile && (
+        <PreUploadDocumentModal
+          file={stagedFile}
+          onClose={() => setStagedFile(null)}
+          onConfirm={handleConfirmUpload}
+        />
       )}
     </section>
   );

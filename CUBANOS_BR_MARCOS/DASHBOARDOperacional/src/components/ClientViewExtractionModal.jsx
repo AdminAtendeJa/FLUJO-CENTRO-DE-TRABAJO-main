@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
-import { Sparkles, X, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, X, ArrowRight, AlertTriangle, UserPlus, MoveRight } from 'lucide-react';
+import { supabase } from '../supabaseClient';
+import { reassignDocument } from '../services/storageService';
+import { createCliente } from '../services/clientesService';
+import { normalizeDateToDDMMYYYY } from '../utils/dateFormatter';
 
 const fieldMap = {
   'NOMBRE_COMPLETO': 'nombre',
@@ -23,11 +27,109 @@ export default function ClientViewExtractionModal({
   isOpen,
   extractedData,
   cliente,
+  uploadedDocRecord,
   onClose,
   onExtractedDataChange,
   onSave,
   isSaving,
+  onNavigateToClient
 }) {
+  const [mismatchState, setMismatchState] = useState({ show: false, type: null, matchedClient: null, isProcessing: false });
+
+  // ── Name comparison logic ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isOpen || !extractedData || !cliente) {
+      setMismatchState({ show: false, type: null, matchedClient: null, isProcessing: false });
+      return;
+    }
+
+    const normalize = (name) => name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() || '';
+    const currentName = normalize(cliente.nombre);
+    const extractedName = normalize(extractedData.NOMBRE_COMPLETO);
+
+    // Simple heuristic: if extracted name has NO words of length > 2 in common with current name, they are different.
+    const isDifferent = () => {
+      if (!currentName || !extractedName) return false;
+      const w1 = currentName.split(/\s+/).filter(w => w.length > 2);
+      const w2 = extractedName.split(/\s+/).filter(w => w.length > 2);
+      if (w1.length === 0 || w2.length === 0) return false;
+      return !w1.some(w => w2.includes(w));
+    };
+
+    if (isDifferent() || (extractedData.CPF && cliente.cpf && extractedData.CPF !== cliente.cpf)) {
+      // It's vastly different! Let's search if this person exists.
+      const checkExists = async () => {
+        try {
+          let query = supabase.from('clientes').select('id, nombre').neq('id', cliente.id);
+          
+          if (extractedData.CPF) {
+            query = query.eq('cpf', extractedData.CPF);
+          } else {
+            // Very naive exact or ilike match. For better matching, could use text search.
+            query = query.ilike('nombre', `%${extractedData.NOMBRE_COMPLETO}%`);
+          }
+
+          const { data } = await query.limit(1);
+          if (data && data.length > 0) {
+            setMismatchState({ show: true, type: 'EXISTS', matchedClient: data[0], isProcessing: false });
+          } else {
+            setMismatchState({ show: true, type: 'NEW', matchedClient: null, isProcessing: false });
+          }
+        } catch (err) {
+          console.error('Error checking existing client', err);
+        }
+      };
+      checkExists();
+    } else {
+      setMismatchState({ show: false, type: null, matchedClient: null, isProcessing: false });
+    }
+  }, [isOpen, extractedData, cliente]);
+
+  const handleMoveToExisting = async () => {
+    if (!uploadedDocRecord || !mismatchState.matchedClient) return;
+    setMismatchState(prev => ({ ...prev, isProcessing: true }));
+    const { success, error } = await reassignDocument(uploadedDocRecord.id, mismatchState.matchedClient.id);
+    if (success) {
+      alert(`Documento movido a ${mismatchState.matchedClient.nombre} exitosamente.`);
+      onClose();
+      if (onNavigateToClient) onNavigateToClient(mismatchState.matchedClient.id);
+    } else {
+      alert('Error al mover documento: ' + error);
+      setMismatchState(prev => ({ ...prev, isProcessing: false }));
+    }
+  };
+
+  const handleCreateNewClient = async () => {
+    if (!uploadedDocRecord) return;
+    setMismatchState(prev => ({ ...prev, isProcessing: true }));
+    try {
+      const newClientData = {
+        nombre: extractedData.NOMBRE_COMPLETO?.toUpperCase() || 'NUEVO CLIENTE',
+        cpf: extractedData.CPF || '',
+        rnm: extractedData.RNM || '',
+        carnet_identidad: extractedData.CARNET_IDENTIDAD || '',
+        nacionalidad: extractedData.NACIONALIDAD?.toUpperCase() || '',
+        fecha_nacimiento: extractedData.FECHA_NACIMIENTO ? normalizeDateToDDMMYYYY(extractedData.FECHA_NACIMIENTO) : null,
+        sexo: extractedData.SEXO?.toUpperCase() || ''
+      };
+
+      const newClient = await createCliente(newClientData);
+      
+      const { success, error } = await reassignDocument(uploadedDocRecord.id, newClient.id);
+      if (success) {
+        alert('Cliente creado y documento asignado exitosamente.');
+        onClose();
+        if (onNavigateToClient) onNavigateToClient(newClient.id);
+      } else {
+        alert('Cliente creado pero hubo un error al reasignar el documento: ' + error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al crear el nuevo cliente.');
+      setMismatchState(prev => ({ ...prev, isProcessing: false }));
+    }
+  };
+
   if (!isOpen || !extractedData) return null;
 
   const handleDiscardField = (key) => {
@@ -47,6 +149,51 @@ export default function ClientViewExtractionModal({
         <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '1rem', flexShrink: 0 }}>
           Revisa los datos extraídos por la IA (izquierda). Pulsa la "X" si prefieres mantener el dato que ya tenías (derecha).
         </p>
+
+        {mismatchState.show && (
+          <div style={{ background: 'var(--color-warning-light)', border: '1px solid var(--color-warning)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', color: 'var(--color-warning-dark)' }}>
+              <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Posible documento extraviado</strong>
+                {mismatchState.type === 'EXISTS' ? (
+                  <span>El documento está a nombre de <strong>{extractedData.NOMBRE_COMPLETO}</strong>. Hemos encontrado un perfil existente para <strong>{mismatchState.matchedClient?.nombre}</strong>.</span>
+                ) : (
+                  <span>El documento está a nombre de <strong>{extractedData.NOMBRE_COMPLETO}</strong>, muy diferente a <strong>{cliente?.nombre}</strong>.</span>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {mismatchState.type === 'EXISTS' ? (
+                <button 
+                  onClick={handleMoveToExisting} 
+                  disabled={mismatchState.isProcessing}
+                  className="btn btn-primary" 
+                  style={{ background: 'var(--color-warning-dark)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <MoveRight size={16} /> Mover al perfil existente
+                </button>
+              ) : (
+                <button 
+                  onClick={handleCreateNewClient} 
+                  disabled={mismatchState.isProcessing}
+                  className="btn btn-primary" 
+                  style={{ background: 'var(--color-warning-dark)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <UserPlus size={16} /> Crear nuevo cliente y mover
+                </button>
+              )}
+              <button 
+                onClick={() => setMismatchState({ ...mismatchState, show: false })}
+                disabled={mismatchState.isProcessing}
+                className="btn btn-secondary"
+              >
+                Ignorar advertencia
+              </button>
+            </div>
+          </div>
+        )}
         
         {extractedData.ILEGIBLE && (
           <div style={{ background: 'rgba(216,90,48,0.1)', color: '#D85A30', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>

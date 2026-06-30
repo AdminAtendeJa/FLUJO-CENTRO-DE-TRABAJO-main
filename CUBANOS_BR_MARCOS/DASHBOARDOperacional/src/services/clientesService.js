@@ -19,6 +19,12 @@ export const getClientesBase = async () => {
   return data || [];
 };
 
+export const createCliente = async (clienteData) => {
+  const { data, error } = await supabase.from('clientes').insert([clienteData]).select().single();
+  if (error) throw error;
+  return data;
+};
+
 export const updateCliente = async (id, updates) => {
   const { data, error } = await supabase.from('clientes').update(updates).eq('id', id).select().single();
   if (error) throw error;

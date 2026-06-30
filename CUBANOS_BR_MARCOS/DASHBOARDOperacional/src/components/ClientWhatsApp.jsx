@@ -102,7 +102,30 @@ export default function ClientWhatsApp({ clientId, telefono }) {
             (cleanPhone && String(newRow.telefono) === String(cleanPhone));
             
           if (isCurrentChat) {
-            fetchMessages();
+            if (payload.eventType === 'INSERT') {
+              setMessages(prev => {
+                // Evitar duplicados por id
+                if (prev.some(m => m.id === newRow.id)) return prev;
+                
+                // Reemplazar mensaje temporal optimista si existe
+                const tempMsgIndex = prev.findIndex(m => 
+                  m.texto === newRow.texto && 
+                  String(m.id).startsWith('temp-')
+                );
+
+                if (tempMsgIndex >= 0) {
+                  const newMessages = [...prev];
+                  newMessages[tempMsgIndex] = newRow;
+                  return newMessages;
+                }
+
+                // Si no, simplemente lo agregamos al final
+                return [...prev, newRow];
+              });
+            } else {
+              // Para updates o deletes re-pedimos todo para mantener la sencillez
+              fetchMessages();
+            }
           }
         }
       })

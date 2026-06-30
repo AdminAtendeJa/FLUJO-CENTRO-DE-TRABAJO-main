@@ -107,6 +107,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     fetchClientData,
     setExtractedData: extraction.setExtractedData,
     setIsExtractionModalOpen: extraction.setIsExtractionModalOpen,
+    setUploadedDocRecord: extraction.setUploadedDocRecord,
   });
 
   const relations = useClientViewRelations({ clientId, queryClient });
@@ -326,6 +327,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             setDragOverRelId={docs.setDragOverRelId}
             setViewingDocument={docs.setViewingDocument}
             handleDeleteDocument={docs.handleDeleteDocument}
+            stagedFile={docs.stagedFile}
+            setStagedFile={docs.setStagedFile}
+            handleConfirmUpload={docs.handleConfirmUpload}
           />
           <ClientMediaLibrary />
           <ClientViewTramites
@@ -421,10 +425,12 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         isOpen={extraction.isExtractionModalOpen}
         extractedData={extraction.extractedData}
         cliente={extraction.extractionTargetClientData || client}
+        uploadedDocRecord={extraction.uploadedDocRecord}
         onClose={extraction.closeExtractionModal}
         onExtractedDataChange={extraction.setExtractedData}
         onSave={extraction.handleSaveExtractedData}
         isSaving={extraction.isSaving}
+        onNavigateToClient={onNavigateToClient}
       />
 
       <ClientViewNewTramiteModal

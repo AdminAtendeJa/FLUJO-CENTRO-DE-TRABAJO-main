@@ -45,6 +45,7 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
   const [isExtractionModalOpen, setIsExtractionModalOpen] = useState(false);
   const [extractionTargetClientId, setExtractionTargetClientId] = useState(null);
   const [extractionTargetClientData, setExtractionTargetClientData] = useState(null);
+  const [uploadedDocRecord, setUploadedDocRecord] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // ── Save extracted data to `clientes` table ────────────────────────────────
@@ -148,6 +149,7 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
             setExtractedData(aiData);
             setExtractionTargetClientId(targetClientId);
             setExtractionTargetClientData(targetClient);
+            setUploadedDocRecord(newDoc);
             setIsExtractionModalOpen(true);
           } else {
             toast.error('La IA no encontró datos extraíbles.', { id: toastId });
@@ -179,6 +181,8 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
     setIsExtractionModalOpen,
     extractionTargetClientId,
     extractionTargetClientData,
+    uploadedDocRecord,
+    setUploadedDocRecord,
     isSaving,
     // Handlers
     handleSaveExtractedData,

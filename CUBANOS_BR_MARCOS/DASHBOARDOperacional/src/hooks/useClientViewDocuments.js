@@ -21,10 +21,12 @@ export default function useClientViewDocuments({
   // Callbacks para extracción IA (compartidos con useClientViewExtraction)
   setExtractedData,
   setIsExtractionModalOpen,
+  setUploadedDocRecord,
 }) {
   // Upload state
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [stagedFile, setStagedFile] = useState(null);
 
   // Drag document thumbnails state (for dragging to related clients)
   const [draggedDocument, setDraggedDocument] = useState(null);
@@ -52,7 +54,7 @@ export default function useClientViewDocuments({
     }
   }, [clientId, queryClient]);
 
-  // ── Upload (with AI analysis) ──────────────────────────────────────────────
+  // ── Stage File (Before Upload) ──────────────────────────────────────────────
   const handleFileUpload = useCallback(async (e) => {
     e.preventDefault();
     let file;
@@ -62,9 +64,33 @@ export default function useClientViewDocuments({
       file = e.target.files[0];
     }
     if (!file) return;
+    
+    // Validate file quickly before staging
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo supera el límite de 10MB.');
+      return;
+    }
+    
+    setStagedFile(file);
+    
+    // Clear input so same file can be selected again
+    if (e.target && e.target.type === 'file') {
+      e.target.value = '';
+    }
+  }, []);
+
+  // ── Confirm Upload (with AI analysis) ───────────────────────────────────────
+  const handleConfirmUpload = useCallback(async (file, metadata) => {
     setUploading(true);
+    setStagedFile(null); // Close modal
     try {
-      const { data: docRecord, error } = await uploadDocument(file, clientId);
+      const { data: docRecord, error } = await uploadDocument(
+        file, 
+        clientId, 
+        metadata?.nombre_archivo, 
+        metadata?.tipo_documento
+      );
+      
       if (error) { alert(`Error: ${error}`); return; }
 
       await fetchClientData(false);
@@ -80,6 +106,7 @@ export default function useClientViewDocuments({
           const aiData = await analyzeDocumentImage(fileOrBase64);
           if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
             setExtractedData(aiData);
+            if (setUploadedDocRecord) setUploadedDocRecord(docRecord);
             setIsExtractionModalOpen(true);
           } else {
             console.warn('[useClientViewDocuments] IA no encontró datos en el documento.');
@@ -93,9 +120,6 @@ export default function useClientViewDocuments({
       }
     } finally {
       setUploading(false);
-      if (e.target && e.target.type === 'file') {
-        e.target.value = '';
-      }
     }
   }, [clientId, fetchClientData, setExtractedData, setIsExtractionModalOpen]);
 
@@ -133,5 +157,8 @@ export default function useClientViewDocuments({
     handleDragOver,
     handleDragLeave,
     handleDrop,
+    stagedFile,
+    setStagedFile,
+    handleConfirmUpload,
   };
 }

@@ -20,9 +20,11 @@ export function validateFile(file) {
  * Sube un documento al bucket de Supabase y lo registra en la tabla documentos_operacionales.
  * @param {File} file - Archivo seleccionado por el usuario.
  * @param {number|string} clientId - ID del cliente al que pertenece el documento.
+ * @param {string} [customName] - Nombre de archivo personalizado.
+ * @param {string} [customType] - Tipo de documento personalizado.
  * @returns {Promise<{ data: object|null, error: string|null }>}
  */
-export async function uploadDocument(file, clientId) {
+export async function uploadDocument(file, clientId, customName = null, customType = null) {
   const validation = validateFile(file);
   if (!validation.valid) return { data: null, error: validation.error };
 
@@ -46,8 +48,8 @@ export async function uploadDocument(file, clientId) {
       .from('documentos_operacionales')
       .insert({
         id_cliente: clientId,
-        tipo_documento: file.type.startsWith('image/') ? 'FOTO' : 'COMPROBANTE',
-        nombre_archivo: file.name,
+        tipo_documento: customType || (file.type.startsWith('image/') ? 'FOTO' : 'COMPROBANTE'),
+        nombre_archivo: customName || file.name,
         url_archivo: urlData.publicUrl,
         tamaño_bytes: file.size,
         tipo_contenido: file.type,
@@ -106,3 +108,24 @@ export async function getDocuments(clientId) {
   if (error) throw error;
   return data || [];
 }
+
+/**
+ * Reasigna un documento a otro cliente.
+ * @param {number} documentId 
+ * @param {number|string} newClientId 
+ * @returns {Promise<{ success: boolean, error: string|null }>}
+ */
+export async function reassignDocument(documentId, newClientId) {
+  try {
+    const { error } = await supabase
+      .from('documentos_operacionales')
+      .update({ id_cliente: newClientId })
+      .eq('id', documentId);
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('[storageService] reassignDocument error:', err);
+    return { success: false, error: err.message || 'Error al reasignar el documento.' };
+  }
+}
+
