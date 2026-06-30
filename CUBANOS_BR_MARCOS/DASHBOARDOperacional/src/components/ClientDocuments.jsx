@@ -95,6 +95,12 @@ const ClientDocuments = ({
                 onDragStart={(event) => {
                   setDraggedDocument(doc);
                   event.dataTransfer.setData('text/plain', doc.nombre_archivo || 'documento');
+                  event.dataTransfer.setData('application/json', JSON.stringify({
+                    type: 'document_copy',
+                    url: doc.url_archivo,
+                    nombre: doc.nombre_archivo || 'documento',
+                    tipo: doc.tipo_contenido || 'application/octet-stream'
+                  }));
                   const isPdf = doc.url_archivo?.toLowerCase().endsWith('.pdf') || doc.tipo_contenido === 'application/pdf';
                   const mimeType = doc.tipo_contenido || (isPdf ? 'application/pdf' : 'application/octet-stream');
                   let fileName = doc.nombre_archivo || 'documento';
