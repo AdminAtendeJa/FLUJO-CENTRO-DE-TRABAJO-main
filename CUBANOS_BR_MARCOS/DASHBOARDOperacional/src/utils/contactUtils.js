@@ -1,7 +1,6 @@
 import { supabase } from '../supabaseClient';
 
-// Función para encontrar contactos duplicados por número de teléfono
-export const findDuplicateContacts = async (telefono) => {
+export const findDuplicateContacts = async (telefono, currentClientId = null) => {
     if (!telefono) return [];
 
     const { data, error } = await supabase
@@ -17,10 +16,33 @@ export const findDuplicateContacts = async (telefono) => {
 
     // Filtrar solo los contactos que tienen exactamente el mismo número de teléfono
     const normalizedTelefono = telefono.replace(/\D/g, ''); // Remover todos los caracteres no numéricos
-    const duplicates = data.filter(contact => {
+    let duplicates = data.filter(contact => {
         const contactNormalized = contact.telefono?.replace(/\D/g, '') || '';
         return contactNormalized === normalizedTelefono && contact.telefono;
     });
+
+    if (currentClientId && duplicates.length > 1) {
+        // Obtenemos los relacionamientos de currentClientId
+        const { data: relaciones } = await supabase
+            .from('relaciones_clientes')
+            .select('*')
+            .or(`cliente_principal.eq.${currentClientId},cliente_secundario.eq.${currentClientId}`);
+
+        if (relaciones && relaciones.length > 0) {
+            const relatedIds = new Set();
+            relaciones.forEach(rel => {
+                relatedIds.add(String(rel.cliente_principal));
+                relatedIds.add(String(rel.cliente_secundario));
+            });
+
+            // Filtramos los duplicados excluyendo a aquellos que estén relacionados
+            duplicates = duplicates.filter(contact => {
+                if (String(contact.id) === String(currentClientId)) return true; // Mantener el cliente actual
+                if (relatedIds.has(String(contact.id))) return false;    // Excluir si es un relacionamiento
+                return true;
+            });
+        }
+    }
 
     return duplicates;
 };

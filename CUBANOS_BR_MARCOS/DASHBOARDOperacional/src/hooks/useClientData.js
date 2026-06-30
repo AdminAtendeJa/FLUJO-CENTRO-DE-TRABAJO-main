@@ -86,8 +86,8 @@ const useClientData = (clientId) => {
 
   // ── Contactos duplicados (depende de que el cliente esté cargado) ──────────
   const duplicateContactsQuery = useQuery({
-    queryKey: ['duplicateContacts', clientQuery.data?.telefono],
-    queryFn: () => findDuplicateContacts(clientQuery.data.telefono),
+    queryKey: ['duplicateContacts', clientQuery.data?.telefono, clientId],
+    queryFn: () => findDuplicateContacts(clientQuery.data.telefono, clientId),
     enabled: !!clientQuery.data?.telefono,
     staleTime: STALE_CLIENT,
     gcTime: STALE_CLIENT * 2,
