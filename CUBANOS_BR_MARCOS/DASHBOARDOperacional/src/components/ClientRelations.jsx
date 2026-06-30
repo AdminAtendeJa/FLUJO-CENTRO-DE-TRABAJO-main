@@ -53,7 +53,7 @@ const ClientRelations = ({
   };
 
   return (
-    <section id="relacionamientos-clientes" className="glass-panel" style={{ overflow: 'hidden' }}>
+    <section id="relacionamientos-clientes" className="glass-panel" style={{ overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isSectionExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer' }} onClick={() => setIsSectionExpanded(!isSectionExpanded)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
           <Users size={18} color="var(--brand-primary)" />
@@ -107,7 +107,7 @@ const ClientRelations = ({
       )}
 
       {isSectionExpanded && (
-        <div style={{ padding: '1.25rem' }}>
+        <div style={{ padding: '1.25rem', overflowY: 'auto', maxHeight: '400px' }}>
         {draggedDocument && (
         <div style={{
           marginBottom: 'var(--gap-sm, 8px)',
