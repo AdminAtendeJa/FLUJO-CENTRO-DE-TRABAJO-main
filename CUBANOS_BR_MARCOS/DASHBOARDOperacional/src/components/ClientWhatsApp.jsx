@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User, X, File, Loader2, Paperclip, Smile } from 'lucide-react';
+import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User, X, File, Loader2, Paperclip, Smile, Mic, Trash2, Pause, Play } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
@@ -18,6 +18,14 @@ export default function ClientWhatsApp({ clientId, telefono }) {
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Audio Recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
 
   // Drag & Drop Media states
   const [isDragOverChat, setIsDragOverChat] = useState(false);
@@ -273,8 +281,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     }
   };
 
-  const handleSendMedia = async () => {
-    if (!mediaToSend || sending) return;
+  const sendMediaToApi = async (mediaObj) => {
     setSending(true);
     try {
       let webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL || '';
@@ -283,7 +290,6 @@ export default function ClientWhatsApp({ clientId, telefono }) {
         setSending(false);
         return;
       }
-      // Sanitize URL to remove trailing paths just in case
       webhookUrl = webhookUrl.replace(/\/webhook(\/enviar-whatsapp)?\/?$/, '');
 
       const response = await fetch(`${webhookUrl}/webhook/enviar-whatsapp`, {
@@ -292,27 +298,25 @@ export default function ClientWhatsApp({ clientId, telefono }) {
         body: JSON.stringify({
           cliente_id: activeChatId,
           telefono: cleanPhone,
-          url_archivo: mediaToSend.url,
-          tipo_archivo: mediaToSend.tipo,
-          nombre_archivo: mediaToSend.nombre
+          url_archivo: mediaObj.url,
+          tipo_archivo: mediaObj.tipo,
+          nombre_archivo: mediaObj.nombre
         })
       });
 
       if (!response.ok) throw new Error('Error al conectar con n8n');
       
+      const isAudio = mediaObj.tipo?.startsWith('audio/');
       const outgoingMsg = {
         id: 'temp-media-' + Date.now(),
         cliente_id: activeChatId,
-        texto: `[Archivo enviado] ${mediaToSend.nombre}`,
+        texto: `[${isAudio ? 'Audio' : 'Archivo'} enviado] ${mediaObj.nombre}`,
         remitente: 'outgoing',
         fecha_recepcion: new Date().toISOString()
       };
 
-      // Actualización optimista de la UI
       setMessages(prev => [...prev, outgoingMsg]);
-      setMediaToSend(null);
-
-      // Guardar el registro del archivo en la base de datos
+      
       const { error: dbError } = await supabase.from('notas_kommo').insert({
         cliente_id: Number(activeChatId),
         texto: outgoingMsg.texto,
@@ -323,9 +327,9 @@ export default function ClientWhatsApp({ clientId, telefono }) {
 
       if (dbError) {
         console.error('Error insertando archivo en BD:', dbError);
-        toast.error('Archivo enviado, pero hubo un error al guardarlo localmente.');
+        toast.error('Enviado, pero hubo un error al guardarlo localmente.');
       } else {
-        toast.success(`Archivo enviado: ${mediaToSend.nombre}`);
+        toast.success(`${isAudio ? 'Audio' : 'Archivo'} enviado con éxito`);
       }
       
       fetchMessages();
@@ -335,6 +339,12 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleSendMedia = async () => {
+    if (!mediaToSend || sending) return;
+    await sendMediaToApi(mediaToSend);
+    setMediaToSend(null);
   };
 
   const handleDragOver = (e) => {
@@ -354,21 +364,116 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     e.stopPropagation();
     setIsDragOverChat(false);
 
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setMediaToSend({
+          url: event.target.result,
+          nombre: file.name,
+          tipo: file.type || 'document'
+        });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     try {
       const dataStr = e.dataTransfer.getData('application/json');
-      if (!dataStr) return;
-      const data = JSON.parse(dataStr);
-      
-      if (data.type === 'media_library_item' || data.type === 'document_copy') {
-        setMediaToSend({
-          url: data.url,
-          nombre: data.nombre,
-          tipo: data.tipo || 'document' // Fallback si no tiene tipo
-        });
+      if (dataStr) {
+        const data = JSON.parse(dataStr);
+        if (data.type === 'media_library_item' || data.type === 'document_copy') {
+          setMediaToSend({
+            url: data.url,
+            nombre: data.nombre,
+            tipo: data.tipo || 'document' // Fallback si no tiene tipo
+          });
+        }
       }
     } catch (err) {
       console.error('Error parsing drop data:', err);
     }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        if (audioChunksRef.current.length > 0) {
+          const mimeType = mediaRecorder.mimeType || 'audio/webm';
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const audioObj = {
+              url: event.target.result,
+              nombre: `Audio_${new Date().getTime()}.webm`,
+              tipo: mimeType
+            };
+            // Enviar inmediatamente el audio
+            await sendMediaToApi(audioObj);
+          };
+          reader.readAsDataURL(audioBlob);
+        }
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start(200);
+      setIsRecording(true);
+      setIsPaused(false);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      toast.error('No se pudo acceder al micrófono. Verifica los permisos.');
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording && !isPaused) {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && isRecording && isPaused) {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    }
+  };
+
+  const stopRecording = (cancel = false) => {
+    if (mediaRecorderRef.current && isRecording) {
+      if (cancel) {
+        audioChunksRef.current = [];
+      }
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsPaused(false);
+      clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   const openChat = (id, phone, name) => {
@@ -378,8 +483,68 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     setView('chat');
   };
 
+  const renderMediaPreview = () => {
+    if (!mediaToSend) return null;
+    if (mediaToSend.tipo?.startsWith('image/')) {
+      return <img src={mediaToSend.url} alt="Preview" style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', marginBottom: '1rem', borderRadius: '8px' }} />;
+    }
+    if (mediaToSend.tipo?.startsWith('video/')) {
+      return <video src={mediaToSend.url} controls style={{ width: '100%', maxHeight: '200px', marginBottom: '1rem', borderRadius: '8px' }} />;
+    }
+    if (mediaToSend.tipo?.startsWith('audio/')) {
+      return <audio src={mediaToSend.url} controls style={{ width: '100%', marginBottom: '1rem' }} />;
+    }
+    return (
+      <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--surface-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
+        <File size={24} color="var(--color-info)" />
+      </div>
+    );
+  };
+
+  const renderMessages = useMemo(() => {
+    if (loadingMessages) {
+      return (
+        <div style={{ textAlign: 'center', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', padding: '0.5rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+          Cargando historial...
+        </div>
+      );
+    }
+    if (messages.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', padding: '0.5rem 1rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+          Inicia la conversación. Los mensajes aparecerán aquí.
+        </div>
+      );
+    }
+    return messages.map(msg => {
+      const isIncoming = !msg.remitente || msg.remitente === 'incoming';
+      return (
+        <div key={msg.id} style={{
+          alignSelf: isIncoming ? 'flex-start' : 'flex-end',
+          background: isIncoming ? 'var(--color-bg-elevated)' : 'var(--color-primary)',
+          color: isIncoming ? 'var(--color-text-primary)' : '#ffffff',
+          padding: '0.5rem 0.75rem',
+          borderRadius: '8px',
+          borderTopLeftRadius: isIncoming ? '0' : '8px',
+          borderTopRightRadius: !isIncoming ? '0' : '8px',
+          maxWidth: '85%',
+          boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <span style={{ fontSize: '0.9rem', lineHeight: '1.3', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {msg.texto}
+          </span>
+          <span style={{ fontSize: '0.65rem', color: isIncoming ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.7)', textAlign: 'right', marginTop: '4px' }}>
+            {new Date(msg.fecha_recepcion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+      );
+    });
+  }, [messages, loadingMessages]);
+
   return (
-    <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
+    <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
       
       {/* TABS HEADER */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', background: 'var(--surface-base)' }}>
@@ -496,82 +661,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* Overlay de Drag & Drop */}
-            {isDragOverChat && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(37, 211, 102, 0.9)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'white' }}>
-                <File size={48} />
-                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Suelta el archivo para enviarlo</h3>
-              </div>
-            )}
-
-            {/* Modal de confirmación de envío multimedia */}
-            {mediaToSend && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.7)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-                <div style={{ background: 'var(--color-bg-canvas)', borderRadius: '12px', width: '100%', maxWidth: '300px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                  <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-primary)' }}>Confirmar Envío</h3>
-                    <button onClick={() => setMediaToSend(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-                      <X size={18} />
-                    </button>
-                  </div>
-                  <div style={{ padding: '1.25rem', textAlign: 'center' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--surface-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
-                      <File size={24} color="var(--color-info)" />
-                    </div>
-                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', color: 'var(--color-text-secondary)', wordBreak: 'break-word' }}>
-                      ¿Deseas enviar el archivo <strong>{mediaToSend.nombre}</strong> a este chat?
-                    </p>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                      Destino: +{cleanPhone}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', borderTop: '1px solid var(--color-border)' }}>
-                    <button onClick={() => setMediaToSend(null)} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: 'none', borderRight: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-                      Cancelar
-                    </button>
-                    <button onClick={handleSendMedia} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: '#25D366', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                      {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                      Enviar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {loadingMessages ? (
-              <div style={{ textAlign: 'center', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', padding: '0.5rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                Cargando historial...
-              </div>
-            ) : messages.length === 0 ? (
-              <div style={{ textAlign: 'center', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', padding: '0.5rem 1rem', borderRadius: '12px', alignSelf: 'center', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                Inicia la conversación. Los mensajes aparecerán aquí.
-              </div>
-            ) : (
-              messages.map(msg => {
-                const isIncoming = !msg.remitente || msg.remitente === 'incoming';
-                return (
-                  <div key={msg.id} style={{
-                    alignSelf: isIncoming ? 'flex-start' : 'flex-end',
-                    background: isIncoming ? 'var(--color-bg-elevated)' : 'var(--color-primary)',
-                    color: isIncoming ? 'var(--color-text-primary)' : '#ffffff',
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: '8px',
-                    borderTopLeftRadius: isIncoming ? '0' : '8px',
-                    borderTopRightRadius: !isIncoming ? '0' : '8px',
-                    maxWidth: '85%',
-                    boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}>
-                    <span style={{ fontSize: '0.9rem', lineHeight: '1.3', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                      {msg.texto}
-                    </span>
-                    <span style={{ fontSize: '0.65rem', color: isIncoming ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.7)', textAlign: 'right', marginTop: '4px' }}>
-                      {new Date(msg.fecha_recepcion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                );
-              })
-            )}
+            {renderMessages}
             <div ref={messagesEndRef} />
           </div>
 
@@ -581,49 +671,149 @@ export default function ClientWhatsApp({ clientId, telefono }) {
             </div>
           )}
           <form onSubmit={handleSendMessage} style={{ padding: '0.75rem', background: 'var(--surface-base)', display: 'flex', gap: '0.5rem', alignItems: 'center', borderTop: '1px solid var(--color-border)' }}>
-            <button 
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              disabled={!cleanPhone || sending}
-              style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
-            >
-              <Smile size={24} />
-            </button>
+            {isRecording ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--color-bg-canvas)', padding: '0.75rem 1rem', borderRadius: '24px', border: '1px solid var(--color-border)' }}>
+                <div className={isPaused ? "" : "animate-pulse"} style={{ color: isPaused ? 'var(--color-text-muted)' : 'var(--color-danger)', display: 'flex', alignItems: 'center' }}>
+                  <Mic size={20} />
+                </div>
+                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '0.95rem' }}>
+                  {isPaused ? 'Pausado...' : 'Grabando...'} {formatTime(recordingTime)}
+                </span>
+                <div style={{ flex: 1 }} />
+                
+                <button
+                  type="button"
+                  onClick={isPaused ? resumeRecording : pauseRecording}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--color-info)', cursor: 'pointer', display: 'flex', padding: '0.4rem', transition: 'color 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-primary)'}
+                  onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-info)'}
+                  title={isPaused ? "Reanudar" : "Pausar"}
+                >
+                  {isPaused ? <Play size={20} /> : <Pause size={20} />}
+                </button>
 
-            <button 
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!cleanPhone || sending}
-              style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
-            >
-              <Paperclip size={24} />
-            </button>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              style={{ display: 'none' }} 
-              onChange={handleFileSelect} 
-            />
+                <button
+                  type="button"
+                  onClick={() => stopRecording(true)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', padding: '0.4rem', transition: 'color 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-danger)'}
+                  onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
+                  title="Cancelar"
+                >
+                  <Trash2 size={20} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => stopRecording(false)}
+                  style={{ background: '#25D366', color: 'white', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  title="Detener y enviar"
+                >
+                  <CheckCircle2 size={20} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <button 
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  disabled={!cleanPhone || sending}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
+                >
+                  <Smile size={24} />
+                </button>
 
-            <input 
-              type="text" 
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={cleanPhone ? "Escribe un mensaje..." : "Añade un teléfono para chatear"} 
-              disabled={!cleanPhone || sending}
-              style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '24px', border: '1px solid var(--color-border)', background: 'var(--color-bg-canvas)', color: 'var(--color-text-primary)', outline: 'none', fontSize: '0.95rem' }}
-            />
-            <button 
-              type="submit"
-              disabled={!cleanPhone || sending || !newMessage.trim()} 
-              style={{ background: newMessage.trim() ? '#25D366' : 'transparent', color: newMessage.trim() ? 'white' : '#8e9092', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() ? 'pointer' : 'default', transition: 'all 0.2s' }}
-            >
-              {sending ? <span style={{ fontSize: '0.6rem' }}>...</span> : <Send size={20} style={{ marginLeft: newMessage.trim() ? '2px' : '0' }} />}
-            </button>
+                <button 
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!cleanPhone || sending}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', display: 'flex', padding: '0.4rem' }}
+                >
+                  <Paperclip size={24} />
+                </button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  style={{ display: 'none' }} 
+                  onChange={handleFileSelect} 
+                  accept="*/*"
+                />
+
+                <input 
+                  type="text" 
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder={cleanPhone ? "Escribe un mensaje..." : "Añade un teléfono para chatear"} 
+                  disabled={!cleanPhone || sending}
+                  style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '24px', border: '1px solid var(--color-border)', background: 'var(--color-bg-canvas)', color: 'var(--color-text-primary)', outline: 'none', fontSize: '0.95rem' }}
+                />
+                
+                {newMessage.trim() ? (
+                  <button 
+                    type="submit"
+                    disabled={!cleanPhone || sending} 
+                    style={{ background: '#25D366', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                  >
+                    {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={20} style={{ marginLeft: '2px' }} />}
+                  </button>
+                ) : (
+                  <button 
+                    type="button"
+                    onClick={startRecording}
+                    disabled={!cleanPhone || sending} 
+                    style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: cleanPhone && !sending ? 'pointer' : 'default', transition: 'color 0.2s' }}
+                    onMouseOver={(e) => { if(cleanPhone && !sending) e.currentTarget.style.color = '#25D366'; }}
+                    onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-muted)'}
+                  >
+                    <Mic size={24} />
+                  </button>
+                )}
+              </>
+            )}
           </form>
         </>
       )}
 
+      {/* Overlay de Drag & Drop */}
+      {isDragOverChat && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(37, 211, 102, 0.9)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'white', pointerEvents: 'none' }}>
+          <File size={48} />
+          <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Suelta el archivo para enviarlo</h3>
+        </div>
+      )}
+
+      {/* Modal de confirmación de envío multimedia */}
+      {mediaToSend && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.7)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'var(--color-bg-canvas)', borderRadius: '12px', width: '100%', maxWidth: '300px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+            <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-primary)' }}>Confirmar Envío</h3>
+              <button onClick={() => setMediaToSend(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '1.25rem', textAlign: 'center' }}>
+              {renderMediaPreview()}
+              <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', color: 'var(--color-text-secondary)', wordBreak: 'break-word' }}>
+                ¿Deseas enviar <strong>{mediaToSend.nombre}</strong> a este chat?
+              </p>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                Destino: +{cleanPhone}
+              </p>
+            </div>
+            <div style={{ display: 'flex', borderTop: '1px solid var(--color-border)' }}>
+              <button onClick={() => setMediaToSend(null)} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: 'none', borderRight: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleSendMedia} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: '#25D366', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
