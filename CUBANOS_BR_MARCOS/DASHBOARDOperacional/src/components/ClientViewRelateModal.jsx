@@ -34,18 +34,24 @@ export default function ClientViewRelateModal({
                 style={{ width: '100%', padding: '0.5rem', background: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}
               />
               <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', maxHeight: '300px', overflowY: 'auto', background: 'var(--color-bg-elevated)' }}>
-                {allClientes.filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 50).map(c => (
-                  <div
-                    key={c.id}
-                    style={{ padding: '0.75rem 1rem', cursor: 'pointer', background: selectedId === c.id ? 'var(--color-primary)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', color: selectedId === c.id ? 'white' : 'var(--color-text-primary)', transition: 'background 0.2s', fontSize: '0.9rem' }}
-                    onClick={() => onSelectId(c.id)}
-                  >
-                    {c.nombre} ({c.cpf || 'Sin CPF'})
-                  </div>
-                ))}
-                {allClientes.filter(c => c.id !== clientId && c.nombre.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                  <div style={{ padding: '1rem', color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>No hay resultados</div>
-                )}
+                {(() => {
+                  const list = searchQuery.trim().length >= 2 ? searchResults : allClientes.filter(c => c.nombre.toLowerCase().includes(searchQuery.toLowerCase()));
+                  const filteredList = list.filter(c => c.id !== clientId).slice(0, 50);
+                  
+                  if (filteredList.length === 0) {
+                    return <div style={{ padding: '1rem', color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>No hay resultados</div>;
+                  }
+                  
+                  return filteredList.map(c => (
+                    <div
+                      key={c.id}
+                      style={{ padding: '0.75rem 1rem', cursor: 'pointer', background: selectedId === c.id ? 'var(--color-primary)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)', color: selectedId === c.id ? 'white' : 'var(--color-text-primary)', transition: 'background 0.2s', fontSize: '0.9rem' }}
+                      onClick={() => onSelectId(c.id)}
+                    >
+                      {c.nombre} ({c.cpf || 'Sin CPF'})
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
             <button className="btn btn-secondary" style={{ padding: '0.5rem' }} onClick={onOpenNewClient} title="Crear Nuevo Cliente">
