@@ -30,7 +30,8 @@ export default function ClientWhatsApp({ clientId, telefono }) {
 
   // Drag & Drop Media states
   const [isDragOverChat, setIsDragOverChat] = useState(false);
-  const [mediaToSend, setMediaToSend] = useState(null);
+  const [mediaToSend, setMediaToSend] = useState([]);
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
 
   // List view states
   const [recentChats, setRecentChats] = useState([]);
@@ -229,18 +230,27 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   };
 
   const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setMediaToSend({
-        url: event.target.result,
-        nombre: file.name,
-        tipo: file.type || 'document'
-      });
-    };
-    reader.readAsDataURL(file);
+    const newMediaList = [];
+    let processed = 0;
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        newMediaList.push({
+          url: event.target.result,
+          nombre: file.name,
+          tipo: file.type || 'document'
+        });
+        processed++;
+        if (processed === files.length) {
+          setMediaToSend(prev => [...prev, ...newMediaList]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
     e.target.value = '';
   };
 
@@ -370,9 +380,14 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   };
 
   const handleSendMedia = async () => {
-    if (!mediaToSend || sending) return;
-    await sendMediaToApi(mediaToSend);
-    setMediaToSend(null);
+    if (mediaToSend.length === 0 || sending) return;
+    const mediaToProcess = [...mediaToSend];
+    setMediaToSend([]);
+    setActivePreviewIndex(0);
+    
+    for (const media of mediaToProcess) {
+      await sendMediaToApi(media);
+    }
   };
 
   const handleDragOver = (e) => {
@@ -393,16 +408,25 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     setIsDragOverChat(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setMediaToSend({
-          url: event.target.result,
-          nombre: file.name,
-          tipo: file.type || 'document'
-        });
-      };
-      reader.readAsDataURL(file);
+      const files = Array.from(e.dataTransfer.files);
+      const newMediaList = [];
+      let processed = 0;
+
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          newMediaList.push({
+            url: event.target.result,
+            nombre: file.name,
+            tipo: file.type || 'document'
+          });
+          processed++;
+          if (processed === files.length) {
+            setMediaToSend(prev => [...prev, ...newMediaList]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
       return;
     }
 
@@ -411,11 +435,11 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       if (dataStr) {
         const data = JSON.parse(dataStr);
         if (data.type === 'media_library_item' || data.type === 'document_copy') {
-          setMediaToSend({
+          setMediaToSend(prev => [...prev, {
             url: data.url,
             nombre: data.nombre,
-            tipo: data.tipo || 'document' // Fallback si no tiene tipo
-          });
+            tipo: data.tipo || 'document'
+          }]);
         }
       }
     } catch (err) {
@@ -513,23 +537,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     setView('chat');
   };
 
-  const renderMediaPreview = () => {
-    if (!mediaToSend) return null;
-    if (mediaToSend.tipo?.startsWith('image/')) {
-      return <img src={mediaToSend.url} alt="Preview" style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', marginBottom: '1rem', borderRadius: '8px' }} />;
-    }
-    if (mediaToSend.tipo?.startsWith('video/')) {
-      return <video src={mediaToSend.url} controls style={{ width: '100%', maxHeight: '200px', marginBottom: '1rem', borderRadius: '8px' }} />;
-    }
-    if (mediaToSend.tipo?.startsWith('audio/')) {
-      return <audio src={mediaToSend.url} controls style={{ width: '100%', marginBottom: '1rem' }} />;
-    }
-    return (
-      <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--surface-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
-        <File size={24} color="var(--color-info)" />
-      </div>
-    );
-  };
+
 
   const renderMessages = useMemo(() => {
     if (loadingMessages) {
@@ -768,6 +776,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
                   style={{ display: 'none' }} 
                   onChange={handleFileSelect} 
                   accept="*/*"
+                  multiple
                 />
 
                 <textarea 
@@ -826,33 +835,124 @@ export default function ClientWhatsApp({ clientId, telefono }) {
         </div>
       )}
 
-      {/* Modal de confirmación de envío multimedia */}
-      {mediaToSend && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.7)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'var(--color-bg-canvas)', borderRadius: '12px', width: '100%', maxWidth: '300px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-            <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-primary)' }}>Confirmar Envío</h3>
-              <button onClick={() => setMediaToSend(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-                <X size={18} />
+      {/* Modal de confirmación de envío multimedia estilo WhatsApp */}
+      {mediaToSend.length > 0 && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#0b141a', zIndex: 60, display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white', background: '#202c33' }}>
+            <button onClick={() => { setMediaToSend([]); setActivePreviewIndex(0); }} style={{ background: 'transparent', border: 'none', color: '#aebac1', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <X size={24} />
+            </button>
+            <span style={{ fontSize: '1rem', color: '#e9edef' }}>Enviar {mediaToSend.length} {mediaToSend.length === 1 ? 'archivo' : 'archivos'} a +{cleanPhone}</span>
+            <div style={{ width: 24 }}></div>
+          </div>
+
+          {/* Main Preview Area */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '1.5rem', position: 'relative' }}>
+            {(() => {
+              const activeMedia = mediaToSend[activePreviewIndex] || mediaToSend[0];
+              if (!activeMedia) return null;
+              const isImage = activeMedia.tipo?.startsWith('image/');
+              const isVideo = activeMedia.tipo?.startsWith('video/');
+              const isAudio = activeMedia.tipo?.startsWith('audio/');
+
+              if (isImage) return <img src={activeMedia.url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />;
+              if (isVideo) return <video src={activeMedia.url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />;
+              if (isAudio) return (
+                <div style={{ background: '#202c33', padding: '2rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                   <Mic size={64} color="#00a884" />
+                   <audio src={activeMedia.url} controls style={{ width: '300px' }} />
+                   <p style={{ color: '#e9edef', margin: 0, textAlign: 'center', wordBreak: 'break-all' }}>{activeMedia.nombre}</p>
+                </div>
+              );
+              return (
+                <div style={{ background: '#202c33', padding: '3rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                   <File size={64} color="#8696a0" />
+                   <p style={{ color: '#e9edef', margin: 0, fontSize: '1.2rem', wordBreak: 'break-all', textAlign: 'center', maxWidth: '400px' }}>{activeMedia.nombre}</p>
+                   <p style={{ color: '#8696a0', margin: 0 }}>{activeMedia.tipo || 'Documento'}</p>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Thumbnail Strip and Send Button */}
+          <div style={{ padding: '1rem', background: '#202c33', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', width: '100%', maxWidth: '800px', alignItems: 'center', justifyContent: 'space-between' }}>
+              
+              <div style={{ flex: 1, display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '0.5rem', alignItems: 'center', paddingRight: '1rem' }}>
+                 {mediaToSend.map((media, idx) => {
+                   const isImage = media.tipo?.startsWith('image/');
+                   const isVideo = media.tipo?.startsWith('video/');
+                   const isAudio = media.tipo?.startsWith('audio/');
+                   const isActive = idx === activePreviewIndex;
+
+                   return (
+                     <div 
+                       key={idx} 
+                       onClick={() => setActivePreviewIndex(idx)}
+                       style={{ 
+                         width: '56px', height: '56px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', position: 'relative',
+                         border: isActive ? '2px solid #00a884' : '2px solid transparent',
+                         background: '#111b21', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.2s'
+                       }}
+                     >
+                       {isImage ? (
+                         <img src={media.url} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                       ) : isVideo ? (
+                         <video src={media.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                       ) : isAudio ? (
+                         <Mic size={24} color="#8696a0" />
+                       ) : (
+                         <File size={24} color="#8696a0" />
+                       )}
+                       
+                       {/* Remove Button */}
+                       <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newMedia = mediaToSend.filter((_, i) => i !== idx);
+                            setMediaToSend(newMedia);
+                            if (newMedia.length === 0) {
+                               setActivePreviewIndex(0);
+                            } else {
+                               if (idx === activePreviewIndex) setActivePreviewIndex(Math.max(0, idx - 1));
+                               else if (idx < activePreviewIndex) setActivePreviewIndex(activePreviewIndex - 1);
+                            }
+                          }}
+                          style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(11,20,26,0.7)', border: 'none', color: '#aebac1', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer' }}
+                          title="Eliminar"
+                       >
+                          <X size={12} />
+                       </button>
+                     </div>
+                   );
+                 })}
+                 
+                 {/* Add More Button */}
+                 <button 
+                   onClick={() => fileInputRef.current?.click()}
+                   style={{ width: '56px', height: '56px', flexShrink: 0, borderRadius: '8px', border: '1px solid #8696a0', background: 'transparent', color: '#aebac1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginLeft: '0.5rem', transition: 'background 0.2s' }}
+                   onMouseOver={(e) => e.currentTarget.style.background = '#2a3942'}
+                   onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                   title="Añadir más"
+                 >
+                   <Paperclip size={24} />
+                 </button>
+              </div>
+
+              {/* Send Button */}
+              <button 
+                onClick={handleSendMedia} 
+                disabled={sending} 
+                style={{ 
+                  background: '#00a884', color: 'white', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s', flexShrink: 0
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {sending ? <Loader2 size={24} className="animate-spin" /> : <Send size={24} style={{ marginLeft: '4px' }} />}
               </button>
-            </div>
-            <div style={{ padding: '1.25rem', textAlign: 'center' }}>
-              {renderMediaPreview()}
-              <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', color: 'var(--color-text-secondary)', wordBreak: 'break-word' }}>
-                ¿Deseas enviar <strong>{mediaToSend.nombre}</strong> a este chat?
-              </p>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                Destino: +{cleanPhone}
-              </p>
-            </div>
-            <div style={{ display: 'flex', borderTop: '1px solid var(--color-border)' }}>
-              <button onClick={() => setMediaToSend(null)} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: 'none', borderRight: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-                Cancelar
-              </button>
-              <button onClick={handleSendMedia} disabled={sending} style={{ flex: 1, padding: '0.75rem', background: '#25D366', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                Enviar
-              </button>
+
             </div>
           </div>
         </div>
