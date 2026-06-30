@@ -770,13 +770,26 @@ export default function ClientWhatsApp({ clientId, telefono }) {
                   accept="*/*"
                 />
 
-                <input 
-                  type="text" 
+                <textarea 
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder={cleanPhone ? "Escribe un mensaje..." : "Añade un teléfono para chatear"} 
                   disabled={!cleanPhone || sending}
-                  style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '24px', border: '1px solid var(--color-border)', background: 'var(--color-bg-canvas)', color: 'var(--color-text-primary)', outline: 'none', fontSize: '0.95rem' }}
+                  rows={Math.min(6, Math.max(1, newMessage.split('\n').length + Math.floor(newMessage.length / 60)))}
+                  style={{ 
+                    flex: 1, 
+                    padding: '0.75rem 1rem', 
+                    borderRadius: '20px', 
+                    border: '1px solid var(--color-border)', 
+                    background: 'var(--color-bg-canvas)', 
+                    color: 'var(--color-text-primary)', 
+                    outline: 'none', 
+                    fontSize: '0.95rem',
+                    resize: 'none',
+                    fontFamily: 'inherit',
+                    lineHeight: '1.4',
+                    overflowY: 'auto'
+                  }}
                 />
                 
                 {newMessage.trim() ? (
