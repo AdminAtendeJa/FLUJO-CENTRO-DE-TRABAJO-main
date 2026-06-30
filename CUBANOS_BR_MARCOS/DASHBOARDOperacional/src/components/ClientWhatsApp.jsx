@@ -39,6 +39,21 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
   const [searchResults, setSearchResults] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
 
+  // Preview Media state
+  const [previewMedia, setPreviewMedia] = useState(null);
+
+  // Helper to safely determine media type
+  const getMediaType = (msg) => {
+    if (msg.media_type && msg.media_type !== 'application/octet-stream') return msg.media_type;
+    const url = (msg.media_url || '').toLowerCase();
+    const name = (msg.media_name || '').toLowerCase();
+    if (url.match(/\.(jpg|jpeg|png|gif|webp)$/) || name.match(/\.(jpg|jpeg|png|gif|webp)$/)) return 'image/jpeg';
+    if (url.match(/\.(mp4|mov|webm)$/) || name.match(/\.(mp4|mov|webm)$/)) return 'video/mp4';
+    if (url.match(/\.(mp3|wav|ogg|m4a)$/) || name.match(/\.(mp3|wav|ogg|m4a)$/)) return 'audio/mpeg';
+    if (url.match(/\.(pdf)$/) || name.match(/\.(pdf)$/)) return 'application/pdf';
+    return msg.media_type || 'application/octet-stream';
+  };
+
   // Reset to default client when main dashboard navigates
   useEffect(() => {
     setActiveChatId(clientId);
@@ -564,6 +579,8 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
     }
     return messages.map(msg => {
       const isIncoming = !msg.remitente || msg.remitente === 'incoming';
+      const safeMediaType = getMediaType(msg);
+
       return (
         <div key={msg.id} style={{
           alignSelf: isIncoming ? 'flex-start' : 'flex-end',
@@ -578,31 +595,39 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
           display: 'flex',
           flexDirection: 'column'
         }}>
-          {msg.media_url && msg.media_type?.startsWith('image/') && (
+          {msg.media_url && safeMediaType.startsWith('image/') && (
             <div draggable onDragStart={(e) => {
-              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'imagen.jpg', mimeType: msg.media_type }));
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'imagen.jpg', mimeType: safeMediaType }));
               e.dataTransfer.effectAllowed = 'copy';
             }} style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', marginBottom: '4px', cursor: 'grab' }}>
-              <img src={msg.media_url} alt={msg.media_name || 'Imagen'} style={{ maxWidth: '100%', borderRadius: '8px', display: 'block', cursor: 'pointer' }} onClick={() => window.open(msg.media_url, '_blank')} />
+              <img 
+                src={msg.media_url} 
+                alt={msg.media_name || 'Imagen'} 
+                style={{ maxWidth: '100%', borderRadius: '8px', display: 'block', cursor: 'pointer', maxHeight: '250px', objectFit: 'contain' }} 
+                onClick={() => setPreviewMedia({ url: msg.media_url, type: safeMediaType, name: msg.media_name })} 
+              />
               <a href={msg.media_url} download={msg.media_name || 'imagen.jpg'} target="_blank" rel="noopener noreferrer" style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', textDecoration: 'none' }} title="Descargar">
                 <Download size={16} />
               </a>
             </div>
           )}
-          {msg.media_url && msg.media_type?.startsWith('video/') && (
+          {msg.media_url && safeMediaType.startsWith('video/') && (
             <div draggable onDragStart={(e) => {
-              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'video.mp4', mimeType: msg.media_type }));
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'video.mp4', mimeType: safeMediaType }));
               e.dataTransfer.effectAllowed = 'copy';
             }} style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', marginBottom: '4px', cursor: 'grab' }}>
-              <video src={msg.media_url} controls style={{ maxWidth: '100%', borderRadius: '8px', display: 'block' }} />
+              <video src={msg.media_url} controls style={{ maxWidth: '100%', borderRadius: '8px', display: 'block', maxHeight: '250px' }} />
+              <button onClick={() => setPreviewMedia({ url: msg.media_url, type: safeMediaType, name: msg.media_name })} style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }} title="Ver pantalla completa">
+                <Play size={16} />
+              </button>
               <a href={msg.media_url} download={msg.media_name || 'video.mp4'} target="_blank" rel="noopener noreferrer" style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', textDecoration: 'none', zIndex: 10 }} title="Descargar">
                 <Download size={16} />
               </a>
             </div>
           )}
-          {msg.media_url && msg.media_type?.startsWith('audio/') && (
+          {msg.media_url && safeMediaType.startsWith('audio/') && (
             <div draggable onDragStart={(e) => {
-              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'audio.mp3', mimeType: msg.media_type }));
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'audio.mp3', mimeType: safeMediaType }));
               e.dataTransfer.effectAllowed = 'copy';
             }} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: '8px', cursor: 'grab' }}>
               <audio src={msg.media_url} controls style={{ maxWidth: '220px', height: '40px' }} />
@@ -611,19 +636,31 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
               </a>
             </div>
           )}
-          {msg.media_url && !msg.media_type?.startsWith('image/') && !msg.media_type?.startsWith('video/') && !msg.media_type?.startsWith('audio/') && (
-            <a draggable onDragStart={(e) => {
-              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'documento', mimeType: msg.media_type || 'application/octet-stream' }));
+          {msg.media_url && !safeMediaType.startsWith('image/') && !safeMediaType.startsWith('video/') && !safeMediaType.startsWith('audio/') && (
+            <div draggable onDragStart={(e) => {
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'documento', mimeType: safeMediaType || 'application/octet-stream' }));
               e.dataTransfer.effectAllowed = 'copy';
-            }} href={msg.media_url} download={msg.media_name || 'documento'} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', textDecoration: 'none', color: 'inherit', marginBottom: '4px', cursor: 'grab' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                <File size={20} style={{ flexShrink: 0 }} />
-                <span style={{ fontSize: '0.85rem', wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{msg.media_name || 'Documento adjunto'}</span>
-              </div>
-              <div style={{ padding: '6px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', flexShrink: 0, color: 'inherit' }}>
-                <Download size={16} />
-              </div>
-            </a>
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '4px' }}>
+              {safeMediaType === 'application/pdf' && (
+                <div 
+                  onClick={() => setPreviewMedia({ url: msg.media_url, type: safeMediaType, name: msg.media_name })}
+                  style={{ width: '100%', height: '120px', background: 'var(--color-bg-canvas)', borderRadius: '8px', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', overflow: 'hidden', position: 'relative' }}
+                  title="Click para previsualizar"
+                >
+                  <File size={32} style={{ color: '#ef4444', marginBottom: '8px' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Vista Previa PDF</span>
+                </div>
+              )}
+              <a href={msg.media_url} download={msg.media_name || 'documento'} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                  <File size={20} style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.85rem', wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{msg.media_name || 'Documento adjunto'}</span>
+                </div>
+                <div style={{ padding: '6px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', flexShrink: 0, color: 'inherit' }}>
+                  <Download size={16} />
+                </div>
+              </a>
+            </div>
           )}
           <span style={{ fontSize: '0.9rem', lineHeight: '1.3', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {msg.texto}
@@ -1010,6 +1047,37 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
               </button>
 
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media Preview Modal */}
+      {previewMedia && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent)' }}>
+            <span style={{ color: 'white', fontWeight: 500, fontSize: '1rem', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+              {previewMedia.name || 'Vista Previa'}
+            </span>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <a href={previewMedia.url} download={previewMedia.name} target="_blank" rel="noopener noreferrer" style={{ color: 'white', background: 'rgba(255,255,255,0.2)', padding: '0.5rem', borderRadius: '50%', display: 'flex', cursor: 'pointer', textDecoration: 'none' }} title="Descargar">
+                <Download size={20} />
+              </a>
+              <button onClick={() => setPreviewMedia(null)} style={{ color: 'white', background: 'rgba(255,255,255,0.2)', border: 'none', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer', display: 'flex' }} title="Cerrar">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+          
+          <div style={{ width: '90%', height: '85%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '3rem' }}>
+            {previewMedia.type.startsWith('image/') && (
+              <img src={previewMedia.url} alt={previewMedia.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} />
+            )}
+            {previewMedia.type === 'application/pdf' && (
+              <iframe src={previewMedia.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', background: 'white', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} title="PDF Preview" />
+            )}
+            {previewMedia.type.startsWith('video/') && (
+              <video src={previewMedia.url} controls autoPlay style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '8px', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} />
+            )}
           </div>
         </div>
       )}
