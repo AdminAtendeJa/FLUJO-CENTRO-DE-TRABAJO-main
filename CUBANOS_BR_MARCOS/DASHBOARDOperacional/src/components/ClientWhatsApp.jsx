@@ -26,6 +26,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
+  const isCancelledRef = useRef(false);
 
   // Drag & Drop Media states
   const [isDragOverChat, setIsDragOverChat] = useState(false);
@@ -83,30 +84,34 @@ export default function ClientWhatsApp({ clientId, telefono }) {
     if (view === 'chat' && activeChatId) {
       setLoadingMessages(true);
       fetchMessages();
-
-      const channel1 = supabase
-        .channel(`whatsapp_id_${activeChatId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notas_kommo', filter: `cliente_id=eq.${activeChatId}` }, () => {
-          fetchMessages();
-        })
-        .subscribe();
-
-      let channel2 = null;
-      if (cleanPhone) {
-        channel2 = supabase
-          .channel(`whatsapp_phone_${cleanPhone}`)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'notas_kommo', filter: `telefono=eq.${cleanPhone}` }, () => {
-            fetchMessages();
-          })
-          .subscribe();
-      }
-
-      return () => {
-        supabase.removeChannel(channel1);
-        if (channel2) supabase.removeChannel(channel2);
-      };
     }
   }, [activeChatId, view, cleanPhone]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('global_whatsapp_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notas_kommo' }, (payload) => {
+        const newRow = payload.new;
+        if (!newRow) return;
+
+        if (view === 'list' && !searchQuery) {
+          fetchRecentChats();
+        } else if (view === 'chat') {
+          const isCurrentChat = 
+            String(newRow.cliente_id) === String(activeChatId) || 
+            (cleanPhone && String(newRow.telefono) === String(cleanPhone));
+            
+          if (isCurrentChat) {
+            fetchMessages();
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [view, searchQuery, activeChatId, cleanPhone]);
 
   useEffect(() => {
     if (messagesEndRef.current && view === 'chat') {
@@ -401,6 +406,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      isCancelledRef.current = false;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
@@ -409,7 +415,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
       };
 
       mediaRecorder.onstop = () => {
-        if (audioChunksRef.current.length > 0) {
+        if (!isCancelledRef.current && audioChunksRef.current.length > 0) {
           const mimeType = mediaRecorder.mimeType || 'audio/webm';
           const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
           const reader = new FileReader();
@@ -461,6 +467,7 @@ export default function ClientWhatsApp({ clientId, telefono }) {
   const stopRecording = (cancel = false) => {
     if (mediaRecorderRef.current && isRecording) {
       if (cancel) {
+        isCancelledRef.current = true;
         audioChunksRef.current = [];
       }
       mediaRecorderRef.current.stop();
