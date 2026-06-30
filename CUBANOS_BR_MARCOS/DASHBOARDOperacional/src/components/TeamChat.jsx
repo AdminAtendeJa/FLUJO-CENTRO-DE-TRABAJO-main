@@ -30,6 +30,8 @@ export default function TeamChat({ isFullView = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [toastNotification, setToastNotification] = useState(null);
+  const [mentionTooltip, setMentionTooltip] = useState(null);
+  const mentionTimeoutRef = useRef(null);
   
   // Dragging state
   const [position, setPosition] = useState(() => {
@@ -55,6 +57,7 @@ export default function TeamChat({ isFullView = false }) {
     isOpenRef.current = isOpen;
     if (isOpen) {
       setHasUnread(false);
+      setMentionTooltip(null);
       setTimeout(() => scrollToBottom(), 100);
     }
   }, [isOpen]);
@@ -94,7 +97,17 @@ export default function TeamChat({ isFullView = false }) {
           const isMentioned = payload.new.mensaje.includes('@Todos') || (myProfile && payload.new.mensaje.includes(`@${myProfile.nombre}`));
           
           if (isMentioned && !isOwnMessage) {
-            setToastNotification({ type: 'info', message: `¡Te han mencionado en el chat del equipo!` });
+            const senderProfile = perfilesRef.current.find(p => p.id === payload.new.usuario_id);
+            const senderName = senderProfile ? senderProfile.nombre : 'Alguien';
+            setToastNotification({ type: 'info', message: `¡${senderName} te ha mencionado en el chat del equipo!` });
+            
+            if (!isOpenRef.current) {
+              setMentionTooltip(`¡${senderName} te mencionó!`);
+              if (mentionTimeoutRef.current) clearTimeout(mentionTimeoutRef.current);
+              mentionTimeoutRef.current = setTimeout(() => {
+                setMentionTooltip(null);
+              }, 5000);
+            }
           }
         }
       )
@@ -456,6 +469,39 @@ export default function TeamChat({ isFullView = false }) {
             }} />
           )}
         </button>
+
+        {mentionTooltip && !isDragging && (
+           <div style={{
+               position: 'fixed',
+               bottom: `${position.y + 64}px`,
+               left: `${position.x - 20}px`,
+               backgroundColor: 'var(--color-primary)',
+               color: 'white',
+               padding: '6px 14px',
+               borderRadius: '20px',
+               fontSize: '13px',
+               fontWeight: '500',
+               whiteSpace: 'nowrap',
+               boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+               zIndex: 1010,
+               animation: 'fadeUp 0.3s ease-out',
+               pointerEvents: 'none',
+               display: 'flex',
+               alignItems: 'center',
+               gap: '6px'
+           }}>
+              {mentionTooltip}
+              <div style={{
+                  position: 'absolute',
+                  bottom: '-5px',
+                  left: '42px',
+                  width: '10px',
+                  height: '10px',
+                  backgroundColor: 'var(--color-primary)',
+                  transform: 'rotate(45deg)'
+              }} />
+           </div>
+        )}
       </>
     );
   }

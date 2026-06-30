@@ -5,10 +5,34 @@ import { getNotasTramite, createNotaTramite } from '../services/tramitesService'
 import toast from 'react-hot-toast';
 
 const TRAMITE_COLORS = {
-  completada: { bg: 'rgba(29,158,117,0.18)', color: '#1D9E75' },
-  procesando: { bg: 'rgba(55,138,221,0.18)', color: '#378ADD' },
-  cancelada: { bg: 'rgba(216,90,48,0.18)', color: '#D85A30' },
-  pendiente: { bg: 'rgba(186,117,23,0.18)', color: '#BA7517' },
+  entrante: { bg: 'rgba(55,138,221,0.18)', color: '#378ADD' },
+  esperando_cliente: { bg: 'rgba(239,68,68,0.18)', color: '#ef4444' }, // rojo
+  esperando: { bg: 'rgba(239,68,68,0.18)', color: '#ef4444' }, // rojo
+  cobranza: { bg: 'rgba(29,158,117,0.18)', color: '#1D9E75' },
+  logrado: { bg: 'rgba(16,185,129,0.18)', color: '#10b981' },
+};
+
+const mapLegacyState = (state) => {
+  if (!state) return 'entrante';
+  const s = state.toLowerCase();
+  if (s === 'pendiente') return 'entrante';
+  if (s === 'esperando_docs') return 'esperando_cliente';
+  if (s === 'procesando') return 'esperando';
+  // Map completada directly to logrado, cancelada to cobranza
+  if (s === 'completada') return 'logrado';
+  if (s === 'cancelada') return 'cobranza';
+  return s;
+};
+
+const mapStageToLegacy = (stageId) => {
+  switch (stageId) {
+    case 'entrante': return 'pendiente';
+    case 'esperando_cliente': return 'esperando_docs';
+    case 'esperando': return 'procesando';
+    case 'cobranza': return 'cancelada';
+    case 'logrado': return 'completada';
+    default: return 'pendiente';
+  }
 };
 
 export default function ClientViewTramites({
@@ -123,7 +147,8 @@ export default function ClientViewTramites({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {sortedEntradas.map((t) => {
             const isExpanded = expandedId === t.id;
-            const estadoColor = TRAMITE_COLORS[t.estado_tramite] || TRAMITE_COLORS.pendiente;
+            const mappedState = mapLegacyState(t.estado_tramite);
+            const estadoColor = TRAMITE_COLORS[mappedState] || TRAMITE_COLORS.entrante;
             const notas = notasCache[t.id] || [];
             const isLoadingThisNotas = loadingNotas === t.id;
 
@@ -172,7 +197,7 @@ export default function ClientViewTramites({
                       background: estadoColor.bg,
                       color: estadoColor.color,
                     }}>
-                      {(t.estado_tramite || 'pendiente').charAt(0).toUpperCase() + (t.estado_tramite || 'pendiente').slice(1)}
+                      {mappedState.replace('_', ' ').toUpperCase()}
                     </span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
                       {formatDate(t.creado_en)}
@@ -248,8 +273,11 @@ export default function ClientViewTramites({
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Estado</span>
                         <select
-                          value={t.estado_tramite || 'pendiente'}
-                          onChange={(e) => onUpdateEstado(t.id, e.target.value)}
+                          value={mappedState}
+                          onChange={(e) => {
+                            const legacyVal = mapStageToLegacy(e.target.value);
+                            onUpdateEstado(t.id, legacyVal);
+                          }}
                           onClick={(e) => e.stopPropagation()}
                           style={{
                             padding: '0.25rem 0.5rem',
@@ -263,10 +291,11 @@ export default function ClientViewTramites({
                             outline: 'none',
                           }}
                         >
-                          <option value="pendiente">Pendiente</option>
-                          <option value="procesando">Procesando</option>
-                          <option value="completada">Completada</option>
-                          <option value="cancelada">Cancelada</option>
+                          <option value="entrante">Clientes Entrantes</option>
+                          <option value="esperando_cliente">Esperando por el cliente</option>
+                          <option value="esperando">Esperando</option>
+                          <option value="cobranza">Realizar Cobranza</option>
+                          <option value="logrado">Logrado con Éxito</option>
                         </select>
                       </div>
 
