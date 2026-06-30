@@ -7,7 +7,7 @@ import { Sparkles, X, Send, Loader2, Trash2 } from 'lucide-react';
 // - searchClientsByName / search
 // - countPendingProcedures / procedures / tramites
 
-export const GlobalAiChat = ({ isVisible = true, onNavigateToClient }) => {
+export const GlobalAiChat = ({ isVisible = true, currentView, onNavigateToClient }) => {
   const {
     isOpen: isChatOpen,
     setIsOpen,
@@ -59,7 +59,7 @@ export const GlobalAiChat = ({ isVisible = true, onNavigateToClient }) => {
         className="global-ai-fab"
         style={{
           position: 'fixed',
-          bottom: '24px',
+          bottom: currentView === 'team-chat' ? 'calc(100vh - 146px)' : '24px',
           right: '24px',
           zIndex: 1010,
           width: '56px',
@@ -87,7 +87,7 @@ export const GlobalAiChat = ({ isVisible = true, onNavigateToClient }) => {
       className="global-ai-chat"
       style={{
         position: 'fixed',
-        bottom: '96px',
+        bottom: currentView === 'team-chat' ? 'calc(100vh - 756px)' : '96px',
         right: '24px',
         zIndex: 1010,
         width: '380px',

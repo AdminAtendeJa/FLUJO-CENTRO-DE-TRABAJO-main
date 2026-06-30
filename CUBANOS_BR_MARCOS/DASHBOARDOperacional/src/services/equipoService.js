@@ -92,3 +92,30 @@ export const enviarMensajeChat = async (mensaje) => {
   if (error) throw error;
   return data;
 };
+
+// --- Subida de Archivos para Chat de Equipo ---
+
+export const uploadTeamMedia = async (file) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("No hay sesión activa");
+
+  const ext = file.name ? file.name.split('.').pop().toLowerCase() : 'webm';
+  const uniqueName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const storagePath = `team_chat/${uniqueName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('documentos_operacionales')
+    .upload(storagePath, file, { upsert: false });
+
+  if (uploadError) throw uploadError;
+
+  const { data: urlData } = supabase.storage
+    .from('documentos_operacionales')
+    .getPublicUrl(storagePath);
+
+  return {
+    url: urlData.publicUrl,
+    type: file.type || 'application/octet-stream',
+    name: file.name || `audio_${Date.now()}.webm`
+  };
+};

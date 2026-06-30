@@ -88,3 +88,27 @@ export async function deleteMedia(mediaId, url_archivo) {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Añade una plantilla de mensaje a la base de datos.
+ */
+export async function addTemplate(nombre, texto) {
+  try {
+    const { data: record, error: dbError } = await supabase
+      .from(TABLE)
+      .insert({
+        nombre: nombre,
+        url_archivo: texto,
+        tipo_contenido: 'template',
+        tamano: texto.length,
+      })
+      .select()
+      .single();
+
+    if (dbError) throw dbError;
+    return { data: record, error: null };
+  } catch (err) {
+    console.error('[mediaLibraryService] addTemplate error:', err);
+    return { data: null, error: err.message };
+  }
+}

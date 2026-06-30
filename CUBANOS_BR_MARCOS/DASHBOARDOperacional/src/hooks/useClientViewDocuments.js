@@ -134,11 +134,37 @@ export default function useClientViewDocuments({
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e) => {
+  const handleDrop = useCallback(async (e) => {
     e.preventDefault();
     setIsDragging(false);
+
+    try {
+      const customDataStr = e.dataTransfer.getData('application/json');
+      if (customDataStr) {
+        const customData = JSON.parse(customDataStr);
+        if (customData.type === 'whatsapp_media') {
+          setUploading(true);
+          try {
+             const response = await fetch(customData.url);
+             if (!response.ok) throw new Error('Error al descargar el archivo.');
+             const blob = await response.blob();
+             const file = new File([blob], customData.name, { type: customData.mimeType });
+             
+             await handleConfirmUpload(file, { nombre_archivo: customData.name, tipo_documento: 'Otro' });
+          } catch(err) {
+             alert('Error copiando archivo desde WhatsApp: ' + err.message);
+          } finally {
+             setUploading(false);
+          }
+          return;
+        }
+      }
+    } catch(err) {
+      // Si falla el parseo, continuamos con la lógica normal de arrastrar archivos nativos
+    }
+
     handleFileUpload(e);
-  }, [handleFileUpload]);
+  }, [handleFileUpload, handleConfirmUpload]);
 
   return {
     // State

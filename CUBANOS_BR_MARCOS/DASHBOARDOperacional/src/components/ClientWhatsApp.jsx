@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User, X, File, Loader2, Paperclip, Smile, Mic, Trash2, Pause, Play } from 'lucide-react';
+import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User, X, File, Loader2, Paperclip, Smile, Mic, Trash2, Pause, Play, Download } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
@@ -68,10 +68,10 @@ export default function ClientWhatsApp({ clientId, telefono }) {
 
       if (error) throw error;
       
-      const filtered = (data || []).filter(n => 
-        !n.texto?.includes('mensagem de mídia') && 
-        !n.texto?.includes('mensagem de media')
-      );
+      const filtered = (data || []).filter(n => {
+        if (n.media_url) return true;
+        return !n.texto?.includes('mensagem de mídia') && !n.texto?.includes('mensagem de media');
+      });
       
       setMessages(filtered);
     } catch (err) {
@@ -570,11 +570,59 @@ export default function ClientWhatsApp({ clientId, telefono }) {
           display: 'flex',
           flexDirection: 'column'
         }}>
+          {msg.media_url && msg.media_type?.startsWith('image/') && (
+            <div draggable onDragStart={(e) => {
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'imagen.jpg', mimeType: msg.media_type }));
+              e.dataTransfer.effectAllowed = 'copy';
+            }} style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', marginBottom: '4px', cursor: 'grab' }}>
+              <img src={msg.media_url} alt={msg.media_name || 'Imagen'} style={{ maxWidth: '100%', borderRadius: '8px', display: 'block', cursor: 'pointer' }} onClick={() => window.open(msg.media_url, '_blank')} />
+              <a href={msg.media_url} download={msg.media_name || 'imagen.jpg'} target="_blank" rel="noopener noreferrer" style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', textDecoration: 'none' }} title="Descargar">
+                <Download size={16} />
+              </a>
+            </div>
+          )}
+          {msg.media_url && msg.media_type?.startsWith('video/') && (
+            <div draggable onDragStart={(e) => {
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'video.mp4', mimeType: msg.media_type }));
+              e.dataTransfer.effectAllowed = 'copy';
+            }} style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', marginBottom: '4px', cursor: 'grab' }}>
+              <video src={msg.media_url} controls style={{ maxWidth: '100%', borderRadius: '8px', display: 'block' }} />
+              <a href={msg.media_url} download={msg.media_name || 'video.mp4'} target="_blank" rel="noopener noreferrer" style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', textDecoration: 'none', zIndex: 10 }} title="Descargar">
+                <Download size={16} />
+              </a>
+            </div>
+          )}
+          {msg.media_url && msg.media_type?.startsWith('audio/') && (
+            <div draggable onDragStart={(e) => {
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'audio.mp3', mimeType: msg.media_type }));
+              e.dataTransfer.effectAllowed = 'copy';
+            }} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: '8px', cursor: 'grab' }}>
+              <audio src={msg.media_url} controls style={{ maxWidth: '220px', height: '40px' }} />
+              <a href={msg.media_url} download={msg.media_name || 'audio.mp3'} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', display: 'flex', padding: '6px', borderRadius: '50%', background: 'var(--color-bg-canvas)', border: '1px solid var(--color-border)', textDecoration: 'none' }} title="Descargar">
+                <Download size={16} />
+              </a>
+            </div>
+          )}
+          {msg.media_url && !msg.media_type?.startsWith('image/') && !msg.media_type?.startsWith('video/') && !msg.media_type?.startsWith('audio/') && (
+            <a draggable onDragStart={(e) => {
+              e.dataTransfer.setData('application/json', JSON.stringify({ type: 'whatsapp_media', url: msg.media_url, name: msg.media_name || 'documento', mimeType: msg.media_type || 'application/octet-stream' }));
+              e.dataTransfer.effectAllowed = 'copy';
+            }} href={msg.media_url} download={msg.media_name || 'documento'} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', textDecoration: 'none', color: 'inherit', marginBottom: '4px', cursor: 'grab' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                <File size={20} style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: '0.85rem', wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{msg.media_name || 'Documento adjunto'}</span>
+              </div>
+              <div style={{ padding: '6px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', flexShrink: 0, color: 'inherit' }}>
+                <Download size={16} />
+              </div>
+            </a>
+          )}
           <span style={{ fontSize: '0.9rem', lineHeight: '1.3', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {msg.texto}
           </span>
-          <span style={{ fontSize: '0.65rem', color: isIncoming ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.7)', textAlign: 'right', marginTop: '4px' }}>
-            {new Date(msg.fecha_recepcion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <span style={{ fontSize: '0.65rem', color: isIncoming ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.7)', marginTop: '4px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+            <Trash2 size={13} color={isIncoming ? 'var(--color-error)' : 'rgba(255,255,255,0.7)'} style={{ cursor: 'pointer', opacity: 0.6 }} onMouseEnter={(e) => e.currentTarget.style.opacity = 1} onMouseLeave={(e) => e.currentTarget.style.opacity = 0.6} onClick={() => handleDeleteMessage(msg.id)} title="Eliminar mensaje" />
+            <span>{new Date(msg.fecha_recepcion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </span>
         </div>
       );

@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {  Play, Upload, Trash2, Loader2, FileAudio, FileVideo , ChevronDown, ChevronUp } from 'lucide-react';
-import { getMediaLibrary, uploadMedia, deleteMedia } from '../services/mediaLibraryService';
+import {  Play, Upload, Trash2, Loader2, FileAudio, FileVideo, ChevronDown, ChevronUp, Search, AlignLeft, Plus, Copy, X } from 'lucide-react';
+import { getMediaLibrary, uploadMedia, deleteMedia, addTemplate } from '../services/mediaLibraryService';
+import toast from 'react-hot-toast';
+import { createPortal } from 'react-dom';
 
 export default function ClientMediaLibrary() {
   const [activeTab, setActiveTab] = useState('audios');
   const [isSectionExpanded, setIsSectionExpanded] = useState(true);
   const [mediaItems, setMediaItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateText, setTemplateText] = useState('');
 
   useEffect(() => {
     fetchMedia();
@@ -46,6 +53,30 @@ export default function ClientMediaLibrary() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleTemplateSave = async () => {
+    if (!templateName.trim() || !templateText.trim()) {
+      toast.error('Por favor, completa ambos campos');
+      return;
+    }
+    setUploading(true);
+    const { error } = await addTemplate(templateName.trim(), templateText.trim());
+    setUploading(false);
+    if (error) {
+      toast.error('Error al guardar plantilla');
+    } else {
+      toast.success('Plantilla guardada');
+      setShowTemplateModal(false);
+      setTemplateName('');
+      setTemplateText('');
+      fetchMedia();
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copiado al portapapeles');
+  };
+
   const handleDelete = async (id, url) => {
     if (!window.confirm('¿Seguro que quieres eliminar este archivo?')) return;
     await deleteMedia(id, url);
@@ -63,9 +94,15 @@ export default function ClientMediaLibrary() {
     e.dataTransfer.effectAllowed = 'copy';
   };
 
-  const filteredItems = mediaItems.filter(item => 
-    activeTab === 'audios' ? item.tipo_contenido.startsWith('audio/') : item.tipo_contenido.startsWith('video/')
-  );
+  const filteredItems = mediaItems.filter(item => {
+    let matchesTab = false;
+    if (activeTab === 'audios') matchesTab = item.tipo_contenido.startsWith('audio/');
+    else if (activeTab === 'videos') matchesTab = item.tipo_contenido.startsWith('video/');
+    else if (activeTab === 'plantillas') matchesTab = item.tipo_contenido === 'template';
+    
+    const matchesSearch = item.nombre.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   return (
     <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
@@ -81,18 +118,35 @@ export default function ClientMediaLibrary() {
             Biblioteca Global
           </span>
         </div>
-        <button 
-          onClick={() => fileInputRef.current?.click()} 
-          disabled={uploading} 
-          style={{ 
-            background: 'var(--color-primary)', color: 'white', border: 'none', 
-            padding: '0.35rem 0.75rem', borderRadius: '4px', fontSize: '0.75rem', 
-            display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: uploading ? 'wait' : 'pointer'
-          }}
-        >
-          {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-          Subir
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {activeTab === 'plantillas' ? (
+            <button 
+              onClick={() => setShowTemplateModal(true)} 
+              disabled={uploading} 
+              style={{ 
+                background: '#00a884', color: 'white', border: 'none', 
+                padding: '0.35rem 0.75rem', borderRadius: '4px', fontSize: '0.75rem', 
+                display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: uploading ? 'wait' : 'pointer'
+              }}
+            >
+              <Plus size={14} />
+              Nueva
+            </button>
+          ) : (
+            <button 
+              onClick={() => fileInputRef.current?.click()} 
+              disabled={uploading} 
+              style={{ 
+                background: 'var(--color-primary)', color: 'white', border: 'none', 
+                padding: '0.35rem 0.75rem', borderRadius: '4px', fontSize: '0.75rem', 
+                display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: uploading ? 'wait' : 'pointer'
+              }}
+            >
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              Subir
+            </button>
+          )}
+        </div>
         <input type="file" ref={fileInputRef} onChange={handleUpload} style={{ display: 'none' }} accept="audio/*,video/*" multiple />
       </div>
 
@@ -122,8 +176,34 @@ export default function ClientMediaLibrary() {
                 cursor: 'pointer', transition: 'all 0.2s'
               }}
             >
-              Videos pregrabados
+              Videos
             </button>
+            <button 
+              onClick={() => setActiveTab('plantillas')}
+              style={{ 
+                flex: 1, padding: '0.6rem 1rem', fontSize: '0.8rem', fontWeight: 600, 
+                color: activeTab === 'plantillas' ? 'white' : 'var(--color-text-muted)', 
+                borderBottom: activeTab === 'plantillas' ? '2px solid #00a884' : '2px solid transparent', 
+                background: 'transparent', borderTop: 'none', borderLeft: 'none', borderRight: 'none',
+                cursor: 'pointer', transition: 'all 0.2s'
+              }}
+            >
+              Plantillas
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          <div style={{ padding: '0.5rem 1rem', background: 'var(--color-bg-canvas)', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder={`Buscar ${activeTab}...`} 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '0.4rem 0.75rem 0.4rem 2rem', borderRadius: '6px', border: '1px solid var(--color-border)', outline: 'none', fontSize: '0.8rem', background: 'var(--surface-base)', color: 'var(--color-text-primary)' }}
+              />
+              <Search size={14} style={{ position: 'absolute', left: '0.6rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            </div>
           </div>
 
           {/* List */}
@@ -156,14 +236,14 @@ export default function ClientMediaLibrary() {
                     onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                     title="Arrastra este archivo al chat de WhatsApp o haz clic derecho para copiar la ruta"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden', flex: 1 }}>
                       <div style={{ 
                         width: '24px', height: '24px', borderRadius: '50%', 
-                        background: activeTab === 'audios' ? '#ff9800' : '#e91e63', 
+                        background: activeTab === 'audios' ? '#ff9800' : activeTab === 'videos' ? '#e91e63' : '#00a884', 
                         display: 'flex', alignItems: 'center', justifyContent: 'center', 
                         flexShrink: 0, color: 'white' 
                       }}>
-                        {activeTab === 'audios' ? <Play size={12} fill="white" /> : <FileVideo size={12} />}
+                        {activeTab === 'audios' ? <Play size={12} fill="white" /> : activeTab === 'videos' ? <FileVideo size={12} /> : <AlignLeft size={12} />}
                       </div>
                       
                       {activeTab === 'audios' ? (
@@ -186,7 +266,7 @@ export default function ClientMediaLibrary() {
                             }}
                           />
                         </div>
-                      ) : (
+                      ) : activeTab === 'videos' ? (
                         <a 
                           href={item.url_archivo} 
                           target="_blank" 
@@ -195,11 +275,32 @@ export default function ClientMediaLibrary() {
                         >
                           {item.nombre}
                         </a>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden', cursor: 'pointer', flex: 1 }} onClick={() => copyToClipboard(item.url_archivo)}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.nombre}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.url_archivo}
+                          </span>
+                        </div>
                       )}
                     </div>
 
-                    <button 
-                      onClick={() => handleDelete(item.id, item.url_archivo)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      {activeTab === 'plantillas' && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); copyToClipboard(item.url_archivo); }}
+                          style={{ background: 'none', border: 'none', color: 'var(--color-info)', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
+                          onMouseOver={(e) => e.currentTarget.style.opacity = 1}
+                          onMouseOut={(e) => e.currentTarget.style.opacity = 0.7}
+                          title="Copiar texto"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleDelete(item.id, item.url_archivo)}
                       style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
                       onMouseOver={(e) => e.currentTarget.style.opacity = 1}
                       onMouseOut={(e) => e.currentTarget.style.opacity = 0.7}
@@ -208,6 +309,7 @@ export default function ClientMediaLibrary() {
                       <Trash2 size={14} />
                     </button>
                   </div>
+                </div>
                 ))}
               </div>
             )}
@@ -215,6 +317,53 @@ export default function ClientMediaLibrary() {
         </>
       )}
       
+      {/* Modal para crear plantilla */}
+      {showTemplateModal && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--color-bg-canvas)', padding: '1.5rem', borderRadius: '12px', width: '90%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-primary)' }}>Nueva Plantilla</h3>
+              <button onClick={() => setShowTemplateModal(false)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>Nombre / Título</label>
+                <input 
+                  type="text" 
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Ej: Saludo inicial"
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', outline: 'none', background: 'var(--surface-base)', color: 'var(--color-text-primary)' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>Mensaje</label>
+                <textarea 
+                  value={templateText}
+                  onChange={(e) => setTemplateText(e.target.value)}
+                  placeholder="Escribe el contenido de la plantilla..."
+                  rows={5}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', outline: 'none', background: 'var(--surface-base)', color: 'var(--color-text-primary)', resize: 'vertical' }}
+                />
+              </div>
+              
+              <button 
+                onClick={handleTemplateSave}
+                disabled={uploading}
+                style={{ width: '100%', padding: '0.75rem', background: '#00a884', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: uploading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}
+              >
+                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                Guardar Plantilla
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

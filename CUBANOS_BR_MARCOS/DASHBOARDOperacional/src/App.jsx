@@ -208,8 +208,9 @@ function App() {
                 }}
               >
                 <MessageSquare size={18} />
-                Chat de Equipo
+                Mensajes
               </button>
+
 
               {userProfile?.rol === 'admin' && (
                 <button
@@ -315,7 +316,8 @@ function App() {
               {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} onNavigateToClientsList={navigateToClientsList} searchQuery={globalSearch} />}
               {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
               {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}
-              {currentView === 'team-chat' && <TeamChat />}
+              {currentView === 'team-chat' && <TeamChat isFullView={true} />}
+
               {currentView === 'team-management' && <TeamManagement />}
               {currentView === 'settings' && <SettingsView />}
             </main>
@@ -331,7 +333,8 @@ function App() {
             />
           )}
 
-          <GlobalAiChat isVisible={currentView !== 'client'} onNavigateToClient={navigateToClient} />
+          <GlobalAiChat isVisible={currentView !== 'client'} currentView={currentView} onNavigateToClient={navigateToClient} />
+          {currentView !== 'team-chat' && <TeamChat />}
         </div>
       </ErrorBoundary>
     </GlobalAiChatProvider>
