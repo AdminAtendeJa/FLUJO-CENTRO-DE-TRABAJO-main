@@ -11,6 +11,9 @@ export const useNavigation = (isReady = true) => {
         const hash = window.location.hash;
         if (hash.startsWith('#client/')) return 'client';
         if (hash === '#clients') return 'clients';
+        if (hash === '#team-chat') return 'team-chat';
+        if (hash === '#team-management') return 'team-management';
+        if (hash === '#settings') return 'settings';
         if (hash === '#dashboard') return 'dashboard';
         const saved = localStorage.getItem('app_currentView');
         if (saved) return saved;
@@ -41,6 +44,12 @@ export const useNavigation = (isReady = true) => {
             window.location.hash = `client/${selectedClientId}`;
         } else if (currentView === 'clients') {
             window.location.hash = 'clients';
+        } else if (currentView === 'team-chat') {
+            window.location.hash = 'team-chat';
+        } else if (currentView === 'team-management') {
+            window.location.hash = 'team-management';
+        } else if (currentView === 'settings') {
+            window.location.hash = 'settings';
         } else {
             window.location.hash = 'dashboard';
         }
@@ -57,6 +66,15 @@ export const useNavigation = (isReady = true) => {
                 setSelectedClientId(idStr ? Number(idStr) : null);
             } else if (hash === '#clients') {
                 setCurrentView('clients');
+                setSelectedClientId(null);
+            } else if (hash === '#team-chat') {
+                setCurrentView('team-chat');
+                setSelectedClientId(null);
+            } else if (hash === '#team-management') {
+                setCurrentView('team-management');
+                setSelectedClientId(null);
+            } else if (hash === '#settings') {
+                setCurrentView('settings');
                 setSelectedClientId(null);
             } else {
                 setCurrentView('dashboard');
@@ -77,9 +95,24 @@ export const useNavigation = (isReady = true) => {
         setCurrentView('dashboard');
     }, []);
 
-    const navigateToClientsList = useCallback((query) => {
+    const navigateToClientsList = useCallback(() => {
         setSelectedClientId(null);
         setCurrentView('clients');
+    }, []);
+
+    const navigateToTeamChat = useCallback(() => {
+        setSelectedClientId(null);
+        setCurrentView('team-chat');
+    }, []);
+
+    const navigateToTeamManagement = useCallback(() => {
+        setSelectedClientId(null);
+        setCurrentView('team-management');
+    }, []);
+
+    const navigateToSettings = useCallback(() => {
+        setSelectedClientId(null);
+        setCurrentView('settings');
     }, []);
 
     return {
@@ -88,5 +121,8 @@ export const useNavigation = (isReady = true) => {
         navigateToClient,
         navigateToHome,
         navigateToClientsList,
+        navigateToTeamChat,
+        navigateToTeamManagement,
+        navigateToSettings,
     };
 };

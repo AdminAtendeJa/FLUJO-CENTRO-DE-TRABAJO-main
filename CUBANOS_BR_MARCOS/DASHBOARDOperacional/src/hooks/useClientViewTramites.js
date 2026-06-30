@@ -6,13 +6,26 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { createEntrada, updateEntradaEstado } from '../services/tramitesService';
+import { createEntrada, updateEntradaEstado, updateEntradaServicio, updateEntradaOperario, getCatalogoTramites, getOperarios, deleteEntrada } from '../services/tramitesService';
 
 export default function useClientViewTramites({ clientId, queryClient }) {
   const [isNewTramiteModalOpen, setIsNewTramiteModalOpen] = useState(false);
   const [newTramiteData, setNewTramiteData] = useState({ servicio: '', operario: '' });
   const [isCreatingTramite, setIsCreatingTramite] = useState(false);
+
+  const catalogoQuery = useQuery({
+    queryKey: ['tramites_catalogo'],
+    queryFn: getCatalogoTramites,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const operariosQuery = useQuery({
+    queryKey: ['operarios'],
+    queryFn: getOperarios,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const handleChangeTramiteState = useCallback(async (entradaId, newState) => {
     try {
@@ -22,6 +35,41 @@ export default function useClientViewTramites({ clientId, queryClient }) {
     } catch (err) {
       console.error('[useClientViewTramites] handleChangeTramiteState:', err);
       toast.error('Error al actualizar el estado del trámite.');
+    }
+  }, [clientId, queryClient]);
+
+  const handleChangeTramiteServicio = useCallback(async (entradaId, newServicio) => {
+    try {
+      await updateEntradaServicio(entradaId, newServicio);
+      queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
+      toast.success('Servicio del trámite actualizado');
+    } catch (err) {
+      console.error('[useClientViewTramites] handleChangeTramiteServicio:', err);
+      toast.error('Error al actualizar el servicio del trámite.');
+    }
+  }, [clientId, queryClient]);
+
+  const handleChangeTramiteOperario = useCallback(async (entradaId, newOperario) => {
+    try {
+      await updateEntradaOperario(entradaId, newOperario);
+      queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
+      toast.success('Operario del trámite actualizado');
+    } catch (err) {
+      console.error('[useClientViewTramites] handleChangeTramiteOperario:', err);
+      toast.error('Error al actualizar el operario del trámite.');
+    }
+  }, [clientId, queryClient]);
+
+  const handleDeleteTramite = useCallback(async (entradaId) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este trámite? Se eliminará todo su historial asociado.')) return;
+    
+    try {
+      await deleteEntrada(entradaId);
+      queryClient.invalidateQueries({ queryKey: ['entradas', clientId] });
+      toast.success('Trámite eliminado exitosamente');
+    } catch (err) {
+      console.error('[useClientViewTramites] handleDeleteTramite:', err);
+      toast.error('Error al eliminar el trámite.');
     }
   }, [clientId, queryClient]);
 
@@ -57,8 +105,15 @@ export default function useClientViewTramites({ clientId, queryClient }) {
     newTramiteData,
     setNewTramiteData,
     isCreatingTramite,
+    catalogoTramites: catalogoQuery.data || [],
+    isLoadingCatalogo: catalogoQuery.isLoading,
+    operariosList: operariosQuery.data || [],
+    isLoadingOperarios: operariosQuery.isLoading,
     // Handlers
     handleChangeTramiteState,
+    handleChangeTramiteServicio,
+    handleChangeTramiteOperario,
     handleCreateTramite,
+    handleDeleteTramite,
   };
 }

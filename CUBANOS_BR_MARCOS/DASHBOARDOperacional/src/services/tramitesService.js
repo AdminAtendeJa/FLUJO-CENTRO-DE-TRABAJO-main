@@ -4,6 +4,7 @@
  * Centraliza TODAS las llamadas a Supabase relacionadas con trámites (entradas).
  */
 import { supabase } from '../supabaseClient';
+import { registrarAccionHistorial } from './equipoService';
 
 export const getEntradas = async (clientId) => {
   const { data, error } = await supabase
@@ -27,6 +28,7 @@ export const createEntrada = async ({ id_cliente, servicio, operario }) => {
     .select()
     .single();
   if (error) throw error;
+  registrarAccionHistorial(id_cliente, 'NUEVO_TRAMITE', `Creó trámite de ${servicio}`);
   return data;
 };
 
@@ -36,6 +38,70 @@ export const updateEntradaEstado = async (id, estado_tramite) => {
     .update({ estado_tramite })
     .eq('id', id);
   if (error) throw error;
+};
+
+export const deleteEntrada = async (id) => {
+  const { error } = await supabase
+    .from('entradas')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+};
+
+export const updateEntradaServicio = async (id, servicio) => {
+  const { error } = await supabase
+    .from('entradas')
+    .update({ servicio: servicio?.trim().toUpperCase() })
+    .eq('id', id);
+  if (error) throw error;
+};
+
+export const updateEntradaOperario = async (id, operario) => {
+  const { error } = await supabase
+    .from('entradas')
+    .update({ operario: operario?.trim().toUpperCase() || null })
+    .eq('id', id);
+  if (error) throw error;
+};
+
+export const getCatalogoTramites = async () => {
+  const { data, error } = await supabase
+    .from('tramites_catalogo')
+    .select('id, nombre, codigo')
+    .eq('activo', true)
+    .order('nombre');
+  if (error) throw error;
+  return data || [];
+};
+
+export const getAllCatalogoTramites = async () => {
+  const { data, error } = await supabase
+    .from('tramites_catalogo')
+    .select('*')
+    .order('nombre');
+  if (error) throw error;
+  return data || [];
+};
+
+export const createCatalogoTramite = async (tramite) => {
+  const { data, error } = await supabase
+    .from('tramites_catalogo')
+    .insert(tramite)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateCatalogoTramite = async (id, updates) => {
+  const { data, error } = await supabase
+    .from('tramites_catalogo')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 };
 
 export const getNotasTramite = async (entradaId) => {
@@ -55,6 +121,46 @@ export const createNotaTramite = async ({ entrada_id, texto }) => {
       entrada_id,
       texto: texto.trim(),
     })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const getOperarios = async () => {
+  const { data, error } = await supabase
+    .from('operarios')
+    .select('id, nombre, iniciales')
+    .eq('activo', true)
+    .order('nombre');
+  if (error) throw error;
+  return data || [];
+};
+
+export const getAllOperarios = async () => {
+  const { data, error } = await supabase
+    .from('operarios')
+    .select('*')
+    .order('nombre');
+  if (error) throw error;
+  return data || [];
+};
+
+export const createOperario = async (operario) => {
+  const { data, error } = await supabase
+    .from('operarios')
+    .insert(operario)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateOperario = async (id, updates) => {
+  const { data, error } = await supabase
+    .from('operarios')
+    .update(updates)
+    .eq('id', id)
     .select()
     .single();
   if (error) throw error;

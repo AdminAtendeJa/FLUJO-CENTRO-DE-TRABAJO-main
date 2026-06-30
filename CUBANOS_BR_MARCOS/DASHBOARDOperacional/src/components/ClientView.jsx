@@ -52,6 +52,7 @@ import ClientViewExtractionModal from './ClientViewExtractionModal';
 import ClientKommoData from './ClientKommoData';
 import ClientMediaLibrary from './ClientMediaLibrary';
 import DuplicateContactsWarning from './DuplicateContactsWarning';
+import ClientHistory from './ClientHistory';
 import useClientData from '../hooks/useClientData';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
@@ -259,6 +260,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
             handleCopy={handleCopy}
             copiedId={copiedId}
           />
+          <ClientHistory clientId={clientId} />
         </div>
 
         {/* Columna 2: Kommo, Relacionamientos y Plantillas */}
@@ -328,8 +330,13 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
           <ClientMediaLibrary />
           <ClientViewTramites
             entradas={entradas}
+            catalogoTramites={tramites.catalogoTramites}
+            operariosList={tramites.operariosList}
             onCreateTramite={() => tramites.setIsNewTramiteModalOpen(true)}
             onUpdateEstado={tramites.handleChangeTramiteState}
+            onUpdateServicio={tramites.handleChangeTramiteServicio}
+            onUpdateOperario={tramites.handleChangeTramiteOperario}
+            onDeleteTramite={tramites.handleDeleteTramite}
           />
         </div>
 
@@ -423,6 +430,8 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       <ClientViewNewTramiteModal
         isOpen={tramites.isNewTramiteModalOpen}
         onClose={() => tramites.setIsNewTramiteModalOpen(false)}
+        catalogoTramites={tramites.catalogoTramites}
+        operariosList={tramites.operariosList}
         servicio={tramites.newTramiteData.servicio}
         onServicioChange={(val) => tramites.setNewTramiteData(prev => ({ ...prev, servicio: val }))}
         operario={tramites.newTramiteData.operario}

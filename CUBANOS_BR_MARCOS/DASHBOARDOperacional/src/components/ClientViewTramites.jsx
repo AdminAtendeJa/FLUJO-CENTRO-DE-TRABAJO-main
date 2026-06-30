@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Plus, ChevronDown, ChevronUp, FileText, Send, Loader2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, FileText, Send, Loader2, Trash2 } from 'lucide-react';
 import { formatDate } from '../utils/dateFormatter';
 import { getNotasTramite, createNotaTramite } from '../services/tramitesService';
 import toast from 'react-hot-toast';
@@ -13,8 +13,13 @@ const TRAMITE_COLORS = {
 
 export default function ClientViewTramites({
   entradas = [],
+  catalogoTramites = [],
+  operariosList = [],
   onCreateTramite,
   onUpdateEstado,
+  onUpdateServicio,
+  onUpdateOperario,
+  onDeleteTramite,
 }) {
   const [expandedId, setExpandedId] = useState(null);
   const [notasCache, setNotasCache] = useState({}); // { [entradaId]: nota[] }
@@ -182,27 +187,62 @@ export default function ClientViewTramites({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Tipo de trámite</span>
-                        <div style={{ background: 'var(--color-info-bg, rgba(55,138,221,0.15))', color: 'var(--color-info)', padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600 }}>
-                          {t.servicio?.toUpperCase() || 'NO ESPECIFICADO'}
-                        </div>
+                        <select
+                          value={t.servicio || ''}
+                          onChange={(e) => onUpdateServicio && onUpdateServicio(t.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            background: 'var(--color-info-bg, rgba(55,138,221,0.15))',
+                            color: 'var(--color-info)',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            border: 'none',
+                            outline: 'none',
+                            cursor: 'pointer',
+                            maxWidth: '60%',
+                          }}
+                        >
+                          <option value="">SELECCIONAR...</option>
+                          {/* Opciones del catálogo */}
+                          {catalogoTramites.map(cat => (
+                            <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+                          ))}
+                          {/* Si el trámite actual no está en el catálogo, mostrarlo también */}
+                          {t.servicio && !catalogoTramites.some(cat => cat.nombre.toUpperCase() === t.servicio.toUpperCase()) && (
+                            <option value={t.servicio}>{t.servicio.toUpperCase()}</option>
+                          )}
+                        </select>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Operacional</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <div style={{
-                            width: '24px', height: '24px', borderRadius: '50%',
-                            background: 'var(--color-bg-elevated)', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.6rem', fontWeight: 700,
+                        <select
+                          value={t.operario || ''}
+                          onChange={(e) => onUpdateOperario && onUpdateOperario(t.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: 'var(--radius-sm)',
                             border: '1px solid var(--color-border)',
-                          }}>
-                            {t.operario ? t.operario.substring(0, 1).toUpperCase() : 'A'}
-                          </div>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>
-                            {t.operario || 'Sin asignar'}
-                          </span>
-                        </div>
+                            background: 'var(--color-bg-elevated)',
+                            color: 'var(--color-text-primary)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            outline: 'none',
+                          }}
+                        >
+                          <option value="">Sin asignar</option>
+                          {operariosList.map(op => (
+                            <option key={op.id} value={op.nombre}>{op.nombre}</option>
+                          ))}
+                          {/* Si el operario actual no está en la lista, mostrarlo */}
+                          {t.operario && !operariosList.some(op => op.nombre === t.operario) && (
+                            <option value={t.operario}>{t.operario}</option>
+                          )}
+                        </select>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -228,6 +268,34 @@ export default function ClientViewTramites({
                           <option value="completada">Completada</option>
                           <option value="cancelada">Cancelada</option>
                         </select>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onDeleteTramite) onDeleteTramite(t.id);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.35rem 0.6rem',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            background: 'rgba(239, 68, 68, 0.05)',
+                            color: 'rgb(239, 68, 68)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
+                        >
+                          <Trash2 size={14} />
+                          Eliminar Trámite
+                        </button>
                       </div>
                     </div>
 

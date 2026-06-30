@@ -5,7 +5,7 @@
  * Los componentes NO deben llamar a supabase.from() directamente.
  */
 import { supabase } from '../supabaseClient';
-
+import { registrarAccionHistorial } from './equipoService';
 // ── Clientes ──────────────────────────────────────────────────────────────────
 export const getCliente = async (id) => {
   const { data, error } = await supabase.from('clientes').select('*').eq('id', id).single();
@@ -22,6 +22,10 @@ export const getClientesBase = async () => {
 export const updateCliente = async (id, updates) => {
   const { data, error } = await supabase.from('clientes').update(updates).eq('id', id).select().single();
   if (error) throw error;
+  
+  const desc = Object.keys(updates).map(k => `${k}: ${updates[k]}`).join(', ');
+  registrarAccionHistorial(id, 'ACTUALIZAR_CLIENTE', `Actualizó datos: ${desc}`);
+  
   return data;
 };
 
@@ -48,9 +52,11 @@ export const upsertClienteDato = async ({ id, valor, campo_id, id_cliente }) => 
   if (id) {
     const { error } = await supabase.from('cliente_datos_operacionales').update({ valor }).eq('id', id);
     if (error) throw error;
+    registrarAccionHistorial(id_cliente, 'ACTUALIZAR_DATO', `Actualizó un dato operacional a: ${valor}`);
   } else {
     const { error } = await supabase.from('cliente_datos_operacionales').insert({ campo_id, id_cliente, valor });
     if (error) throw error;
+    registrarAccionHistorial(id_cliente, 'NUEVO_DATO', `Añadió un dato operacional con valor: ${valor}`);
   }
 };
 
@@ -71,6 +77,18 @@ export const getCategorias = async () => {
   return data || [];
 };
 
+export const insertCategoria = async (categoria) => {
+  const { data, error } = await supabase.from('categorias_datos_operacionales').insert(categoria).select().single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateCategoria = async (id, updates) => {
+  const { data, error } = await supabase.from('categorias_datos_operacionales').update(updates).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+};
+
 export const getCampos = async () => {
   const { data, error } = await supabase.from('campos_datos_operacionales').select('*').order('orden');
   if (error) throw error;
@@ -79,6 +97,12 @@ export const getCampos = async () => {
 
 export const insertCampo = async (campos) => {
   const { data, error } = await supabase.from('campos_datos_operacionales').insert(campos).select().single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateCampo = async (id, updates) => {
+  const { data, error } = await supabase.from('campos_datos_operacionales').update(updates).eq('id', id).select().single();
   if (error) throw error;
   return data;
 };
@@ -108,6 +132,7 @@ export const getRelaciones = async (clientId) => {
 export const insertRelacion = async ({ cliente_id, cliente_relacionado_id, tipo_relacion }) => {
   const { error } = await supabase.from('relaciones_clientes').insert({ cliente_id, cliente_relacionado_id, tipo_relacion });
   if (error) throw error;
+  registrarAccionHistorial(cliente_id, 'NUEVA_RELACION', `Vinculó a otro cliente como ${tipo_relacion}`);
 };
 
 export const updateRelacionTipo = async (id, tipo_relacion) => {

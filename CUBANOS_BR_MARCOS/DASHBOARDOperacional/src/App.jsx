@@ -12,11 +12,16 @@ import {
   Settings,
   Menu,
   X,
+  MessageSquare,
+  Shield,
 } from 'lucide-react';
 import HomeView from './components/HomeView';
 import ClientView from './components/ClientView';
 import ClientListView from './components/ClientListView';
 import NewClientModal from './components/NewClientModal';
+import TeamChat from './components/TeamChat';
+import TeamManagement from './components/TeamManagement';
+import SettingsView from './components/SettingsView';
 import { GlobalAiChatProvider } from './context/GlobalAiChatContext';
 import { GlobalAiChat } from './components/GlobalAiChat';
 import { supabase } from './supabaseClient';
@@ -42,9 +47,22 @@ function App() {
     navigateToClient,
     navigateToHome,
     navigateToClientsList,
+    navigateToTeamChat,
+    navigateToTeamManagement,
+    navigateToSettings,
   } = useNavigation(!!session);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [userProfile, setUserProfile] = useState(null);
+
+  // Fetch user profile on load
+  useEffect(() => {
+    if (session) {
+      supabase.from('perfiles').select('*').eq('id', session.user.id).single()
+        .then(({ data }) => setUserProfile(data))
+        .catch(err => console.error(err));
+    }
+  }, [session]);
 
   // Automatically close sidebar on client view
   useEffect(() => {
@@ -178,6 +196,36 @@ function App() {
                 <Users size={18} />
                 Clientes
               </button>
+              
+              <button
+                onClick={navigateToTeamChat}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-md)', background: currentView === 'team-chat' ? 'var(--color-bg-elevated)' : 'transparent',
+                  color: currentView === 'team-chat' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  border: 'none', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
+                  fontWeight: currentView === 'team-chat' ? 500 : 400
+                }}
+              >
+                <MessageSquare size={18} />
+                Chat de Equipo
+              </button>
+
+              {userProfile?.rol === 'admin' && (
+                <button
+                  onClick={navigateToTeamManagement}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
+                    borderRadius: 'var(--radius-md)', background: currentView === 'team-management' ? 'var(--color-bg-elevated)' : 'transparent',
+                    color: currentView === 'team-management' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    border: 'none', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'left',
+                    fontWeight: currentView === 'team-management' ? 500 : 400
+                  }}
+                >
+                  <Shield size={18} />
+                  Gestión de Equipo
+                </button>
+              )}
               <button
                 onClick={() => setIsNewClientModalOpen(true)}
                 style={{
@@ -194,11 +242,11 @@ function App() {
             <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '240px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
-                  AD
+                  {userProfile ? userProfile.nombre.substring(0, 2).toUpperCase() : 'US'}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-primary)' }}>Admin</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Operaciones</p>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-primary)' }}>{userProfile ? userProfile.nombre : 'Cargando...'}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', textTransform: 'capitalize' }}>{userProfile ? userProfile.rol : ''}</p>
                 </div>
               </div>
               <button
@@ -255,7 +303,11 @@ function App() {
                   {theme === 'dark' ? <Sun size={20} color="var(--color-text-secondary)" /> : <Moon size={20} color="var(--color-text-secondary)" />}
                 </button>
                 <button className="btn btn-ghost" style={{ padding: '0.5rem' }} aria-label="Notificaciones"><Bell size={20} color="var(--color-text-secondary)" /></button>
-                <button className="btn btn-ghost" style={{ padding: '0.5rem' }} aria-label="Configuración"><Settings size={20} color="var(--color-text-secondary)" /></button>
+                {userProfile?.rol === 'admin' && (
+                  <button onClick={navigateToSettings} className="btn btn-ghost" style={{ padding: '0.5rem', color: currentView === 'settings' ? 'var(--color-primary)' : 'inherit' }} aria-label="Configuración">
+                    <Settings size={20} color={currentView === 'settings' ? "var(--color-primary)" : "var(--color-text-secondary)"} />
+                  </button>
+                )}
               </div>
             </header>
 
@@ -263,6 +315,9 @@ function App() {
               {currentView === 'dashboard' && <HomeView onNavigateToClient={navigateToClient} onNavigateToClientsList={navigateToClientsList} searchQuery={globalSearch} />}
               {currentView === 'client' && <ClientView clientId={selectedClientId} onBack={navigateToHome} onNavigateToClient={navigateToClient} />}
               {currentView === 'clients' && <ClientListView onNavigateToClient={navigateToClient} searchQuery={globalSearch} />}
+              {currentView === 'team-chat' && <TeamChat />}
+              {currentView === 'team-management' && <TeamManagement />}
+              {currentView === 'settings' && <SettingsView />}
             </main>
           </div>
 

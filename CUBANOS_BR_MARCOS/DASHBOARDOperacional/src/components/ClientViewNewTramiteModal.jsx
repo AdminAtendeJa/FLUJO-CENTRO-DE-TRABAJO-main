@@ -4,6 +4,8 @@ import { Plus, Loader2 } from 'lucide-react';
 export default function ClientViewNewTramiteModal({
   isOpen,
   onClose,
+  catalogoTramites = [],
+  operariosList = [],
   servicio,
   onServicioChange,
   operario,
@@ -23,15 +25,22 @@ export default function ClientViewNewTramiteModal({
           <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
             Servicio / Tipo de Trámite <span style={{ color: 'var(--color-danger)' }}>*</span>
           </label>
-          <input
+          <select
             className="form-input"
-            type="text"
-            placeholder="Ej: Solicitud de Refugio, Renovación RNM, etc."
             value={servicio}
             onChange={(e) => onServicioChange(e.target.value)}
-            style={{ width: '100%' }}
+            style={{ width: '100%', cursor: 'pointer' }}
             autoFocus
-          />
+          >
+            <option value="">SELECCIONAR...</option>
+            {catalogoTramites.map(cat => (
+              <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+            ))}
+            {/* Si el trámite actual no está en el catálogo, mostrarlo también */}
+            {servicio && !catalogoTramites.some(cat => cat.nombre.toUpperCase() === servicio.toUpperCase()) && (
+              <option value={servicio}>{servicio.toUpperCase()}</option>
+            )}
+          </select>
         </div>
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--color-text-secondary)' }}>
@@ -40,11 +49,17 @@ export default function ClientViewNewTramiteModal({
           <input
             className="form-input"
             type="text"
-            placeholder="Nombre del operario (opcional)"
+            list="operarios-list"
+            placeholder="Selecciona o escribe el nombre"
             value={operario}
             onChange={(e) => onOperarioChange(e.target.value)}
             style={{ width: '100%' }}
           />
+          <datalist id="operarios-list">
+            {operariosList.map(op => (
+              <option key={op.id} value={op.nombre} />
+            ))}
+          </datalist>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
           <button className="btn btn-ghost" onClick={() => { onClose(); onServicioChange(''); onOperarioChange(''); }}>
