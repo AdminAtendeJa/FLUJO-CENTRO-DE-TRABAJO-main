@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download, X, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Plus, RotateCw, Edit2, Check } from 'lucide-react';
+import { Download, X, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Plus, RotateCw, Edit2, Check, Sparkles } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const MIN_WIDTH = 320;
@@ -8,7 +8,7 @@ const ZOOM_STEP = 0.15;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 5;
 
-export default function DocumentViewerModal({ document: doc, onClose }) {
+export default function DocumentViewerModal({ document: doc, onClose, onAnalyze }) {
     const [position, setPosition] = useState({ x: 80, y: 40 });
     const [size, setSize] = useState({ width: 800, height: 600 });
     const [isDragging, setIsDragging] = useState(false);
@@ -412,6 +412,17 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                         )}
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                        {onAnalyze && (isImage || isPdf) && (
+                            <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={(e) => { e.stopPropagation(); onAnalyze(doc); }}
+                                title="Reescanear con IA"
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                            >
+                                <Sparkles size={14} color="var(--color-accent-blue)" />
+                                <span>IA</span>
+                            </button>
+                        )}
                         <button
                             className="btn btn-primary btn-sm"
                             onClick={handleDownload}

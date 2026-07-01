@@ -453,6 +453,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         <DocumentViewerModal
           document={docs.viewingDocument}
           onClose={() => docs.setViewingDocument(null)}
+          onAnalyze={handleAnalyzeViewedDocument}
         />
       )}
 
