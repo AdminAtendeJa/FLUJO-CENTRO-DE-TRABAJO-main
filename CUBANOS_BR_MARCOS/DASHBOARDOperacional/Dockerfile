@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar todas las dependencias (producción y desarrollo)
-RUN npm ci --frozen-lockfile
+RUN npm ci --frozen-lockfile --legacy-peer-deps
 
 # Copiar solo los archivos necesarios para la construcción
 COPY public ./public
