@@ -76,10 +76,8 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
         await supabase.from('clientes').update(updates).eq('id', targetId);
       }
 
-      if (uploadedDocRecord && (extractedData.TIPO_DOCUMENTO || extractedData.NOMBRE_COMPLETO)) {
-        const tipo = extractedData.TIPO_DOCUMENTO || 'DOCUMENTO';
-        const nombre = extractedData.NOMBRE_COMPLETO || 'DESCONOCIDO';
-        const newFileName = `${tipo} - ${nombre}`.toUpperCase();
+      if (uploadedDocRecord && extractedData.NOMBRE_ARCHIVO) {
+        const newFileName = extractedData.NOMBRE_ARCHIVO.trim().toUpperCase();
         
         const isUuid = typeof uploadedDocRecord.id === 'string' && uploadedDocRecord.id.includes('-');
         const table = isUuid ? 'documentos_pendientes' : 'documentos_operacionales';
@@ -154,6 +152,22 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
           const aiData = await analyzeDocumentImage(fileOrBase64);
           if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
             toast.dismiss(toastId);
+
+            // Auto-renombrar inmediatamente y añadir al estado
+            const tipo = aiData.TIPO_DOCUMENTO || 'DOCUMENTO';
+            const nombre = aiData.NOMBRE_COMPLETO || 'DESCONOCIDO';
+            const newFileName = `${tipo} - ${nombre}`.toUpperCase();
+            
+            aiData.NOMBRE_ARCHIVO = newFileName;
+
+            if (newDoc) {
+              const isUuid = typeof newDoc.id === 'string' && newDoc.id.includes('-');
+              const table = isUuid ? 'documentos_pendientes' : 'documentos_operacionales';
+              supabase.from(table).update({ nombre_archivo: newFileName }).eq('id', newDoc.id).then(() => {
+                if (typeof fetchClientData === 'function') fetchClientData(true);
+              });
+            }
+
             setExtractedData(aiData);
             setExtractionTargetClientId(targetClientId);
             setExtractionTargetClientData(targetClient);

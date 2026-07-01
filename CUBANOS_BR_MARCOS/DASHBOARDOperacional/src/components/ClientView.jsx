@@ -246,6 +246,20 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
       if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
         toast.dismiss(toastId);
         docs.setViewingDocument(null);
+
+        // Auto-renombrar inmediatamente y añadir al estado
+        const tipo = aiData.TIPO_DOCUMENTO || 'DOCUMENTO';
+        const nombre = aiData.NOMBRE_COMPLETO || 'DESCONOCIDO';
+        const newFileName = `${tipo} - ${nombre}`.toUpperCase();
+        
+        aiData.NOMBRE_ARCHIVO = newFileName;
+
+        if (doc) {
+          const isUuid = typeof doc.id === 'string' && doc.id.includes('-');
+          const table = isUuid ? 'documentos_pendientes' : 'documentos_operacionales';
+          supabase.from(table).update({ nombre_archivo: newFileName }).eq('id', doc.id).then(() => fetchClientData(true));
+        }
+
         extraction.setExtractedData(aiData);
         extraction.setUploadedDocRecord(doc);
         extraction.setIsExtractionModalOpen(true);
@@ -315,10 +329,20 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 }
                 const aiData = await analyzeDocumentImage(fileOrBase64);
                 if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
-                  extraction.setExtractedData(aiData);
+                  // Auto-renombrar inmediatamente y añadir al estado
+                  const tipo = aiData.TIPO_DOCUMENTO || 'DOCUMENTO';
+                  const nombre = aiData.NOMBRE_COMPLETO || 'DESCONOCIDO';
+                  const newFileName = `${tipo} - ${nombre}`.toUpperCase();
+                  
+                  aiData.NOMBRE_ARCHIVO = newFileName;
+
                   if (docRecord) {
+                    const isUuid = typeof docRecord.id === 'string' && docRecord.id.includes('-');
+                    const table = isUuid ? 'documentos_pendientes' : 'documentos_operacionales';
+                    supabase.from(table).update({ nombre_archivo: newFileName }).eq('id', docRecord.id).then(() => fetchClientData(true));
                     extraction.setUploadedDocRecord(docRecord);
                   }
+                  extraction.setExtractedData(aiData);
                   extraction.setIsExtractionModalOpen(true);
                 }
               } catch (aiErr) {

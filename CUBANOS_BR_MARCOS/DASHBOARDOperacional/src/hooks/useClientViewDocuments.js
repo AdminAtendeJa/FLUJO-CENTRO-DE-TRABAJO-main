@@ -105,6 +105,19 @@ export default function useClientViewDocuments({
           }
           const aiData = await analyzeDocumentImage(fileOrBase64);
           if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
+            // Auto-renombrar inmediatamente y añadir al estado
+            const tipo = aiData.TIPO_DOCUMENTO || 'DOCUMENTO';
+            const nombre = aiData.NOMBRE_COMPLETO || 'DESCONOCIDO';
+            const newFileName = `${tipo} - ${nombre}`.toUpperCase();
+            
+            aiData.NOMBRE_ARCHIVO = newFileName;
+
+            if (docRecord) {
+              const isUuid = typeof docRecord.id === 'string' && docRecord.id.includes('-');
+              const table = isUuid ? 'documentos_pendientes' : 'documentos_operacionales';
+              supabase.from(table).update({ nombre_archivo: newFileName }).eq('id', docRecord.id).then(() => fetchClientData());
+            }
+
             setExtractedData(aiData);
             if (setUploadedDocRecord) setUploadedDocRecord(docRecord);
             setIsExtractionModalOpen(true);
