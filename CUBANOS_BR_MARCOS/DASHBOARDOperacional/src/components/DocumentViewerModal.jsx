@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Download, X, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Plus, RotateCw } from 'lucide-react';
+import { Download, X, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Plus, RotateCw, Edit2, Check } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 240;
@@ -24,9 +25,26 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [isSavingName, setIsSavingName] = useState(false);
+    const [currentName, setCurrentName] = useState(doc?.nombre_archivo || 'Documento');
     const contentRef = useRef(null);
     const imgRef = useRef(null);
     const modalRef = useRef(null);
+    const renameInputRef = useRef(null);
+
+    useEffect(() => {
+        setCurrentName(doc?.nombre_archivo || 'Documento');
+    }, [doc?.nombre_archivo]);
+
+    // Focus input when editing starts
+    useEffect(() => {
+        if (isEditingName && renameInputRef.current) {
+            renameInputRef.current.focus();
+            renameInputRef.current.select();
+        }
+    }, [isEditingName]);
 
     // Center on mount
     useEffect(() => {
@@ -38,14 +56,48 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
         });
     }, []);
 
-    // Close on Escape
+    // Close on Escape, Edit on F2
     useEffect(() => {
         const handleKey = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') {
+                if (isEditingName) {
+                    setIsEditingName(false);
+                } else {
+                    onClose();
+                }
+            }
+            if (e.key === 'F2' && !isEditingName) {
+                setIsEditingName(true);
+                setNewName(currentName);
+                e.preventDefault();
+            }
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [onClose]);
+    }, [onClose, isEditingName, currentName]);
+
+    const handleSaveName = async () => {
+        if (!newName.trim() || newName.trim() === currentName) {
+            setIsEditingName(false);
+            return;
+        }
+        setIsSavingName(true);
+        try {
+            const table = doc.hasOwnProperty('verificado') ? 'documentos_pendientes' : 'documentos_operacionales';
+            const { error } = await supabase.from(table).update({ nombre_archivo: newName.trim() }).eq('id', doc.id);
+            if (error) throw error;
+            setCurrentName(newName.trim());
+            setIsEditingName(false);
+            
+            // Si el padre escucha un evento global de refresco (opcional)
+            window.dispatchEvent(new CustomEvent('documentRenamed', { detail: { id: doc.id, newName: newName.trim() } }));
+        } catch (err) {
+            console.error('Error renaming:', err);
+            alert('Error al guardar el nuevo nombre');
+        } finally {
+            setIsSavingName(false);
+        }
+    };
 
     // Reset zoom when image changes
     useEffect(() => {
@@ -320,15 +372,43 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                         borderTopRightRadius: 'var(--radius-lg)',
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden', flex: 1, paddingRight: '1rem' }}>
                         {isImage ? (
                             <ImageIcon size={18} color="var(--color-primary)" />
                         ) : (
                             <FileText size={18} color="var(--color-primary)" />
                         )}
-                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {doc?.nombre_archivo || 'Documento'}
-                        </span>
+                        {isEditingName ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                                <input
+                                    ref={renameInputRef}
+                                    type="text"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveName();
+                                    }}
+                                    onBlur={handleSaveName}
+                                    disabled={isSavingName}
+                                    className="form-input"
+                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem', height: 'auto', flex: 1, minWidth: '150px' }}
+                                />
+                                {isSavingName && <Loader2 size={14} className="animate-spin" color="var(--color-text-muted)" />}
+                            </div>
+                        ) : (
+                            <span 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsEditingName(true);
+                                    setNewName(currentName);
+                                }}
+                                title="Renombrar (F2)"
+                                style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                            >
+                                {currentName}
+                                <Edit2 size={12} color="var(--color-text-muted)" style={{ opacity: 0.5 }} />
+                            </span>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                         <button
@@ -477,7 +557,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: 'var(--color-text-muted)', padding: '2rem' }}>
                             <FileText size={64} opacity={0.3} />
                             <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center', wordBreak: 'break-word' }}>
-                                {doc?.nombre_archivo || 'Documento'}
+                                {currentName}
                             </span>
                             <span style={{ fontSize: '0.8rem' }}>
                                 Tipo: {doc?.tipo_contenido || 'Desconocido'}
@@ -534,7 +614,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                         ) : (
                             <Download size={16} />
                         )}
-                        {isDownloading ? 'Descargando...' : `Descargar ${doc?.nombre_archivo || 'archivo'}`}
+                        {isDownloading ? 'Descargando...' : `Descargar ${currentName}`}
                     </button>
                 </div>
 
