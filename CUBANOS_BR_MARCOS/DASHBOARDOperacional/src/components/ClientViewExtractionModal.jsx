@@ -48,13 +48,17 @@ export default function ClientViewExtractionModal({
     const currentName = normalize(cliente.nombre);
     const extractedName = normalize(extractedData.NOMBRE_COMPLETO);
 
-    // Simple heuristic: if extracted name has NO words of length > 2 in common with current name, they are different.
+    // Heuristic: different if they share NO words, or if they only share 1 word and their first names don't match.
     const isDifferent = () => {
       if (!currentName || !extractedName) return false;
       const w1 = currentName.split(/\s+/).filter(w => w.length > 2);
       const w2 = extractedName.split(/\s+/).filter(w => w.length > 2);
       if (w1.length === 0 || w2.length === 0) return false;
-      return !w1.some(w => w2.includes(w));
+      
+      const firstNamesMatch = w1[0] === w2[0];
+      const sharedWords = w1.filter(w => w2.includes(w)).length;
+      
+      return sharedWords === 0 || (sharedWords === 1 && !firstNamesMatch);
     };
 
     if (isDifferent() || (extractedData.CPF && cliente.cpf && extractedData.CPF !== cliente.cpf)) {
