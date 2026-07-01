@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, X, ArrowRight, AlertTriangle, UserPlus, MoveRight } from 'lucide-react';
+import { Sparkles, X, ArrowRight, AlertTriangle, UserPlus, MoveRight, Search } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { reassignDocument } from '../services/storageService';
 import { createCliente } from '../services/clientesService';
@@ -36,6 +36,39 @@ export default function ClientViewExtractionModal({
   onNavigateToClient
 }) {
   const [mismatchState, setMismatchState] = useState({ show: false, type: null, matchedClient: null, isProcessing: false });
+  const [manualSearch, setManualSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+
+  useEffect(() => {
+    if (!manualSearch || manualSearch.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const { data } = await supabase
+        .from('clientes')
+        .select('id, nombre, cpf')
+        .ilike('nombre', `%${manualSearch}%`)
+        .neq('id', cliente?.id || 0)
+        .limit(5);
+      setSearchResults(data || []);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [manualSearch, cliente?.id]);
+
+  const handleMoveToSelected = async (targetClient) => {
+    if (!uploadedDocRecord || !targetClient) return;
+    setMismatchState(prev => ({ ...prev, isProcessing: true }));
+    const { success, error } = await reassignDocument(uploadedDocRecord.id, targetClient.id);
+    if (success) {
+      alert(`Documento movido a ${targetClient.nombre} exitosamente.`);
+      onClose();
+      if (onNavigateToClient) onNavigateToClient(targetClient.id);
+    } else {
+      alert('Error al mover documento: ' + error);
+      setMismatchState(prev => ({ ...prev, isProcessing: false }));
+    }
+  };
 
   // ── Name comparison logic ──────────────────────────────────────────────────
   useEffect(() => {
@@ -206,6 +239,38 @@ export default function ClientViewExtractionModal({
                 Ignorar advertencia
               </button>
             </div>
+
+            <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-warning-dark)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <Search size={14} /> ¿Ya existe este cliente? Búscalo manualmente:
+              </span>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Buscar por nombre..." 
+                  value={manualSearch}
+                  onChange={(e) => setManualSearch(e.target.value)}
+                  style={{ flex: 1, minWidth: '200px', padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
+                />
+              </div>
+              {searchResults.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem' }}>
+                  {searchResults.map(res => (
+                    <button
+                      key={res.id}
+                      onClick={() => handleMoveToSelected(res)}
+                      disabled={mismatchState.isProcessing}
+                      className="btn btn-ghost btn-sm"
+                      style={{ textAlign: 'left', justifyContent: 'flex-start', background: 'rgba(255,255,255,0.6)', color: 'var(--color-warning-dark)' }}
+                    >
+                      <MoveRight size={14} style={{ marginRight: '0.5rem' }} /> Mover a: {res.nombre} {res.cpf ? `(${res.cpf})` : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
         )}
         
