@@ -83,7 +83,8 @@ export default function DocumentViewerModal({ document: doc, onClose, onAnalyze 
         }
         setIsSavingName(true);
         try {
-            const table = ('verificado' in doc) ? 'documentos_pendientes' : 'documentos_operacionales';
+            const isUuid = typeof doc.id === 'string' && doc.id.includes('-');
+            const table = isUuid ? 'documentos_pendientes' : 'documentos_operacionales';
             const { error } = await supabase.from(table).update({ nombre_archivo: newName.trim() }).eq('id', doc.id);
             if (error) throw error;
             setCurrentName(newName.trim());
