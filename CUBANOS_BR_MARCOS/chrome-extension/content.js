@@ -294,7 +294,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 });
 
 // 4. Inyectar UI flotante solo si hay campos de formulario
-{
+const allowedDomains = [
+  'serpro.gov.br',
+  'pf.gov.br',
+  'mj.gov.br'
+];
+const isAllowedDomain = allowedDomains.some(domain => window.location.hostname.includes(domain));
+
+if (isAllowedDomain) {
   let floatingBtn = null;
   let currentClient = null;
 
