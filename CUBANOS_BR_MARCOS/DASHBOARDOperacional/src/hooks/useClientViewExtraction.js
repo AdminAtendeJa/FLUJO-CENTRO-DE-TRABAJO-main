@@ -76,6 +76,16 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
         await supabase.from('clientes').update(updates).eq('id', targetId);
       }
 
+      if (uploadedDocRecord && (extractedData.TIPO_DOCUMENTO || extractedData.NOMBRE_COMPLETO)) {
+        const tipo = extractedData.TIPO_DOCUMENTO || 'DOCUMENTO';
+        const nombre = extractedData.NOMBRE_COMPLETO || 'DESCONOCIDO';
+        const newFileName = `${tipo} - ${nombre}`.toUpperCase();
+        
+        const isUuid = typeof uploadedDocRecord.id === 'string' && uploadedDocRecord.id.includes('-');
+        const table = isUuid ? 'documentos_pendientes' : 'documentos_operacionales';
+        await supabase.from(table).update({ nombre_archivo: newFileName }).eq('id', uploadedDocRecord.id);
+      }
+
       await fetchClientData();
       setIsExtractionModalOpen(false);
       setExtractionTargetClientId(null);

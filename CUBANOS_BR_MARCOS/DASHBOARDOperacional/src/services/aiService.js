@@ -121,8 +121,12 @@ REGLAS DE EXTRACCIÓN MUY IMPORTANTES:
    - "NACIONALIDADE" es "NACIONALIDAD".
    - Bajo "FILIAÇÃO" aparecen los padres. Asigna uno a "NOMBRE_MADRE" y otro a "NOMBRE_PADRE" por lógica de nombres.
 
+8. TIPO DE DOCUMENTO:
+   - Identifica qué documento es y colócalo en "TIPO_DOCUMENTO". Usa valores como: "PASAPORTE", "CPF", "RNM", "CARNET DE IDENTIDAD", "PROTOCOLO DE REFUGIO", "CNH", "CERTIFICADO DE NACIMIENTO", "DOCUMENTO", etc.
+
 Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin texto extra) con estos campos:
 {
+  "TIPO_DOCUMENTO": null,
   "NOMBRE_COMPLETO": null,
   "NOMBRE_MADRE": null,
   "NOMBRE_PADRE": null,
