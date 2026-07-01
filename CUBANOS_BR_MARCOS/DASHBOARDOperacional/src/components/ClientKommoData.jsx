@@ -51,12 +51,13 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
     }
   };
 
-  const handleVerify = async (doc, overrideUrl = null) => {
+  const handleVerify = async (doc, overrideUrl = null, customName = null) => {
     setVerifyingId(doc.id);
     const finalUrl = overrideUrl || doc.url_archivo;
+    const finalName = customName || doc.nombre_archivo || 'Documento de Kommo';
     try {
       // 1. Mover a documentos_operacionales
-      const isPdf = finalUrl?.toLowerCase().endsWith('.pdf') || doc.nombre_archivo?.toLowerCase().endsWith('.pdf');
+      const isPdf = finalUrl?.toLowerCase().endsWith('.pdf') || finalName?.toLowerCase().endsWith('.pdf');
       const ext = finalUrl?.split('.').pop()?.toLowerCase();
       let tipoCont = 'image/jpeg';
       if (isPdf) tipoCont = 'application/pdf';
@@ -69,7 +70,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
         .insert({
           id_cliente: doc.cliente_id,
           url_archivo: finalUrl,
-          nombre_archivo: doc.nombre_archivo || 'Documento de Kommo',
+          nombre_archivo: finalName,
           tipo_documento: isPdf ? 'Documento Kommo' : 'Imagen Kommo',
           tipo_contenido: tipoCont,
           subido_por: 'Kommo'
@@ -103,7 +104,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
     }
   };
 
-  const handleCropComplete = async (file) => {
+  const handleCropComplete = async (file, customName) => {
     if (!editingDoc) return;
     setVerifyingId(editingDoc.id);
     const docToVerify = editingDoc;
@@ -123,7 +124,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
         .from('documentos_operacionales')
         .getPublicUrl(storagePath);
 
-      await handleVerify(docToVerify, urlData.publicUrl);
+      await handleVerify(docToVerify, urlData.publicUrl, customName);
     } catch (err) {
       console.error('Error uploading cropped image:', err);
       alert('Error al subir la imagen recortada.');
@@ -295,6 +296,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       <ImageCropperModal
         isOpen={!!editingDoc}
         imageUrl={editingDoc?.url_archivo}
+        initialDocName={editingDoc?.nombre_archivo}
         onClose={() => setEditingDoc(null)}
         onCropComplete={handleCropComplete}
       />

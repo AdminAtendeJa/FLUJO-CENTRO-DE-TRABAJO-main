@@ -19,11 +19,18 @@ function centerAspectCrop(mediaWidth, mediaHeight, aspect) {
   );
 }
 
-export default function ImageCropperModal({ isOpen, imageUrl, onClose, onCropComplete }) {
+export default function ImageCropperModal({ isOpen, imageUrl, initialDocName, onClose, onCropComplete }) {
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState(null);
   const imgRef = useRef(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [customName, setCustomName] = React.useState('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setCustomName(initialDocName || 'Documento de Kommo');
+    }
+  }, [isOpen, initialDocName]);
 
   const onImageLoad = useCallback((e) => {
     const { width, height } = e.currentTarget;
@@ -77,7 +84,7 @@ export default function ImageCropperModal({ isOpen, imageUrl, onClose, onCropCom
         }
         
         const file = new File([blob], 'cropped_image.jpg', { type: 'image/jpeg' });
-        onCropComplete(file);
+        onCropComplete(file, customName);
         setIsProcessing(false);
       }, 'image/jpeg', 0.95);
       
@@ -144,6 +151,18 @@ export default function ImageCropperModal({ isOpen, imageUrl, onClose, onCropCom
               alt="Crop"
             />
           </ReactCrop>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+          <label style={{ color: 'var(--color-text-secondary, #ccc)', fontSize: '0.875rem' }}>Nombre del Documento</label>
+          <input 
+            type="text" 
+            className="form-input" 
+            value={customName} 
+            onChange={(e) => setCustomName(e.target.value)}
+            placeholder="Ej: Pasaporte, Frente RNM..."
+            style={{ width: '100%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid var(--color-border, #444)' }}
+          />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>

@@ -116,9 +116,18 @@ export default function ClientViewExtractionModal({
 
       const newClient = await createCliente(newClientData);
       
+      // Crear relacionamiento con el cliente original
+      if (cliente && cliente.id) {
+        await supabase.from('relaciones_clientes').insert({
+          cliente_id: cliente.id,
+          cliente_relacionado_id: newClient.id,
+          tipo_relacion: 'Familiar'
+        });
+      }
+      
       const { success, error } = await reassignDocument(uploadedDocRecord.id, newClient.id);
       if (success) {
-        alert('Cliente creado y documento asignado exitosamente.');
+        alert('Cliente creado, relacionamiento añadido y documento asignado exitosamente.');
         onClose();
         if (onNavigateToClient) onNavigateToClient(newClient.id);
       } else {
