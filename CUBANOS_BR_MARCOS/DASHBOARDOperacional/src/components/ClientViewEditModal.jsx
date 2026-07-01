@@ -79,7 +79,7 @@ export default function ClientViewEditModal({
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
               {filteredEditFormData.map(field => {
-                const isDate = field.id && field.id.includes('fecha');
+                const isDate = field.id && String(field.id).includes('fecha');
                 const isEstadoCivil = field.id === 'estado_civil';
                 const isSexo = field.id === 'sexo';
                 const isNombre = field.id === 'nombre';
