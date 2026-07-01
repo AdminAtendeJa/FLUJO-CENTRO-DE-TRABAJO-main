@@ -227,6 +227,37 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
     );
   }
 
+  const handleAnalyzeViewedDocument = async (doc) => {
+    if (!doc?.url_archivo) return;
+    const toastId = toast.loading('Analizando documento con IA...');
+    try {
+      const response = await fetch(doc.url_archivo);
+      const blob = await response.blob();
+      const isPdf = doc.tipo_contenido === 'application/pdf';
+      const file = new File([blob], isPdf ? 'documento.pdf' : 'imagen.jpg', { type: doc.tipo_contenido });
+
+      let fileOrBase64 = file;
+      if (isPdf) {
+        const { convertPdfPageToImageBase64 } = await import('../services/pdfToImage');
+        fileOrBase64 = await convertPdfPageToImageBase64(file);
+      }
+
+      const aiData = await analyzeDocumentImage(fileOrBase64);
+      if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
+        toast.dismiss(toastId);
+        docs.setViewingDocument(null);
+        extraction.setExtractedData(aiData);
+        extraction.setUploadedDocRecord(doc);
+        extraction.setIsExtractionModalOpen(true);
+      } else {
+        toast.error('La IA no encontró datos extraíbles.', { id: toastId });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error durante el análisis de IA.', { id: toastId });
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: 'var(--section-gap, 16px)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} className="animate-fade-in">
