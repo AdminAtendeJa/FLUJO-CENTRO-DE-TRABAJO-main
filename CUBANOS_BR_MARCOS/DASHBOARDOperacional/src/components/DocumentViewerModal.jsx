@@ -197,6 +197,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
 
     const handleImageMouseDown = (e) => {
         if (zoom > 1 && e.button === 0) {
+            e.preventDefault();
             setIsPanning(true);
             setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
         }
@@ -512,6 +513,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
                         background: 'var(--color-bg-base)',
                         position: 'relative',
                         cursor: isPanning ? 'grabbing' : (zoom > 1 ? 'grab' : 'default'),
+                        userSelect: 'none',
                     }}
                 >
                     {isImage ? (
