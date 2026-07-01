@@ -255,6 +255,53 @@ ${text}`;
 }
 
 // ──────────────────────────────────────────────────────────────
+// FUNCIÓN URGENCIA — Analizar si un mensaje entrante es urgente
+// ──────────────────────────────────────────────────────────────
+/**
+ * Evalúa el nivel de urgencia de un mensaje entrante.
+ * @param {string} text
+ * @returns {Promise<{isUrgent: boolean, summary: string}>}
+ */
+export async function analyzeMessageUrgency(text) {
+  const prompt = `Eres un asistente de clasificación de soporte para una agencia migratoria.
+Tu objetivo es analizar el siguiente mensaje del cliente y determinar si es una EMERGENCIA que requiere atención inmediata.
+
+Considera como URGENTE situaciones como:
+- Retenciones o problemas en aeropuertos / fronteras.
+- Intervenciones de la policía o autoridades migratorias (deportación, prisión).
+- Emergencias médicas graves (hospital).
+- Casos donde el cliente expresa desesperación extrema ("urge", "emergencia", "ayuda por favor").
+
+NO es urgente:
+- Preguntas sobre cómo va su trámite.
+- Saludos ("Hola", "Buen día").
+- Envío de documentos que se pidieron previamente.
+- Dudas generales de precios o requisitos.
+
+Devuelve ÚNICAMENTE un objeto JSON puro (sin markdown, sin bloques de código) con la siguiente estructura:
+{
+  "isUrgent": true o false,
+  "summary": "Si es urgente, escribe un breve resumen de 5-10 palabras de la emergencia. Si no lo es, pon null."
+}
+
+MENSAJE DEL CLIENTE:
+"${text}"`;
+
+  try {
+    const raw = await callGroq(MODEL_TEXT, [{ role: 'user', content: prompt }], 0.1);
+    const parsed = JSON.parse(cleanJson(raw));
+    return {
+      isUrgent: !!parsed.isUrgent,
+      summary: parsed.summary || 'Posible emergencia'
+    };
+  } catch (err) {
+    console.warn('[aiService] Error en analyzeMessageUrgency:', err);
+    // Ante la duda o error, no es urgente
+    return { isUrgent: false, summary: null };
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
 // FUNCIÓN 4 — Sugerir próximo paso de un trámite
 // ──────────────────────────────────────────────────────────────
 /**

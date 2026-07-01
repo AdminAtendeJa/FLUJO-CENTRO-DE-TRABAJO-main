@@ -24,6 +24,7 @@ import TeamManagement from './components/TeamManagement';
 import SettingsView from './components/SettingsView';
 import { GlobalAiChatProvider } from './context/GlobalAiChatContext';
 import { GlobalAiChat } from './components/GlobalAiChat';
+import { GlobalBotListener } from './components/GlobalBotListener';
 import { supabase } from './supabaseClient';
 import { useTheme } from './context/ThemeContext';
 import { useSession } from './hooks/useSession';
@@ -54,6 +55,47 @@ function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
+
+  // --- Notifications ---
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [showNotifMenu, setShowNotifMenu] = useState(false);
+
+  // Fetch initial notifications
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      const { data } = await supabase
+        .from('notificaciones_equipo')
+        .select('*')
+        .eq('leida', false)
+        .order('creado_en', { ascending: false })
+        .limit(20);
+      if (data) setNotificaciones(data);
+    };
+    fetchNotifs();
+
+    const channel = supabase
+      .channel('global_notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones_equipo' }, (payload) => {
+        setNotificaciones(prev => [payload.new, ...prev]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const markNotifAsRead = async (id, clienteId) => {
+    // 1. Marcar en UI
+    setNotificaciones(prev => prev.filter(n => n.id !== id));
+    // 2. Marcar en DB
+    await supabase.from('notificaciones_equipo').update({ leida: true }).eq('id', id);
+    // 3. Navegar
+    setShowNotifMenu(false);
+    if (clienteId) {
+      navigateToClient(clienteId);
+    }
+  };
 
   // Fetch user profile on load
   useEffect(() => {
@@ -303,7 +345,67 @@ function App() {
                 >
                   {theme === 'dark' ? <Sun size={20} color="var(--color-text-secondary)" /> : <Moon size={20} color="var(--color-text-secondary)" />}
                 </button>
-                <button className="btn btn-ghost" style={{ padding: '0.5rem' }} aria-label="Notificaciones"><Bell size={20} color="var(--color-text-secondary)" /></button>
+                <div style={{ position: 'relative' }}>
+                  <button 
+                    className="btn btn-ghost" 
+                    style={{ padding: '0.5rem', position: 'relative' }} 
+                    aria-label="Notificaciones"
+                    onClick={() => setShowNotifMenu(!showNotifMenu)}
+                  >
+                    <Bell size={20} color="var(--color-text-secondary)" />
+                    {notificaciones.length > 0 && (
+                      <span style={{
+                        position: 'absolute', top: '0px', right: '0px',
+                        background: 'var(--color-danger)', color: 'white',
+                        fontSize: '0.65rem', fontWeight: 'bold',
+                        width: '16px', height: '16px', borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {notificaciones.length > 9 ? '9+' : notificaciones.length}
+                      </span>
+                    )}
+                  </button>
+                  
+                  {showNotifMenu && (
+                    <div style={{
+                      position: 'absolute', top: '100%', right: '0',
+                      width: '320px', maxHeight: '400px', overflowY: 'auto',
+                      background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)',
+                      zIndex: 100, display: 'flex', flexDirection: 'column'
+                    }}>
+                      <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                        Notificaciones
+                      </div>
+                      {notificaciones.length === 0 ? (
+                        <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
+                          No tienes notificaciones nuevas
+                        </div>
+                      ) : (
+                        notificaciones.map(n => {
+                          const isUrgent = n.mensaje.includes('🚨');
+                          return (
+                            <div key={n.id} style={{
+                              padding: '1rem', borderBottom: '1px solid var(--color-border)',
+                              display: 'flex', flexDirection: 'column', gap: '0.5rem',
+                              background: isUrgent ? 'rgba(239, 68, 68, 0.1)' : 'var(--color-bg-elevated)', cursor: 'pointer',
+                              borderLeft: isUrgent ? '4px solid var(--color-danger)' : 'none'
+                            }} onClick={() => markNotifAsRead(n.id, n.cliente_id)}>
+                              <span style={{ 
+                                fontSize: '0.85rem', 
+                                color: isUrgent ? 'var(--color-danger)' : 'var(--color-text-primary)',
+                                fontWeight: isUrgent ? 600 : 400
+                              }}>{n.mensaje}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                                {new Date(n.creado_en).toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
                 {userProfile?.rol === 'admin' && (
                   <button onClick={navigateToSettings} className="btn btn-ghost" style={{ padding: '0.5rem', color: currentView === 'settings' ? 'var(--color-primary)' : 'inherit' }} aria-label="Configuración">
                     <Settings size={20} color={currentView === 'settings' ? "var(--color-primary)" : "var(--color-text-secondary)"} />
@@ -333,6 +435,7 @@ function App() {
             />
           )}
 
+          <GlobalBotListener />
           <GlobalAiChat isVisible={currentView !== 'client'} currentView={currentView} onNavigateToClient={navigateToClient} />
           {currentView !== 'team-chat' && <TeamChat />}
         </div>

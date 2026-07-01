@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { reassignDocument } from '../services/storageService';
 import { createCliente } from '../services/clientesService';
 import { normalizeDateToDDMMYYYY } from '../utils/dateFormatter';
+import { toIsoDate } from './clientView.constants';
 
 const fieldMap = {
   'NOMBRE_COMPLETO': 'nombre',
@@ -109,7 +110,7 @@ export default function ClientViewExtractionModal({
         rnm: extractedData.RNM || '',
         carnet_identidad: extractedData.CARNET_IDENTIDAD || '',
         nacionalidad: extractedData.NACIONALIDAD?.toUpperCase() || '',
-        fecha_nacimiento: extractedData.FECHA_NACIMIENTO ? normalizeDateToDDMMYYYY(extractedData.FECHA_NACIMIENTO) : null,
+        fecha_nacimiento: extractedData.FECHA_NACIMIENTO ? toIsoDate(normalizeDateToDDMMYYYY(extractedData.FECHA_NACIMIENTO)) : null,
         sexo: extractedData.SEXO?.toUpperCase() || ''
       };
 

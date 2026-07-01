@@ -293,25 +293,44 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
-// 4. Inyectar UI flotante si estamos en una página de trámites (ej. servicos.pf.gov.br o MRE)
-if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.includes('sismigra') || window.location.href.includes('formulario-mre.serpro.gov.br')) {
+// 4. Inyectar UI flotante solo si hay campos de formulario
+{
   let floatingBtn = null;
+  let currentClient = null;
+
+  const hasFormElements = () => {
+    return document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea').length > 0;
+  };
 
   const injectOrUpdateBtn = (client) => {
+    if (!hasFormElements()) {
+      if (floatingBtn) floatingBtn.style.display = 'none';
+      return;
+    }
+
     if (!floatingBtn) {
       floatingBtn = document.createElement('div');
       floatingBtn.id = 'cubanos-br-autofill-btn';
       floatingBtn.innerHTML = `
-        <div style="position: fixed; bottom: 20px; right: 20px; z-index: 999999; background: #2563eb; color: white; padding: 12px 20px; border-radius: 8px; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; display: flex; align-items: center; gap: 10px; border: 2px solid #1d4ed8; transition: all 0.2s;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-          <div style="display:flex; flex-direction:column;">
-            <span id="cbr-btn-title" style="font-weight:bold; font-size:14px;">Autocompletar Formulario</span>
-            <span id="cbr-btn-client" style="font-size:11px; opacity:0.9;">Cliente: ${client.nombre.substring(0, 25)}...</span>
+        <div id="cbr-floating-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 999999; background: #2563eb; color: white; padding: 12px 20px; border-radius: 8px; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; border: 2px solid #1d4ed8; transition: opacity 0.2s;">
+          <div id="cbr-drag-handle" style="cursor: grab; display: flex; align-items: center; justify-content: center; padding-right: 5px;" title="Mover">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+          </div>
+          <div id="cbr-action-area" style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            <div id="cbr-btn-content" style="display:flex; flex-direction:column;">
+              <span id="cbr-btn-title" style="font-weight:bold; font-size:14px;">Autocompletar Formulario</span>
+              <span id="cbr-btn-client" style="font-size:11px; opacity:0.9;">Cliente: ${client.nombre.substring(0, 25)}...</span>
+            </div>
+          </div>
+          <div id="cbr-min-btn" style="cursor: pointer; padding-left: 10px; opacity: 0.8;" title="Minimizar/Maximizar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line></svg>
           </div>
         </div>
       `;
       
-      floatingBtn.addEventListener('click', () => {
+      const actionArea = floatingBtn.querySelector('#cbr-action-area');
+      actionArea.addEventListener('click', () => {
         chrome.storage.local.get(['activeClient'], (res) => {
           if (res.activeClient) {
             const count = fillSismigraForm(res.activeClient);
@@ -329,24 +348,85 @@ if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.
       floatingBtn.addEventListener('mouseleave', () => floatingBtn.firstElementChild.style.transform = 'translateY(0)');
 
       document.body.appendChild(floatingBtn);
+
+      // Drag functionality
+      let isDragging = false;
+      let startX, startY, initialX, initialY;
+      const container = floatingBtn.querySelector('#cbr-floating-container');
+      const dragHandle = floatingBtn.querySelector('#cbr-drag-handle');
+      
+      dragHandle.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = container.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+        container.style.right = 'auto';
+        container.style.bottom = 'auto';
+        container.style.left = initialX + 'px';
+        container.style.top = initialY + 'px';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        container.style.left = (initialX + dx) + 'px';
+        container.style.top = (initialY + dy) + 'px';
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // Minimize functionality
+      const minBtn = floatingBtn.querySelector('#cbr-min-btn');
+      const contentArea = floatingBtn.querySelector('#cbr-btn-content');
+      let isMinimized = false;
+      minBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isMinimized = !isMinimized;
+        contentArea.style.display = isMinimized ? 'none' : 'flex';
+      });
     } else {
+      floatingBtn.style.display = 'flex';
       // Update existing button text
       const clientSpan = floatingBtn.querySelector('#cbr-btn-client');
       if (clientSpan) clientSpan.innerText = `Cliente: ${client.nombre.substring(0, 25)}...`;
     }
   };
 
+  const checkUI = () => {
+    if (currentClient && currentClient.nombre) {
+      injectOrUpdateBtn(currentClient);
+    }
+  };
+
   // 1. Initial check
   chrome.storage.local.get(['activeClient'], (res) => {
     if (res.activeClient && res.activeClient.nombre) {
-      injectOrUpdateBtn(res.activeClient);
+      currentClient = res.activeClient;
+      checkUI();
+      
+      // Observar cambios en el DOM para aplicaciones SPA (Single Page Applications)
+      const observer = new MutationObserver(() => {
+        checkUI();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
     }
   });
 
-  // 2. Listen for changes so it updates instantly without refreshing SISMIGRA
+  // 2. Listen for changes so it updates instantly
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'local' && changes.activeClient && changes.activeClient.newValue) {
-      injectOrUpdateBtn(changes.activeClient.newValue);
+      currentClient = changes.activeClient.newValue;
+      if (!currentClient || !currentClient.nombre) {
+        if (floatingBtn) floatingBtn.style.display = 'none';
+      } else {
+        checkUI();
+      }
     }
   });
 
@@ -370,12 +450,12 @@ if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.
       padding: 6px;
       display: none;
       flex-direction: column;
-      max-height: 180px;
+      max-height: 250px;
+      height: 250px;
+      width: 250px;
       overflow-y: auto;
       font-family: 'Inter', system-ui, sans-serif;
       font-size: 12px;
-      min-width: 320px;
-      max-width: 450px;
     `;
     
     // Hide menu when clicking outside
@@ -474,9 +554,9 @@ if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.
     title2.style.cssText = 'padding: 4px 10px 2px; font-weight: bold; color: #9ca3af; font-size: 10px; margin-bottom: 4px;';
     contextualMenuEl.appendChild(title2);
     
-    // Contenedor Grid para 2 columnas
+    // Contenedor Grid para 1 columna
     const gridContainer = document.createElement('div');
-    gridContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 4px;';
+    gridContainer.style.cssText = 'display: grid; grid-template-columns: 1fr; gap: 4px;';
     contextualMenuEl.appendChild(gridContainer);
     
     const dataEntries = Object.entries(displayData).filter(([k,v]) => typeof v === 'string' && v.trim().length > 0 && v !== predictedValue);
@@ -489,6 +569,15 @@ if (window.location.href.includes('servicos.pf.gov.br') || window.location.href.
     
     contextualMenuEl.style.display = 'flex';
   }
+
+  // Escuchar doble clic para ocultar el menú
+  document.addEventListener('dblclick', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      if (contextualMenuEl) {
+        contextualMenuEl.style.display = 'none';
+      }
+    }
+  });
 
   // Escuchar cuando el usuario entra en un campo
   document.addEventListener('focusin', (e) => {

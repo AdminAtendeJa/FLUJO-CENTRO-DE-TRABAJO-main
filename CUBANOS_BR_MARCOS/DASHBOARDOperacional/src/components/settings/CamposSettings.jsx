@@ -40,7 +40,7 @@ export default function CamposSettings() {
     setSaving(true);
     try {
       const maxOrden = categorias.length > 0 ? Math.max(...categorias.map(c => c.orden)) : 0;
-      await insertCategoria({ nombre_categoria: newCatName, orden: maxOrden + 1 });
+      await insertCategoria({ nombre: newCatName, orden: maxOrden + 1 });
       toast.success('Categoría agregada');
       setNewCatName('');
       setIsAddingCategoria(false);
@@ -61,7 +61,7 @@ export default function CamposSettings() {
       await insertCampo({ 
         categoria_id: categoriaId, 
         nombre_campo: newCampoForm.nombre, 
-        tipo_dato: newCampoForm.tipo, 
+        tipo_campo: newCampoForm.tipo, 
         orden: maxOrden + 1 
       });
       toast.success('Campo agregado');
@@ -104,7 +104,7 @@ export default function CamposSettings() {
           <div key={cat.id} style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
             <div style={{ background: 'var(--color-bg-elevated)', padding: '1rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Tag size={16} color="var(--color-primary)" /> {cat.nombre_categoria}
+                <Tag size={16} color="var(--color-primary)" /> {cat.nombre}
               </h3>
               <button onClick={() => setIsAddingCampoTo(cat.id)} className="btn btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <Plus size={14} /> Añadir Campo
@@ -142,7 +142,7 @@ export default function CamposSettings() {
                     <li key={campo.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderRadius: '4px', background: 'var(--color-bg-canvas)' }}>
                       <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-primary)' }}>{campo.nombre_campo}</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', background: 'var(--color-bg-elevated)', padding: '0.125rem 0.5rem', borderRadius: '12px' }}>
-                        {campo.tipo_dato}
+                        {campo.tipo_campo}
                       </span>
                     </li>
                   ))}

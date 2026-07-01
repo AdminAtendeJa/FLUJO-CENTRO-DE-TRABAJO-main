@@ -3,6 +3,7 @@ import {  UploadCloud, FileText, Loader2, Tag, Eye, Trash2, Sparkles, Plus, Sear
 import { uploadTemplate, getTemplates, deleteTemplate, analyzeTemplateWithAI, renderPdfPageAsImage } from '../services/templateService';
 import TemplateEditorModal from './TemplateEditorModal';
 import TemplatePreviewModal from './TemplatePreviewModal';
+import HtmlTemplateBuilder from './HtmlTemplateBuilder';
 import { formatDate } from '../utils/dateFormatter';
 
 /**
@@ -21,6 +22,7 @@ export default function TemplateManager({ client, clienteDatos }) {
   // Modals
   const [editorTemplate, setEditorTemplate] = useState(null);
   const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [showHtmlBuilder, setShowHtmlBuilder] = useState(false);
 
   // Upload form
   const [showUploadForm, setShowUploadForm] = useState(false);
@@ -60,9 +62,13 @@ export default function TemplateManager({ client, clienteDatos }) {
   const handleUpload = useCallback(async (file) => {
     if (!file) return;
 
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    const allowedTypes = [
+      'application/pdf', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg', 'image/png', 'image/webp'
+    ];
     if (!allowedTypes.includes(file.type)) {
-      alert('Solo se permiten archivos PDF, JPEG, PNG o WebP.');
+      alert('Solo se permiten archivos PDF, Word (.docx), JPEG, PNG o WebP.');
       return;
     }
 
@@ -114,7 +120,14 @@ export default function TemplateManager({ client, clienteDatos }) {
 
   const handleFileInput = (e) => {
     const file = e.target.files?.[0];
-    if (file) handleUpload(file);
+    if (file) {
+      if (file.name.toLowerCase().endsWith('.doc') || file.type === 'application/msword') {
+        alert('Por favor, guarda tu documento como .DOCX (versión moderna de Word) en lugar de .DOC antes de subirlo.');
+        e.target.value = '';
+        return;
+      }
+      handleUpload(file);
+    }
     e.target.value = '';
   };
 
@@ -124,7 +137,13 @@ export default function TemplateManager({ client, clienteDatos }) {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer?.files?.[0];
-    if (file) handleUpload(file);
+    if (file) {
+      if (file.name.toLowerCase().endsWith('.doc') || file.type === 'application/msword') {
+        alert('Por favor, guarda tu documento como .DOCX (versión moderna de Word) en lugar de .DOC antes de subirlo.');
+        return;
+      }
+      handleUpload(file);
+    }
   };
 
   const handleDelete = async (template) => {
@@ -164,11 +183,18 @@ export default function TemplateManager({ client, clienteDatos }) {
               </div>
             )}
             <button
+              className="btn btn-secondary"
+              onClick={() => setShowHtmlBuilder(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <Plus size={16} /> Crear Plantilla HTML
+            </button>
+            <button
               className="btn btn-primary"
               onClick={() => setShowUploadForm(!showUploadForm)}
               style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <Plus size={16} /> Subir Plantilla
+              <Plus size={16} /> Subir Documento (PDF/Word)
             </button>
           </div>
         </div>
@@ -212,7 +238,7 @@ export default function TemplateManager({ client, clienteDatos }) {
                 cursor: 'pointer', transition: 'all 0.2s',
               }}
             >
-              <input type="file" style={{ display: 'none' }} onChange={handleFileInput} disabled={uploading} accept=".pdf,.jpg,.jpeg,.png,.webp" />
+              <input type="file" style={{ display: 'none' }} onChange={handleFileInput} disabled={uploading} accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,.doc,.jpg,.jpeg,.png,.webp" />
               {uploading ? (
                 <Loader2 className="animate-spin" size={28} color="var(--color-primary)" />
               ) : (
@@ -222,10 +248,10 @@ export default function TemplateManager({ client, clienteDatos }) {
                 fontSize: '0.875rem', fontWeight: 500, marginTop: '0.75rem',
                 color: isDragging ? 'var(--color-primary)' : 'var(--color-text-secondary)',
               }}>
-                {uploading ? 'Subiendo y analizando...' : isDragging ? 'Suelta aquí' : 'Arrastra un PDF o imagen, o haz clic'}
+                {uploading ? 'Subiendo y analizando...' : isDragging ? 'Suelta aquí' : 'Arrastra un PDF, Word o imagen, o haz clic'}
               </div>
               <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                PDF, JPEG, PNG, WebP — Máx 10MB
+                PDF, DOCX, DOC, JPEG, PNG, WebP — Máx 10MB
               </div>
             </label>
           </div>
@@ -297,30 +323,42 @@ export default function TemplateManager({ client, clienteDatos }) {
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => setEditorTemplate(template)}
-                      style={{
-                        fontSize: '0.75rem', padding: '0.35rem 0.6rem',
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                      }}
-                      title="Editar posiciones de los campos"
-                    >
-                      <Tag size={13} /> Mapeo
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => setPreviewTemplate(template)}
-                      disabled={mappingCount === 0}
-                      style={{
-                        fontSize: '0.75rem', padding: '0.35rem 0.6rem',
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                        opacity: mappingCount === 0 ? 0.5 : 1,
-                      }}
-                      title={mappingCount === 0 ? 'Primero mapea los campos' : 'Generar copia con datos del cliente'}
-                    >
-                      <Eye size={13} /> Generar
-                    </button>
+                    {(template.tipo_contenido === 'text/html' || template.tipo_contenido === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || template.nombre.endsWith('.docx')) ? (
+                      <button
+                        className="btn btn-primary"
+                        onClick={async () => {
+                          if (template.tipo_contenido === 'text/html') {
+                            const { generateFilledHtmlPdf } = await import('../services/templateService');
+                            await generateFilledHtmlPdf(template.url_archivo, client, template.nombre);
+                          } else {
+                            const { generateFilledDocx } = await import('../services/templateService');
+                            await generateFilledDocx(template.url_archivo, client, template.nombre);
+                          }
+                        }}
+                        style={{
+                          fontSize: '0.75rem', padding: '0.35rem 0.6rem',
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                        }}
+                        title="Generar Documento"
+                      >
+                        <Eye size={13} /> Generar Final
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setPreviewTemplate(template)}
+                        disabled={mappingCount === 0}
+                        style={{
+                          fontSize: '0.75rem', padding: '0.35rem 0.6rem',
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          opacity: mappingCount === 0 ? 0.5 : 1,
+                        }}
+                        title={mappingCount === 0 ? 'Plantilla sin campos' : 'Ver y generar documento'}
+                      >
+                        <Eye size={13} /> Visualizar
+                      </button>
+                    )}
+                    
                     <button
                       className="btn btn-ghost"
                       onClick={() => handleDelete(template)}
@@ -353,6 +391,16 @@ export default function TemplateManager({ client, clienteDatos }) {
           template={previewTemplate}
           client={client}
           onClose={() => setPreviewTemplate(null)}
+        />
+      )}
+
+      {showHtmlBuilder && (
+        <HtmlTemplateBuilder
+          onClose={() => setShowHtmlBuilder(false)}
+          onSaved={() => {
+            setShowHtmlBuilder(false);
+            fetchTemplates();
+          }}
         />
       )}
     </>

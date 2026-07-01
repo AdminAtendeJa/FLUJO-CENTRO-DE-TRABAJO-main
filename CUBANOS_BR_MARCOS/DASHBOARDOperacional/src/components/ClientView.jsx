@@ -268,7 +268,7 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '0.5rem', height: '100%', minWidth: '320px', flex: 1, flexShrink: 0 }}>
           <ClientKommoData
             clientId={clientId}
-            onDocumentVerified={async (url) => {
+            onDocumentVerified={async (url, docRecord) => {
               fetchClientData(true);
               toast.success('Documento procesado correctamente. Ejecutando IA...');
               try {
@@ -285,6 +285,9 @@ export default function ClientView({ clientId, onBack, onNavigateToClient }) {
                 const aiData = await analyzeDocumentImage(fileOrBase64);
                 if (aiData && Object.keys(aiData).filter(k => aiData[k]).length > 0) {
                   extraction.setExtractedData(aiData);
+                  if (docRecord) {
+                    extraction.setUploadedDocRecord(docRecord);
+                  }
                   extraction.setIsExtractionModalOpen(true);
                 }
               } catch (aiErr) {

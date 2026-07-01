@@ -64,7 +64,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       else if (ext === 'gif') tipoCont = 'image/gif';
       else if (ext === 'webp') tipoCont = 'image/webp';
 
-      const { error: insertError } = await supabase
+      const { data: insertedDoc, error: insertError } = await supabase
         .from('documentos_operacionales')
         .insert({
           id_cliente: doc.cliente_id,
@@ -73,7 +73,9 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
           tipo_documento: isPdf ? 'Documento Kommo' : 'Imagen Kommo',
           tipo_contenido: tipoCont,
           subido_por: 'Kommo'
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
@@ -90,7 +92,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       
       // 4. Notificar al padre para que dispare la IA y actualice la lista de documentos
       if (onDocumentVerified) {
-        onDocumentVerified(finalUrl);
+        onDocumentVerified(finalUrl, insertedDoc);
       }
 
     } catch (err) {
@@ -180,7 +182,7 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
       </div>
 
       {/* Sección de Documentos Pendientes */}
-      <div className="glass-panel" style={{ overflow: 'hidden', flexShrink: 0, maxHeight: isVerificarExpanded ? '500px' : 'none' }}>
+      <div className="glass-panel" style={{ overflow: 'hidden', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div onClick={() => setIsVerificarExpanded(!isVerificarExpanded)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: isVerificarExpanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', margin: 0 }}>
@@ -193,12 +195,12 @@ export default function ClientKommoData({ clientId, onDocumentVerified, setViewi
           {isVerificarExpanded ? <ChevronUp size={18} color="var(--color-text-muted)" /> : <ChevronDown size={18} color="var(--color-text-muted)" />}
         </div>
         {isVerificarExpanded && (
-        <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, minHeight: 0 }}>
         <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: 0 }}>
-          Imágenes enviadas por el cliente a través de Kommo.
+          Imágenes enviadas por el cliente a través de WhatsApp.
         </p>
 
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.5rem' }}>
+        <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.5rem' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
               <div className="animate-spin" style={{ width: '24px', height: '24px', border: '2px solid var(--color-primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>

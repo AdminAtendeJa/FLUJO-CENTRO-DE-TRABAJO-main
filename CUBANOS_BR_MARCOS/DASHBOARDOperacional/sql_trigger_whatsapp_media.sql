@@ -34,29 +34,20 @@ CREATE OR REPLACE FUNCTION trg_insert_document_from_whatsapp()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.media_url IS NOT NULL THEN
-    INSERT INTO documentos_operacionales (
-      id_cliente, 
-      tipo_documento, 
-      nombre_archivo, 
-      url_archivo, 
-      tamaño_bytes, 
-      tipo_contenido, 
-      subido_por, 
-      estado
+    INSERT INTO documentos_pendientes (
+      cliente_id,
+      url_archivo,
+      nombre_archivo,
+      origen,
+      fecha_recepcion,
+      verificado
     ) VALUES (
       NEW.cliente_id, -- Ahora esto siempre tendrá el ID correcto gracias al trigger anterior
-      CASE
-        WHEN NEW.media_type LIKE 'image/%' THEN 'FOTO'
-        WHEN NEW.media_type LIKE 'video/%' THEN 'VIDEO'
-        WHEN NEW.media_type LIKE 'audio/%' THEN 'AUDIO'
-        ELSE 'OTRO'
-      END,
-      COALESCE(NEW.media_name, 'Archivo de WhatsApp'),
       NEW.media_url,
-      0,
-      COALESCE(NEW.media_type, 'application/octet-stream'),
+      COALESCE(NEW.media_name, 'Archivo de WhatsApp'),
       'WhatsApp',
-      'pendiente'
+      COALESCE(NEW.fecha_recepcion, now()),
+      false
     );
   END IF;
   RETURN NEW;

@@ -274,7 +274,7 @@ const ClientPersonalData = ({
                               </span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                 <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-primary)', textAlign: 'right', wordBreak: 'break-word' }}>
-                                  {field.id.includes('fecha') ? formatDate(val) : val}
+                                  {String(field.id).includes('fecha') ? formatDate(val) : val}
                                 </span>
                                 <button onClick={() => handleCopy(val, `${group.id}-${field.id}`)} className="btn btn-ghost" style={{ padding: '0.15rem', borderRadius: '4px', flexShrink: 0 }}>
                                   {copiedId === `${group.id}-${field.id}` ? <Check size={11} color="var(--color-success)" /> : <Copy size={11} />}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User, X, File, Loader2, Paperclip, Smile, Mic, Trash2, Pause, Play, Download } from 'lucide-react';
+import { MessageCircle, Send, CheckCircle2, ArrowLeft, Search, User, X, File, Loader2, Paperclip, Smile, Mic, Trash2, Pause, Play, Download, Bot } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
@@ -15,6 +15,10 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+  
+  // Bot Auto-Reply states
+  const [botActivo, setBotActivo] = useState(false);
+  const [loadingBot, setLoadingBot] = useState(false);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
@@ -88,7 +92,22 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
         return !n.texto?.includes('mensagem de mídia') && !n.texto?.includes('mensagem de media');
       });
       
-      setMessages(filtered);
+      const uniqueMessages = [];
+      const seenSignatures = new Set();
+      
+      filtered.forEach(msg => {
+        const signature = `${msg.remitente}-${msg.texto?.trim()}`;
+        if (msg.remitente === 'outgoing') {
+          if (!seenSignatures.has(signature)) {
+            seenSignatures.add(signature);
+            uniqueMessages.push(msg);
+          }
+        } else {
+          uniqueMessages.push(msg);
+        }
+      });
+      
+      setMessages(uniqueMessages);
     } catch (err) {
       console.error('Error fetching whatsapp messages:', err);
     } finally {
@@ -102,6 +121,38 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
       fetchMessages();
     }
   }, [activeChatId, view, cleanPhone]);
+
+  // Fetch bot_activo state
+  useEffect(() => {
+    if (!activeChatId) return;
+    const fetchBotState = async () => {
+      try {
+        const { data, error } = await supabase.from('clientes').select('bot_activo').eq('id', activeChatId).single();
+        if (!error && data) {
+          setBotActivo(data.bot_activo || false);
+        }
+      } catch (err) {
+        console.error('Error fetching bot state:', err);
+      }
+    };
+    fetchBotState();
+  }, [activeChatId]);
+
+  const handleToggleBot = async () => {
+    setLoadingBot(true);
+    try {
+      const newVal = !botActivo;
+      const { error } = await supabase.from('clientes').update({ bot_activo: newVal }).eq('id', activeChatId);
+      if (error) throw error;
+      setBotActivo(newVal);
+      toast.success(`Modo Bot ${newVal ? 'Activado' : 'Desactivado'}`);
+    } catch (err) {
+      console.error('Error toggling bot:', err);
+      toast.error('Error al cambiar modo bot');
+    } finally {
+      setLoadingBot(false);
+    }
+  };
 
   useEffect(() => {
     const channel = supabase
@@ -133,6 +184,16 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
                   const newMessages = [...prev];
                   newMessages[tempMsgIndex] = newRow;
                   return newMessages;
+                }
+
+                // Evitar duplicados si n8n hace eco del mismo mensaje saliente (mismo texto)
+                if (newRow.remitente === 'outgoing') {
+                  const isDuplicate = prev.some(m => 
+                    m.id !== newRow.id && 
+                    m.remitente === 'outgoing' && 
+                    m.texto?.trim() === newRow.texto?.trim()
+                  );
+                  if (isDuplicate) return prev;
                 }
 
                 // Si no, simplemente lo agregamos al final
@@ -314,7 +375,7 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
       setMessages(prev => [...prev, outgoingMsg]);
       setNewMessage('');
       
-      // Guardar el mensaje en la base de datos
+      // RESTAURADO: Guardar el mensaje manualmente porque algunas versiones de n8n no hacen eco
       const { error: dbError } = await supabase.from('notas_kommo').insert({
         cliente_id: Number(activeChatId),
         texto: outgoingMsg.texto,
@@ -333,7 +394,7 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
       fetchMessages();
     } catch (err) {
       console.error('Error enviando mensaje:', err);
-      toast.error('Error al guardar mensaje');
+      toast.error('Error al enviar mensaje');
     } finally {
       setSending(false);
     }
@@ -378,6 +439,7 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
 
       setMessages(prev => [...prev, outgoingMsg]);
       
+      // RESTAURADO: Guardar archivo manualmente
       const { error: dbError } = await supabase.from('notas_kommo').insert({
         cliente_id: Number(activeChatId),
         texto: outgoingMsg.texto,
@@ -662,7 +724,7 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
               </a>
             </div>
           )}
-          <span style={{ fontSize: '0.9rem', lineHeight: '1.3', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          <span style={{ fontSize: '0.9rem', lineHeight: '1.3', whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text' }}>
             {msg.texto}
           </span>
           <span style={{ fontSize: '0.65rem', color: isIncoming ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.7)', marginTop: '4px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
@@ -778,6 +840,28 @@ export default function ClientWhatsApp({ clientId, telefono, idKommo }) {
                 {cleanPhone ? `+${cleanPhone}` : 'Sin teléfono'}
                 {cleanPhone && <CheckCircle2 size={12} color="#25D366" />}
               </span>
+            </div>
+            
+            {/* BOT TOGGLE */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0.5rem', borderRadius: '16px', background: botActivo ? 'rgba(37, 211, 102, 0.1)' : 'transparent' }}>
+              <Bot size={16} color={botActivo ? '#25D366' : 'var(--color-text-muted)'} />
+              <span style={{ fontSize: '0.8rem', color: botActivo ? '#25D366' : 'var(--color-text-muted)', fontWeight: 600 }}>Copiloto</span>
+              <button 
+                onClick={handleToggleBot}
+                disabled={loadingBot}
+                style={{
+                  width: '36px', height: '20px', borderRadius: '10px',
+                  background: botActivo ? '#25D366' : 'var(--color-border)',
+                  border: 'none', position: 'relative', cursor: 'pointer', transition: 'background 0.3s',
+                  opacity: loadingBot ? 0.5 : 1
+                }}
+              >
+                <div style={{
+                  position: 'absolute', top: '2px', left: botActivo ? '18px' : '2px',
+                  width: '16px', height: '16px', borderRadius: '50%', background: 'white',
+                  transition: 'left 0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
+              </button>
             </div>
           </div>
 

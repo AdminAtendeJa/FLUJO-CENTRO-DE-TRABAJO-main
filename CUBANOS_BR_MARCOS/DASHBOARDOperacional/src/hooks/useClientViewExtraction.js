@@ -11,6 +11,7 @@ import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import { analyzeDocumentImage } from '../services/aiService';
 import { normalizeDateToDDMMYYYY } from '../utils/dateFormatter';
+import { toIsoDate } from '../components/clientView.constants';
 
 /** Mapeo de claves IA → columnas de la tabla `clientes` */
 const AI_FIELD_MAP = {
@@ -60,9 +61,10 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
 
         const mappedCol = AI_FIELD_MAP[upperKey];
         if (mappedCol) {
-          // Normalize dates to DD/MM/YYYY, uppercase everything else
+          // Normalize dates to YYYY-MM-DD, uppercase everything else
           if (AI_DATE_KEYS.has(upperKey)) {
-            updates[mappedCol] = normalizeDateToDDMMYYYY(value) || String(value).toUpperCase();
+            const normalized = normalizeDateToDDMMYYYY(value);
+            updates[mappedCol] = normalized ? toIsoDate(normalized) : String(value).toUpperCase();
           } else {
             updates[mappedCol] = String(value).toUpperCase();
           }

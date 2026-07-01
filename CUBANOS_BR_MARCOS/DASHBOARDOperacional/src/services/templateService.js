@@ -9,7 +9,7 @@
  */
 
 import { supabase } from '../supabaseClient';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, PDFName, PDFBool } from 'pdf-lib';
 
 const BUCKET = 'documentos_operacionales';
 const TABLE = 'plantillas_documentos';
@@ -75,6 +75,41 @@ export async function uploadTemplate(file, nombre) {
     return { data: record, error: null };
   } catch (err) {
     console.error('[templateService] uploadTemplate error:', err);
+    return { data: null, error: err.message };
+  }
+}
+
+// ──────────────────────────────────────────────
+// 1.5 Crear plantilla HTML
+// ──────────────────────────────────────────────
+export async function createHtmlTemplate(htmlContent, nombre) {
+  try {
+    const uniqueName = `plantillas/${Date.now()}_${Math.random().toString(36).slice(2)}.html`;
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(uniqueName, blob, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(uniqueName);
+
+    const { data: record, error: dbError } = await supabase
+      .from(TABLE)
+      .insert({
+        nombre: nombre || 'Plantilla HTML',
+        url_archivo: urlData.publicUrl,
+        tipo_contenido: 'text/html',
+        field_mappings: [],
+      })
+      .select()
+      .single();
+
+    if (dbError) throw dbError;
+    return { data: record, error: null };
+  } catch (err) {
+    console.error('[templateService] createHtmlTemplate error:', err);
     return { data: null, error: err.message };
   }
 }
@@ -222,58 +257,70 @@ REGLAS:
 // ──────────────────────────────────────────────
 // 6. Generar PDF con datos del cliente
 // ──────────────────────────────────────────────
-export async function generateFilledPDF(templateUrl, mappings, clientData) {
+export async function getFilledPdfBlob(templateUrl, mappings, clientData, overrides = {}) {
   try {
-    // Descargar el PDF original
     const templateBytes = await fetch(templateUrl).then(r => r.arrayBuffer());
     const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
-    const fontHelvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontTimes = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-    const fontCourier = await pdfDoc.embedFont(StandardFonts.Courier);
-
-    const pages = pdfDoc.getPages();
-
-    if (pages.length === 0) throw new Error('El PDF no tiene páginas.');
-
-    const page = pages[0];
-    const { width: pageWidth, height: pageHeight } = page.getSize();
+    
+    const form = pdfDoc.getForm();
 
     for (const mapping of mappings) {
       let value = '';
       if (mapping.isCustomText) {
-        value = mapping.fieldLabel;
+        value = mapping.fieldLabel || mapping.customValue || '';
       } else {
-        value = getClientFieldValue(clientData, mapping.fieldId);
+        const kommoId = mapping.kommoFieldId || mapping.fieldId;
+        value = getClientFieldValue(clientData, kommoId);
       }
+      
+      // Override con valores editados en la vista previa
+      if (overrides[mapping.pdfFieldName] !== undefined) {
+        value = overrides[mapping.pdfFieldName];
+      }
+
       if (!value) continue;
 
-      // Convertir coordenadas relativas a absolutas
-      const x = mapping.x * pageWidth;
-      // PDF tiene Y invertido (0 = abajo)
-      const y = pageHeight - (mapping.y * pageHeight) - 12;
-
-      // Configuración de estilo
-      const fontSize = mapping.fontSize || Math.min(11, (mapping.height || 0.025) * pageHeight * 0.7);
-
-      let selectedFont = fontHelvetica;
-      if (mapping.fontFamily === 'TimesRoman') selectedFont = fontTimes;
-      if (mapping.fontFamily === 'Courier') selectedFont = fontCourier;
-
-      let fontColor = rgb(0, 0, 0); // Black default
-      if (mapping.fontColor === '#2563eb' || mapping.fontColor === 'blue') fontColor = rgb(0.145, 0.388, 0.917); // Blue
-      if (mapping.fontColor === '#dc2626' || mapping.fontColor === 'red') fontColor = rgb(0.862, 0.149, 0.149); // Red
-
-      page.drawText(String(value), {
-        x,
-        y,
-        size: Math.max(8, fontSize),
-        font: selectedFont,
-        color: fontColor,
-      });
+      try {
+        const pdfFieldId = mapping.pdfFieldName;
+        if (pdfFieldId) {
+          const field = form.getField(pdfFieldId);
+          if (field) {
+            const fieldType = field.constructor.name;
+            if (fieldType === 'PDFTextField') {
+              field.setText(String(value));
+            } else if (fieldType === 'PDFDropdown' || fieldType === 'PDFOptionList') {
+              field.select(String(value));
+            } else if (fieldType === 'PDFCheckBox') {
+              if (value && String(value).toLowerCase() !== 'false' && value !== '0') {
+                field.check();
+              }
+            } else if (fieldType === 'PDFRadioGroup') {
+              field.select(String(value));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[templateService] No se pudo setear el campo ${mapping.pdfFieldName}`, err);
+      }
     }
 
+    // Aplanar el formulario (flatten). Esto convierte los campos interactivos 
+    // en texto estático pintado directamente en el PDF. 
+    // Esto asegura que el texto se vea en el 100% de los visores (Chrome, Safari, Acrobat)
+    // en el lugar exacto del campo, sin depender de 'NeedAppearances'.
+    form.flatten();
+
     const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    return new Blob([pdfBytes], { type: 'application/pdf' });
+  } catch (err) {
+    console.error('[templateService] getFilledPdfBlob error:', err);
+    throw err;
+  }
+}
+
+export async function generateFilledPDF(templateUrl, mappings, clientData) {
+  try {
+    const blob = await getFilledPdfBlob(templateUrl, mappings, clientData);
     const url = URL.createObjectURL(blob);
 
     // Descargar automáticamente
@@ -285,10 +332,30 @@ export async function generateFilledPDF(templateUrl, mappings, clientData) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    return { error: null };
+    return { error: null, url };
   } catch (err) {
     console.error('[templateService] generateFilledPDF error:', err);
     return { error: err.message };
+  }
+}
+
+// ──────────────────────────────────────────────
+// Extraer campos de un formulario PDF (AcroForm)
+// ──────────────────────────────────────────────
+export async function getPDFFormFields(templateUrl) {
+  try {
+    const templateBytes = await fetch(templateUrl).then(r => r.arrayBuffer());
+    const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
+    
+    return fields.map(f => ({
+      name: f.getName(),
+      type: f.constructor.name
+    }));
+  } catch (err) {
+    console.error('[templateService] getPDFFormFields error:', err);
+    return [];
   }
 }
 
@@ -348,4 +415,103 @@ export async function renderPdfPageAsImage(url, pageNum = 1, scale = 2) {
 
   await page.render({ canvasContext: ctx, viewport }).promise;
   return canvas.toDataURL('image/png');
+}
+
+// ──────────────────────────────────────────────
+// 6. Generar Documento (.docx)
+// ──────────────────────────────────────────────
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { saveAs } from 'file-saver';
+import html2pdf from 'html2pdf.js';
+
+export async function generateFilledDocx(templateUrl, clientData, templateName) {
+  try {
+    const templateBytes = await fetch(templateUrl).then(r => r.arrayBuffer());
+    const zip = new PizZip(templateBytes);
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
+
+    const data = {};
+    AVAILABLE_CLIENT_FIELDS.forEach(field => {
+      data[field.id] = getClientFieldValue(clientData, field.id) || '';
+    });
+
+    if (clientData.direccion) {
+      let dir = clientData.direccion;
+      if (typeof dir === 'string') {
+        try { dir = JSON.parse(dir); } catch { dir = {}; }
+      }
+      data['direccion.endereco'] = dir.endereco || '';
+      data['direccion.numero'] = dir.numero || '';
+      data['direccion.bairro'] = dir.bairro || '';
+      data['direccion.cidade'] = dir.cidade || '';
+      data['direccion.estado'] = dir.estado || '';
+      data['direccion.cep'] = dir.cep || '';
+    }
+
+    doc.render(data);
+
+    const out = doc.getZip().generate({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+
+    saveAs(out, `${templateName.replace(/\.[^/.]+$/, "")}_${clientData.nombre || 'documento'}.docx`);
+    return { error: null };
+  } catch (err) {
+    console.error('[templateService] generateFilledDocx error:', err);
+    return { error: err.message };
+  }
+}
+
+// ──────────────────────────────────────────────
+// 7. Generar Documento (HTML a PDF)
+// ──────────────────────────────────────────────
+export async function generateFilledHtmlPdf(templateUrl, clientData, templateName) {
+  try {
+    let htmlContent = await fetch(templateUrl).then(r => r.text());
+
+    AVAILABLE_CLIENT_FIELDS.forEach(field => {
+      const val = getClientFieldValue(clientData, field.id) || '';
+      const regex = new RegExp(`{{${field.id}}}`, 'g');
+      htmlContent = htmlContent.replace(regex, val);
+    });
+
+    if (clientData.direccion) {
+      let dir = clientData.direccion;
+      if (typeof dir === 'string') {
+        try { dir = JSON.parse(dir); } catch { dir = {}; }
+      }
+      const dirFields = ['endereco', 'numero', 'bairro', 'cidade', 'estado', 'cep'];
+      dirFields.forEach(k => {
+        const val = dir[k] || '';
+        const regex = new RegExp(`{{direccion.${k}}}`, 'g');
+        htmlContent = htmlContent.replace(regex, val);
+      });
+    }
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    tempDiv.style.padding = '20px';
+    tempDiv.style.width = '210mm';
+    tempDiv.style.boxSizing = 'border-box';
+    tempDiv.style.fontFamily = 'Arial, sans-serif';
+
+    const opt = {
+      margin:       10,
+      filename:     `${templateName.replace(/\.[^/.]+$/, "")}_${clientData.nombre || 'documento'}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    await html2pdf().from(tempDiv).set(opt).save();
+    return { error: null };
+  } catch (err) {
+    console.error('[templateService] generateFilledHtmlPdf error:', err);
+    return { error: err.message };
+  }
 }
