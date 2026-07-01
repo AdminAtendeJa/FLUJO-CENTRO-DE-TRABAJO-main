@@ -105,27 +105,23 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
         return;
       }
 
-      // Insert the document record for the target client (same file reference)
+      // Update the document record to move it to the target client
       const { data: newDoc, error } = await supabase
         .from('documentos_operacionales')
-        .insert({
+        .update({
           id_cliente: targetClientId,
-          nombre_archivo: sourceDoc.nombre_archivo,
-          url_archivo: sourceDoc.url_archivo,
-          tipo_contenido: sourceDoc.tipo_contenido,
-          tipo_documento: sourceDoc.tipo_documento,
-          subido_por: sourceDoc.subido_por || 'user/admin',
           estado: 'pendiente'
         })
+        .eq('id', doc.id)
         .select()
         .single();
 
       if (error) {
-        alert(`Error al copiar el documento: ${error.message}`);
+        alert(`Error al mover el documento: ${error.message}`);
         return;
       }
 
-      alert('Documento copiado al cliente relacionado exitosamente.');
+      alert('Documento movido al cliente relacionado exitosamente.');
       if (setDraggedDocument) setDraggedDocument(null);
 
       // If the document is an image or PDF, run AI analysis targeting the related client
