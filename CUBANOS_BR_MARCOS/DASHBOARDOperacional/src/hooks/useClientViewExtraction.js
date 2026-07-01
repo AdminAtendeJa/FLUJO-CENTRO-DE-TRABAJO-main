@@ -165,11 +165,14 @@ export default function useClientViewExtraction({ clientId, fetchClientData }) {
   }, [clientId]);
 
   // ── Close / reset extraction modal ─────────────────────────────────────────
-  const closeExtractionModal = useCallback(() => {
+  const closeExtractionModal = useCallback((shouldRefresh = false) => {
     setIsExtractionModalOpen(false);
     setExtractionTargetClientId(null);
     setExtractionTargetClientData(null);
-  }, []);
+    if (shouldRefresh === true && typeof fetchClientData === 'function') {
+      fetchClientData(true);
+    }
+  }, [fetchClientData]);
 
   return {
     // State

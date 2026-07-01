@@ -62,8 +62,7 @@ export default function ClientViewExtractionModal({
     const { success, error } = await reassignDocument(uploadedDocRecord.id, targetClient.id);
     if (success) {
       alert(`Documento movido a ${targetClient.nombre} exitosamente.`);
-      onClose();
-      if (onNavigateToClient) onNavigateToClient(targetClient.id);
+      onClose(true);
     } else {
       alert('Error al mover documento: ' + error);
       setMismatchState(prev => ({ ...prev, isProcessing: false }));
@@ -129,8 +128,7 @@ export default function ClientViewExtractionModal({
     const { success, error } = await reassignDocument(uploadedDocRecord.id, mismatchState.matchedClient.id);
     if (success) {
       alert(`Documento movido a ${mismatchState.matchedClient.nombre} exitosamente.`);
-      onClose();
-      if (onNavigateToClient) onNavigateToClient(mismatchState.matchedClient.id);
+      onClose(true);
     } else {
       alert('Error al mover documento: ' + error);
       setMismatchState(prev => ({ ...prev, isProcessing: false }));
@@ -165,8 +163,7 @@ export default function ClientViewExtractionModal({
       const { success, error } = await reassignDocument(uploadedDocRecord.id, newClient.id);
       if (success) {
         alert('Cliente creado, relacionamiento añadido y documento asignado exitosamente.');
-        onClose();
-        if (onNavigateToClient) onNavigateToClient(newClient.id);
+        onClose(true);
       } else {
         alert('Cliente creado pero hubo un error al reasignar el documento: ' + error);
       }
