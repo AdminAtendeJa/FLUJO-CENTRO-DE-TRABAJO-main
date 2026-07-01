@@ -83,7 +83,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
         }
         setIsSavingName(true);
         try {
-            const table = doc.hasOwnProperty('verificado') ? 'documentos_pendientes' : 'documentos_operacionales';
+            const table = ('verificado' in doc) ? 'documentos_pendientes' : 'documentos_operacionales';
             const { error } = await supabase.from(table).update({ nombre_archivo: newName.trim() }).eq('id', doc.id);
             if (error) throw error;
             setCurrentName(newName.trim());
@@ -93,7 +93,7 @@ export default function DocumentViewerModal({ document: doc, onClose }) {
             window.dispatchEvent(new CustomEvent('documentRenamed', { detail: { id: doc.id, newName: newName.trim() } }));
         } catch (err) {
             console.error('Error renaming:', err);
-            alert('Error al guardar el nuevo nombre');
+            alert('Error al guardar el nuevo nombre: ' + (err.message || err.toString()));
         } finally {
             setIsSavingName(false);
         }
